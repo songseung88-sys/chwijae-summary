@@ -30,7 +30,7 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.4.0-context-quality"
+COLLECTOR_VERSION = "0.4.1-structured-fragment-cleanup"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -304,6 +304,27 @@ def choose_body_container(soup):
     return soup.select_one("article") or soup.select_one("main")
 
 
+def clean_structured_fragment(value):
+    text = clean_text(value)
+    if not text:
+        return ""
+
+    # 일부 SPA/CMS가 본문 주변에 JSON의 description 필드를 텍스트처럼 노출한다.
+    # JSON string의 실제 값만 안전하게 복원해 표시용 문맥에 키/이스케이프가 섞이지 않게 한다.
+    m = re.match(
+        r'^\{?\s*"description"\s*:\s*"((?:\\\\.|[^"\\\\])*)"',
+        text,
+    )
+    if m:
+        try:
+            decoded = json.loads('"' + m.group(1) + '"')
+            return clean_text(decoded)
+        except Exception:
+            return clean_text(m.group(1))
+
+    return text
+
+
 def extract_paragraphs(container):
     if not container:
         return []
@@ -315,7 +336,7 @@ def extract_paragraphs(container):
     paras = []
     for p in container.find_all("p"):
         raw = p.get_text("\n", strip=True)
-        segments = [clean_text(x) for x in re.split(r"\n+", raw)]
+        segments = [clean_structured_fragment(x) for x in re.split(r"\n+", raw)]
         for text in segments:
             if len(text) >= 20 and text not in paras:
                 paras.append(text)
@@ -323,7 +344,7 @@ def extract_paragraphs(container):
         return paras
 
     raw = container.get_text("\n", strip=True)
-    lines = [clean_text(x) for x in re.split(r"\n+", raw)]
+    lines = [clean_structured_fragment(x) for x in re.split(r"\n+", raw)]
     return [x for x in lines if len(x) >= 20]
 
 
