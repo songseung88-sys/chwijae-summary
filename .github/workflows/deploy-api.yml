@@ -67,12 +67,18 @@ jobs:
             --allow-unauthenticated \
             --quiet
 
-      - name: Print API URL
+      - name: Smoke test API and print collector status
         run: |
           URL="$(gcloud run services describe "${SERVICE_NAME}" \
             --project="${PROJECT_ID}" \
             --region="${REGION}" \
             --format='value(status.url)')"
           echo "API_URL=${URL}"
+          echo "HEALTH_JSON:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/health"
+          echo
+          echo "STATUS_JSON:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/api/status"
+          echo
           echo "### API URL" >> "${GITHUB_STEP_SUMMARY}"
           echo "${URL}" >> "${GITHUB_STEP_SUMMARY}"
