@@ -452,13 +452,27 @@ def diagnostics():
     rejection_reasons = Counter()
     accepted_original_errors = Counter()
     metadata_quality = Counter()
+    paragraph_quality = Counter()
+
     reporter_missing_samples = []
     category_missing_samples = []
     publisher_missing_samples = []
     suspicious_reporter_samples = []
     reporter_fallback_samples = []
+    paragraph_issue_samples = []
     accepted_samples = []
     rejected_samples = []
+
+    suspicious_context_markers = [
+        '"description":',
+        '{"description"',
+        '"pageProps":',
+        '{"props":',
+        "__NEXT_DATA__",
+        "Fusion.spa",
+        '"contentArrange":',
+        "var messageText =",
+    ]
 
     for doc in docs:
         data = doc.to_dict() or {}
@@ -479,7 +493,8 @@ def diagnostics():
         naver_error = data.get("naver_parse_error") or ""
 
         if state == "accepted":
-            reporters = split_reporters(data.get("reporters_resolved") or data.get("reporters_original"))
+            resolved_reporter = data.get("reporters_resolved") or data.get("reporters_original")
+            reporters = split_reporters(resolved_reporter)
             raw_reporter = str(data.get("reporters_original") or "")
             publisher = data.get("publisher_original") or ""
             category = clean_category(data.get("category_original"))
@@ -510,8 +525,8 @@ def diagnostics():
                         "publisher": publisher,
                         "reporters": reporters,
                         "raw_reporter": raw_reporter,
-            "reporters_naver": data.get("reporters_naver") or "",
-            "reporter_source": data.get("reporter_source") or "",
+                        "reporters_naver": data.get("reporters_naver") or "",
+                        "reporter_source": reporter_source,
                         "original_url": data.get("original_url"),
                     })
             else:
@@ -521,6 +536,8 @@ def diagnostics():
                     "domain": domain,
                     "publisher": publisher,
                     "raw_reporter": raw_reporter,
+                    "reporters_naver": data.get("reporters_naver") or "",
+                    "reporter_source": reporter_source,
                     "original_url": data.get("original_url"),
                     "naver_url": data.get("naver_url"),
                 })
@@ -548,6 +565,73 @@ def diagnostics():
                     "naver_url": data.get("naver_url"),
                 })
 
+            contexts = data.get("phrase_contexts") or []
+            context_texts = [
+                str(item.get("text") or "")
+                for item in contexts
+                if isinstance(item, dict)
+            ]
+            max_context = max(context_texts, key=len, default="")
+            max_context_length = len(max_context)
+            body_text = str(data.get("body_text_private") or "")
+            body_length = len(body_text)
+            context_body_ratio = (
+                round(max_context_length / body_length, 4)
+                if body_length else None
+            )
+
+            issues = []
+            markers_found = [
+                marker for marker in suspicious_context_markers
+                if marker in max_context
+            ]
+            if markers_found:
+                issues.append("SCRIPT_OR_JSON_MARKER")
+                paragraph_quality["script_or_json_marker"] += 1
+            if max_context_length >= 1200:
+                issues.append("VERY_LONG_CONTEXT")
+                paragraph_quality["very_long_context"] += 1
+            if (
+                context_body_ratio is not None
+                and body_length >= 1000
+                and context_body_ratio >= 0.75
+            ):
+                issues.append("CONTEXT_LOOKS_LIKE_WHOLE_BODY")
+                paragraph_quality["context_looks_like_whole_body"] += 1
+
+            context_similarity = data.get("phrase_context_similarity")
+            if (
+                isinstance(context_similarity, (int, float))
+                and context_similarity < 0.75
+            ):
+                issues.append("LOW_ORIGINAL_NAVER_CONTEXT_SIMILARITY")
+                paragraph_quality["low_original_naver_context_similarity"] += 1
+
+            if data.get("final_source") == "ORIGINAL_LOW_QUALITY":
+                issues.append("ORIGINAL_LOW_QUALITY_SOURCE")
+                paragraph_quality["original_low_quality_source"] += 1
+
+            if not context_texts:
+                issues.append("NO_CONTEXT")
+                paragraph_quality["no_context"] += 1
+
+            if issues:
+                paragraph_issue_samples.append({
+                    "title": data.get("api_title"),
+                    "domain": domain,
+                    "publisher": publisher,
+                    "final_source": data.get("final_source"),
+                    "issues": issues,
+                    "context_length": max_context_length,
+                    "body_length": body_length,
+                    "context_body_ratio": context_body_ratio,
+                    "phrase_context_similarity": context_similarity,
+                    "markers_found": markers_found,
+                    "context_preview": max_context[:240],
+                    "original_url": data.get("original_url"),
+                    "naver_url": data.get("naver_url"),
+                })
+
         if state == "rejected":
             reason = original_error or "UNKNOWN_REJECTION"
             rejection_reasons[reason] += 1
@@ -569,7 +653,9 @@ def diagnostics():
                     "title": data.get("api_title"),
                     "domain": domain,
                     "publisher": data.get("publisher_original"),
-                    "reporters": split_reporters(data.get("reporters_resolved") or data.get("reporters_original")),
+                    "reporters": split_reporters(
+                        data.get("reporters_resolved") or data.get("reporters_original")
+                    ),
                     "category_original": clean_category(data.get("category_original")),
                     "is_exclusive_strict": data.get("is_exclusive_strict"),
                     "phrase_count": data.get("phrase_count"),
@@ -589,6 +675,12 @@ def diagnostics():
         domain_rows.append(row)
 
     domain_rows.sort(key=lambda x: (-x["total"], x["domain"]))
+    paragraph_issue_samples.sort(
+        key=lambda x: (
+            -len(x["issues"]),
+            -(x["context_length"] or 0),
+        )
+    )
 
     return {
         "article_count_scanned": len(docs),
@@ -602,6 +694,8 @@ def diagnostics():
             "suspicious_reporter": suspicious_reporter_samples,
             "reporter_fallback": reporter_fallback_samples,
         },
+        "paragraph_quality": dict(paragraph_quality),
+        "paragraph_issues": paragraph_issue_samples[:50],
         "domains": domain_rows,
         "accepted_samples": accepted_samples,
         "rejected_samples": rejected_samples,
