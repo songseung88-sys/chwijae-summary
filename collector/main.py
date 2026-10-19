@@ -30,7 +30,7 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.3.1-clean-context"
+COLLECTOR_VERSION = "0.3.2-reporter-fallback"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -209,7 +209,7 @@ def normalize_reporter_text(raw, publisher=""):
     return ", ".join(dict.fromkeys(good))
 
 
-def infer_reporters(soup, data, publisher):
+def infer_reporters(soup, data, publisher, host):
     candidates = [
         author_name(data.get("author")),
         meta(soup, "author", "article:author", "parsely-author"),
@@ -225,6 +225,16 @@ def infer_reporters(soup, data, publisher):
         cleaned = normalize_reporter_text(raw, publisher)
         if cleaned:
             return cleaned
+
+    host = (host or "").lower().removeprefix("www.")
+    if host.endswith("ksilbo.co.kr") or host.endswith("labortoday.co.kr"):
+        page_text = clean_text(soup.get_text(" ", strip=True))
+        m = re.search(r"기자명\s*([가-힣]{2,4})\s*기자", page_text)
+        if m:
+            return m.group(1)
+        m = re.search(r"([가-힣]{2,4})\s*기자\s+[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+", page_text)
+        if m:
+            return m.group(1)
 
     return ""
 
@@ -381,7 +391,7 @@ def parse_original(url):
             soup, "og:site_name", "application-name", "publisher"
         )
         result["publisher"] = normalize_publisher(publisher_raw, host)
-        result["reporters"] = infer_reporters(soup, data, result["publisher"])
+        result["reporters"] = infer_reporters(soup, data, result["publisher"], host)
         result["published_at"] = clean_text(
             data.get("datePublished")
             or meta(soup, "article:published_time", "datePublished", "pubdate", "date")
@@ -444,6 +454,7 @@ def suspicious_body(text):
 def parse_naver(url):
     result = {
         "ok": False,
+        "reporters": "",
         "body": "",
         "paragraphs": [],
         "phrase_contexts": [],
@@ -462,6 +473,21 @@ def parse_naver(url):
             return result
         r.encoding = r.apparent_encoding or "utf-8"
         soup = BeautifulSoup(r.text, "html.parser")
+        reporter_candidates = []
+        for selector in [
+            ".media_end_head_journalist_name",
+            ".byline_s",
+            ".reporter_area .name",
+            "[class*='journalist']",
+        ]:
+            for reporter_node in soup.select(selector)[:10]:
+                reporter_candidates.append(reporter_node.get_text(" ", strip=True))
+        for raw_reporter in reporter_candidates:
+            cleaned_reporter = normalize_reporter_text(raw_reporter)
+            if cleaned_reporter:
+                result["reporters"] = cleaned_reporter
+                break
+
         node = soup.select_one("#dic_area") or soup.select_one("#newsct_article")
         if not node:
             result["error"] = "BODY_NOT_FOUND"
@@ -604,7 +630,7 @@ def main():
 
         original = parse_original(original_url)
         naver = parse_naver(item["naver_url"]) if compare_naver and item["naver_url"] else {
-            "ok": False, "body": "", "phrase_count": 0, "phrase_contexts": [],
+            "ok": False, "reporters": "", "body": "", "phrase_count": 0, "phrase_contexts": [],
             "secondary": {}, "error": "NO_NAVER_PAGE"
         }
 
@@ -643,6 +669,11 @@ def main():
             if err and err not in ("NO_NAVER_PAGE", "PHRASE_NOT_FOUND"):
                 summary["errors"][err] = summary["errors"].get(err, 0) + 1
 
+        reporters_original = original.get("reporters", "")
+        reporters_naver = naver.get("reporters", "")
+        reporters_resolved = reporters_original or reporters_naver
+        reporter_source = "ORIGINAL" if reporters_original else ("NAVER" if reporters_naver else "NONE")
+
         article = {
             "status": "accepted" if source != "REJECTED" else "rejected",
             "final_source": source,
@@ -652,7 +683,10 @@ def main():
             "original_url": original_url,
             "naver_url": item["naver_url"],
             "publisher_original": original.get("publisher", ""),
-            "reporters_original": original.get("reporters", ""),
+            "reporters_original": reporters_original,
+            "reporters_naver": reporters_naver,
+            "reporters_resolved": reporters_resolved,
+            "reporter_source": reporter_source,
             "published_at_original": original.get("published_at", ""),
             "modified_at_original": original.get("modified_at", ""),
             "category_original": original.get("category_original", ""),
