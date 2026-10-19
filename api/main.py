@@ -303,7 +303,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         first_context = contexts[0].get("text", "") if contexts else ""
         article_rows.append({
             "id": a.get("id"),
-            "title": a.get("api_title"),
+            "title": a.get("title_resolved") or a.get("title_original") or a.get("title_naver") or a.get("api_title"),
             "publisher": a.get("publisher_original") or domain_of(a.get("original_url")) or "미확인",
             "reporters": split_reporters(a.get("reporters_resolved") or a.get("reporters_original")),
             "published_at": a.get("api_pubdate"),
@@ -508,7 +508,7 @@ def diagnostics():
                 metadata_quality["reporter_available"] += 1
                 if any(reporter.endswith("팀") for reporter in reporters):
                     team_byline_remaining_samples.append({
-                        "title": data.get("api_title"),
+                        "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                         "domain": domain,
                         "publisher": publisher,
                         "reporters": reporters,
@@ -517,7 +517,7 @@ def diagnostics():
                     })
                 if reporter_source == "NAVER":
                     reporter_fallback_samples.append({
-                        "title": data.get("api_title"),
+                        "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                         "domain": domain,
                         "publisher": publisher,
                         "reporters": reporters,
@@ -531,7 +531,7 @@ def diagnostics():
                     for reporter in reporters
                 ):
                     suspicious_reporter_samples.append({
-                        "title": data.get("api_title"),
+                        "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                         "domain": domain,
                         "publisher": publisher,
                         "reporters": reporters,
@@ -543,7 +543,7 @@ def diagnostics():
             else:
                 metadata_quality["reporter_missing"] += 1
                 reporter_missing_samples.append({
-                    "title": data.get("api_title"),
+                    "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                     "domain": domain,
                     "publisher": publisher,
                     "raw_reporter": raw_reporter,
@@ -558,7 +558,7 @@ def diagnostics():
             else:
                 metadata_quality["publisher_missing"] += 1
                 publisher_missing_samples.append({
-                    "title": data.get("api_title"),
+                    "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                     "domain": domain,
                     "original_url": data.get("original_url"),
                 })
@@ -568,7 +568,7 @@ def diagnostics():
             else:
                 metadata_quality["category_missing"] += 1
                 category_missing_samples.append({
-                    "title": data.get("api_title"),
+                    "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                     "domain": domain,
                     "publisher": publisher,
                     "reporters": reporters,
@@ -617,7 +617,7 @@ def diagnostics():
             ):
                 paragraph_quality["low_original_naver_context_similarity"] += 1
                 comparison_warning_samples.append({
-                    "title": data.get("api_title"),
+                    "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                     "domain": domain,
                     "publisher": publisher,
                     "final_source": data.get("final_source"),
@@ -638,7 +638,7 @@ def diagnostics():
 
             if issues:
                 paragraph_issue_samples.append({
-                    "title": data.get("api_title"),
+                    "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                     "domain": domain,
                     "publisher": publisher,
                     "final_source": data.get("final_source"),
@@ -658,7 +658,7 @@ def diagnostics():
             rejection_reasons[reason] += 1
             if len(rejected_samples) < 25:
                 rejected_samples.append({
-                    "title": data.get("api_title"),
+                    "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                     "domain": domain,
                     "original_url": data.get("original_url"),
                     "naver_url": data.get("naver_url"),
@@ -671,7 +671,7 @@ def diagnostics():
                 accepted_original_errors[original_error] += 1
             if len(accepted_samples) < 20:
                 accepted_samples.append({
-                    "title": data.get("api_title"),
+                    "title": (data.get("title_resolved") or data.get("title_original") or data.get("title_naver") or data.get("api_title")),
                     "domain": domain,
                     "publisher": data.get("publisher_original"),
                     "reporters": split_reporters(
@@ -742,6 +742,9 @@ def articles(
         "status",
         "final_source",
         "api_title",
+        "title_original",
+        "title_naver",
+        "title_resolved",
         "api_description",
         "api_pubdate",
         "original_url",
