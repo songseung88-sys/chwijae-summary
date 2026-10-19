@@ -98,6 +98,9 @@ jobs:
           echo "DASHBOARD_JSON:"
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/api/dashboard"
           echo
+          echo "DIAGNOSTICS_JSON:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/api/diagnostics"
+          echo
           echo "DASHBOARD_HTML_STATUS:"
           curl --retry 5 --retry-delay 2 --fail --silent --show-error -o /tmp/dashboard.html -w "%{http_code}\n" "${URL}/"
           grep -q "취재를 종합하면" /tmp/dashboard.html
