@@ -58,7 +58,15 @@ jobs:
       - name: Validate API image
         run: |
           docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py
-          docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css'
+          docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css && test -f /app/static/admin.html && test -f /app/static/admin.js'
+
+      - name: Detect optional admin editor secret
+        run: |
+          if gcloud secrets describe "admin-editor-password" --project="${PROJECT_ID}" >/dev/null 2>&1; then
+            echo "ADMIN_SECRET_FLAG=--set-secrets=ADMIN_EDITOR_PASSWORD=admin-editor-password:latest" >> "${GITHUB_ENV}"
+          else
+            echo "ADMIN_SECRET_FLAG=" >> "${GITHUB_ENV}"
+          fi
 
       - name: Deploy public read-only API
         run: |
@@ -73,6 +81,7 @@ jobs:
             --max=2 \
             --concurrency=20 \
             --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID}" \
+            ${ADMIN_SECRET_FLAG} \
             --allow-unauthenticated \
             --quiet
 
