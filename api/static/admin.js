@@ -21,9 +21,14 @@ let current={};
 async function load(){
  const r=await fetch("/api/config"); current=await r.json();
  const form=document.querySelector("#configForm");
- form.innerHTML=Object.entries(labels).map(([k,label])=>`
+ form.innerHTML=Object.entries(labels).map(([k,label])=>{
+   const value=String(current[k]||"")
+     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+   const rows=k==="hero_description" ? 4 : 2;
+   return `
    <label class="admin-field"><span>${label}</span>
-   <input name="${k}" value="${String(current[k]||"").replace(/"/g,"&quot;")}" /></label>`).join("");
+   <textarea name="${k}" rows="${rows}">${value}</textarea></label>`;
+ }).join("");
 }
 async function save(){
  const status=document.querySelector("#status");
