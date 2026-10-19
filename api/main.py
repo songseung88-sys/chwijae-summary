@@ -459,7 +459,9 @@ def diagnostics():
     publisher_missing_samples = []
     suspicious_reporter_samples = []
     reporter_fallback_samples = []
+    team_byline_remaining_samples = []
     paragraph_issue_samples = []
+    comparison_warning_samples = []
     accepted_samples = []
     rejected_samples = []
 
@@ -504,6 +506,15 @@ def diagnostics():
 
             if reporters:
                 metadata_quality["reporter_available"] += 1
+                if any(reporter.endswith("팀") for reporter in reporters):
+                    team_byline_remaining_samples.append({
+                        "title": data.get("api_title"),
+                        "domain": domain,
+                        "publisher": publisher,
+                        "reporters": reporters,
+                        "reporter_source": reporter_source,
+                        "original_url": data.get("original_url"),
+                    })
                 if reporter_source == "NAVER":
                     reporter_fallback_samples.append({
                         "title": data.get("api_title"),
@@ -604,8 +615,18 @@ def diagnostics():
                 isinstance(context_similarity, (int, float))
                 and context_similarity < 0.75
             ):
-                issues.append("LOW_ORIGINAL_NAVER_CONTEXT_SIMILARITY")
                 paragraph_quality["low_original_naver_context_similarity"] += 1
+                comparison_warning_samples.append({
+                    "title": data.get("api_title"),
+                    "domain": domain,
+                    "publisher": publisher,
+                    "final_source": data.get("final_source"),
+                    "phrase_context_similarity": context_similarity,
+                    "context_length": max_context_length,
+                    "context_preview": max_context[:240],
+                    "original_url": data.get("original_url"),
+                    "naver_url": data.get("naver_url"),
+                })
 
             if data.get("final_source") == "ORIGINAL_LOW_QUALITY":
                 issues.append("ORIGINAL_LOW_QUALITY_SOURCE")
@@ -693,9 +714,11 @@ def diagnostics():
             "publisher_missing": publisher_missing_samples,
             "suspicious_reporter": suspicious_reporter_samples,
             "reporter_fallback": reporter_fallback_samples,
+            "team_byline_remaining": team_byline_remaining_samples,
         },
         "paragraph_quality": dict(paragraph_quality),
         "paragraph_issues": paragraph_issue_samples[:50],
+        "comparison_warnings": comparison_warning_samples[:50],
         "domains": domain_rows,
         "accepted_samples": accepted_samples,
         "rejected_samples": rejected_samples,
