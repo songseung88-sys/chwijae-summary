@@ -725,6 +725,94 @@ def diagnostics():
     }
 
 
+@app.get("/api/classification-test")
+def classification_test():
+    runs = (
+        db.collection("classifier_runs")
+        .order_by("started_at", direction=firestore.Query.DESCENDING)
+        .limit(5)
+        .stream()
+    )
+    run_list = [doc_to_dict(doc) for doc in runs]
+
+    docs = recent_article_docs(300)
+    primary_counts = Counter()
+    secondary_counts = Counter()
+    tertiary_counts = Counter()
+    classified = []
+    low_confidence = []
+
+    for doc in docs:
+        data = doc.to_dict() or {}
+        if data.get("status") != "accepted":
+            continue
+        if data.get("taxonomy_version") != "0.2":
+            continue
+
+        primary = data.get("category_primary")
+        secondary = data.get("category_secondary")
+        tertiary = data.get("category_tertiary")
+        confidence = data.get("classification_confidence")
+
+        if primary:
+            primary_counts[primary] += 1
+        if secondary:
+            secondary_counts[secondary] += 1
+        if tertiary:
+            tertiary_counts[tertiary] += 1
+
+        row = {
+            "id": doc.id,
+            "title": (
+                data.get("title_resolved")
+                or data.get("title_original")
+                or data.get("title_naver")
+                or data.get("api_title")
+            ),
+            "publisher": data.get("publisher_original"),
+            "primary": primary,
+            "secondary": secondary,
+            "tertiary": tertiary,
+            "topic_tags": data.get("topic_tags") or [],
+            "confidence": confidence,
+            "reason_short": data.get("classification_reason_short"),
+            "category_original": clean_category(data.get("category_original")),
+            "classifier_model": data.get("classifier_model"),
+            "classifier_prompt_version": data.get("classifier_prompt_version"),
+        }
+        classified.append(row)
+        if isinstance(confidence, (int, float)) and confidence < 0.75:
+            low_confidence.append(row)
+
+    classified.sort(
+        key=lambda x: (
+            x.get("secondary") or "",
+            x.get("title") or "",
+        )
+    )
+    low_confidence.sort(key=lambda x: x.get("confidence") or 0)
+
+    return {
+        "latest_run": run_list[0] if run_list else None,
+        "recent_runs": run_list,
+        "classified_count": len(classified),
+        "primary_ranking": [
+            {"name": name, "count": count}
+            for name, count in primary_counts.most_common()
+        ],
+        "secondary_ranking": [
+            {"name": name, "count": count}
+            for name, count in secondary_counts.most_common()
+        ],
+        "tertiary_ranking": [
+            {"name": name, "count": count}
+            for name, count in tertiary_counts.most_common()
+        ],
+        "low_confidence_below_0_75": low_confidence,
+        "articles": classified,
+    }
+
+
 @app.get("/api/articles")
 def articles(
     limit: int = Query(default=30, ge=1, le=100),
