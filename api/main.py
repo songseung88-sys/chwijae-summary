@@ -261,7 +261,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     reporter_counts = Counter()
     for article in week_articles:
         publisher = article.get("publisher_original") or domain_of(article.get("original_url")) or "미확인"
-        for reporter in split_reporters(article.get("reporters_original")):
+        for reporter in split_reporters(article.get("reporters_resolved") or article.get("reporters_original")):
             reporter_counts[(reporter, publisher)] += 1
 
     category_counts = Counter(
@@ -300,7 +300,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             "id": a.get("id"),
             "title": a.get("api_title"),
             "publisher": a.get("publisher_original") or domain_of(a.get("original_url")) or "미확인",
-            "reporters": split_reporters(a.get("reporters_original")),
+            "reporters": split_reporters(a.get("reporters_resolved") or a.get("reporters_original")),
             "published_at": a.get("api_pubdate"),
             "category_original": a.get("category_original") or "미분류",
             "is_exclusive": bool(a.get("is_exclusive_strict")),
@@ -473,7 +473,7 @@ def diagnostics():
         naver_error = data.get("naver_parse_error") or ""
 
         if state == "accepted":
-            reporters = split_reporters(data.get("reporters_original"))
+            reporters = split_reporters(data.get("reporters_resolved") or data.get("reporters_original"))
             raw_reporter = str(data.get("reporters_original") or "")
             publisher = data.get("publisher_original") or ""
             category = clean_category(data.get("category_original"))
@@ -490,6 +490,8 @@ def diagnostics():
                         "publisher": publisher,
                         "reporters": reporters,
                         "raw_reporter": raw_reporter,
+            "reporters_naver": data.get("reporters_naver") or "",
+            "reporter_source": data.get("reporter_source") or "",
                         "original_url": data.get("original_url"),
                     })
             else:
@@ -547,7 +549,7 @@ def diagnostics():
                     "title": data.get("api_title"),
                     "domain": domain,
                     "publisher": data.get("publisher_original"),
-                    "reporters": split_reporters(data.get("reporters_original")),
+                    "reporters": split_reporters(data.get("reporters_resolved") or data.get("reporters_original")),
                     "category_original": clean_category(data.get("category_original")),
                     "is_exclusive_strict": data.get("is_exclusive_strict"),
                     "phrase_count": data.get("phrase_count"),
@@ -608,6 +610,9 @@ def articles(
         "naver_url",
         "publisher_original",
         "reporters_original",
+        "reporters_naver",
+        "reporters_resolved",
+        "reporter_source",
         "published_at_original",
         "modified_at_original",
         "category_original",
