@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import ast
+import hmac
 import os
 import re
 from collections import Counter, defaultdict
@@ -9,7 +10,7 @@ from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +19,28 @@ from google.cloud import firestore
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "").strip() or None
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
+ADMIN_EDITOR_PASSWORD = os.getenv("ADMIN_EDITOR_PASSWORD", "")
 db = firestore.Client(project=PROJECT_ID)
+
+DEFAULT_SITE_CONFIG = {
+    "hero_description": "한국 언론의 기사에서 “취재를 종합하면”이 어떻게 쓰이는지 기록합니다.",
+    "card_today_label": "오늘의 '취재 종합'",
+    "card_publisher_label": "오늘의 최다 '취재 종합' 언론사",
+    "card_reporter_label": "이번 주 가장 많이 '취재 종합'한 기자",
+    "card_exclusive_label": "[단독] 동반 비율",
+    "section_publisher_title": "오늘의 최다 '취재 종합' 언론사",
+    "section_reporter_title": "이번 주 가장 많이 '취재 종합'한 기자",
+    "section_category_title": "원문 기사 분류",
+    "section_secondary_title": "함께 쓰인 무주체형 표현",
+    "section_history_title": "최근 14일",
+    "section_articles_title": "오늘의 '취재 종합' 문장들",
+    "ranking_view_all_text": "전체 보기",
+    "ranking_collapse_text": "접기",
+    "paragraph_toggle_text": "문단 보기",
+    "original_link_text": "원문 보기",
+    "naver_link_text": "네이버 뉴스에서 보기",
+    "articles_more_text": "더 보기",
+}
 
 app = FastAPI(
     title="취재를 종합하면 API",
@@ -140,6 +162,50 @@ def accepted_articles(limit=1200):
     return out
 
 
+def get_site_config():
+    config = dict(DEFAULT_SITE_CONFIG)
+    snap = db.collection("site_config").document("public").get()
+    if snap.exists:
+        stored = snap.to_dict() or {}
+        for key in DEFAULT_SITE_CONFIG:
+            value = stored.get(key)
+            if isinstance(value, str) and value.strip():
+                config[key] = value.strip()
+    return config
+
+
+def require_admin(password):
+    if not ADMIN_EDITOR_PASSWORD:
+        raise HTTPException(status_code=503, detail="관리자 비밀번호가 아직 설정되지 않았습니다.")
+    if not password or not hmac.compare_digest(password, ADMIN_EDITOR_PASSWORD):
+        raise HTTPException(status_code=401, detail="관리자 비밀번호가 올바르지 않습니다.")
+
+
+@app.get("/admin")
+def admin_page():
+    return FileResponse(os.path.join(STATIC_DIR, "admin.html"))
+
+
+@app.get("/api/config")
+def public_config():
+    return get_site_config()
+
+
+@app.put("/api/admin/config")
+def update_site_config(payload: dict, x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    updates = {}
+    for key in DEFAULT_SITE_CONFIG:
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            updates[key] = value.strip()
+    if not updates:
+        raise HTTPException(status_code=400, detail="저장할 문구가 없습니다.")
+    updates["updated_at"] = firestore.SERVER_TIMESTAMP
+    db.collection("site_config").document("public").set(updates, merge=True)
+    return {"ok": True, "config": get_site_config()}
+
+
 @app.get("/")
 def dashboard_page():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
@@ -194,8 +260,9 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
 
     reporter_counts = Counter()
     for article in week_articles:
+        publisher = article.get("publisher_original") or domain_of(article.get("original_url")) or "미확인"
         for reporter in split_reporters(article.get("reporters_original")):
-            reporter_counts[reporter] += 1
+            reporter_counts[(reporter, publisher)] += 1
 
     category_counts = Counter(
         a.get("category_original") or "미분류"
@@ -219,6 +286,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
 
     top_publisher = publisher_counts.most_common(1)
     top_reporter = reporter_counts.most_common(1)
+    config = get_site_config()
 
     article_rows = []
     for a in sorted(
@@ -255,20 +323,24 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             if top_publisher else None
         ),
         "top_reporter_week": (
-            {"name": top_reporter[0][0], "count": top_reporter[0][1]}
+            {
+                "name": top_reporter[0][0][0],
+                "publisher": top_reporter[0][0][1],
+                "count": top_reporter[0][1],
+            }
             if top_reporter else None
         ),
         "publisher_ranking": [
             {"name": name, "count": count}
-            for name, count in publisher_counts.most_common(10)
+            for name, count in publisher_counts.most_common()
         ],
         "reporter_ranking_week": [
-            {"name": name, "count": count}
-            for name, count in reporter_counts.most_common(10)
+            {"name": key[0], "publisher": key[1], "count": count}
+            for key, count in reporter_counts.most_common()
         ],
         "category_ranking_original": [
             {"name": name, "count": count}
-            for name, count in category_counts.most_common(10)
+            for name, count in category_counts.most_common()
         ],
         "secondary_expressions": [
             {"name": name, "count": count}
@@ -282,6 +354,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             for offset in range(13, -1, -1)
         ],
         "articles": article_rows,
+        "site_config": config,
         "methodology": {
             "query": f'"{PHRASE}"',
             "source_priority": "언론사 원문 우선, NAVER 전송본 비교",
