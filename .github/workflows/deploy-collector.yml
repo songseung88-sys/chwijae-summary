@@ -1,6 +1,12 @@
 name: Deploy collector
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - "collector/**"
+      - ".github/workflows/deploy-collector.yml"
   workflow_dispatch:
 
 permissions:
@@ -46,6 +52,19 @@ jobs:
           docker push "${IMAGE}"
           echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
 
-      - name: Deploy Cloud Run Job
+      - name: Deploy Cloud Run Job and run first collection
         run: |
-          gcloud run jobs deploy "${JOB_NAME}"             --project="${PROJECT_ID}"             --region="${REGION}"             --image="${IMAGE}"             --service-account="${RUNTIME_SA}"             --cpu=1             --memory=512Mi             --tasks=1             --max-retries=0             --task-timeout=10m             --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},COMPARE_NAVER=true,MAX_ARTICLES_PER_RUN=100"             --set-secrets="NAVER_API_HUB_CLIENT_ID=naver-api-client-id:1,NAVER_API_HUB_CLIENT_SECRET=naver-api-client-secret:1"             --execute-now             --wait
+          gcloud run jobs deploy "${JOB_NAME}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --image="${IMAGE}" \
+            --service-account="${RUNTIME_SA}" \
+            --cpu=1 \
+            --memory=512Mi \
+            --tasks=1 \
+            --max-retries=0 \
+            --task-timeout=10m \
+            --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},COMPARE_NAVER=true,MAX_ARTICLES_PER_RUN=100" \
+            --set-secrets="NAVER_API_HUB_CLIENT_ID=naver-api-client-id:1,NAVER_API_HUB_CLIENT_SECRET=naver-api-client-secret:1" \
+            --execute-now \
+            --wait
