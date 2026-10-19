@@ -15,7 +15,7 @@ from google.cloud import firestore
 
 KST = ZoneInfo("Asia/Seoul")
 TAXONOMY_VERSION = "0.3"
-PROMPT_VERSION = "0.3.2"
+PROMPT_VERSION = "0.3.3"
 MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
 OPENAI_URL = "https://api.openai.com/v1/responses"
 
@@ -198,25 +198,16 @@ def apply_special_rules(result, article):
         or article.get("api_title")
         or ""
     )
-    body = article.get("body_text_private") or ""
-    contexts = article.get("phrase_contexts") or []
-    phrase_context = " ".join(
-        str(x.get("text") or "") for x in contexts if isinstance(x, dict)
-    )
-    audit_scope = f"{title}\n{body[:1800]}\n{phrase_context[:1200]}"
 
-    explicit_audit = bool(re.search(
-        r"(?:국정감사|국감)(?:에서|을|를|에|자료|현장|질의|답변|증인|감사)?",
-        audit_scope,
-    ))
+    # 제목이 국감/국정감사를 직접 표방하는 경우만 규칙으로 확정한다.
+    # 본문에서 국감을 단순 언급한 기사는 AI가 실제 중심 사건을 판단하도록 둔다.
+    explicit_audit_title = bool(re.search(r"(?:국정감사|국감)", title))
 
-    if explicit_audit:
-        # 선거와 마찬가지로 국감은 주제와 별개로 기사 생성 계기가 뚜렷한 특수 분류다.
-        # 국감이 제목/기사 앞부분/핵심 문맥에 명시되면 안정적으로 국감에 모은다.
+    if explicit_audit_title:
         result["primary"] = "정치"
         result["secondary"] = "국감"
         result["tertiary"] = "없음"
-        result["reason_short"] = "국정감사 질의·자료·감사 과정이 기사 발생과 핵심 정보의 직접적인 계기이므로 국감으로 분류했다."
+        result["reason_short"] = "제목에서 국정감사를 직접 기사 프레임으로 제시하고 있어 국감으로 분류했다."
 
     return result
 
