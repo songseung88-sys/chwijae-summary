@@ -1,0 +1,77 @@
+name: Audit classification snapshot
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/classification-audit.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Fetch public classification results and print QA report
+        env:
+          CLASSIFICATION_URL: "https://chwijae-api-ejmdmrnztq-du.a.run.app/api/classification-test"
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+          from collections import Counter
+
+          req = urllib.request.Request(
+              os.environ["CLASSIFICATION_URL"],
+              headers={"User-Agent": "chwijae-classification-QA/1.0"},
+          )
+          with urllib.request.urlopen(req, timeout=60) as response:
+              data = json.load(response)
+
+          runs = data.get("recent_runs") or []
+          print("CLASSIFICATION_RUNS")
+          for run in runs[:5]:
+              print(json.dumps({
+                  k: run.get(k) for k in (
+                      "started_at", "finished_at", "taxonomy_version",
+                      "prompt_version", "target_count", "classified",
+                      "failed", "retried_for_validation",
+                      "low_confidence_below_0_7",
+                      "primary_counts", "secondary_counts", "errors",
+                  )
+              }, ensure_ascii=False))
+          print("CLASSIFIED_COUNT", data.get("classified_count"))
+          print("PRIMARY_RANKING", json.dumps(data.get("primary_ranking") or [], ensure_ascii=False))
+          print("SECONDARY_RANKING", json.dumps(data.get("secondary_ranking") or [], ensure_ascii=False))
+
+          articles = data.get("articles") or []
+          print("AUDIT_RELATED_ARTICLES")
+          for a in articles:
+              title = str(a.get("title") or "")
+              if (
+                  "국감" in title or "국정감사" in title or
+                  a.get("secondary") in ("국감", "정치 기타", "지방자치") or
+                  any(x in title for x in ("공단", "공사", "공공기관", "국민건강보험", "인사", "조직개편"))
+              ):
+                  print("FOCUS", json.dumps({
+                      k: a.get(k) for k in (
+                          "id", "title", "primary", "secondary",
+                          "tertiary", "topic_tags", "confidence",
+                          "reason_short", "classifier_prompt_version",
+                      )
+                  }, ensure_ascii=False))
+
+          print("ALL_CLASSIFICATIONS")
+          for a in articles:
+              print("ROW", json.dumps({
+                  k: a.get(k) for k in (
+                      "id", "title", "primary", "secondary", "tertiary",
+                      "topic_tags", "confidence", "reason_short",
+                      "classifier_prompt_version",
+                  )
+              }, ensure_ascii=False))
+          PY
