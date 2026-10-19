@@ -114,7 +114,7 @@ def clean_category(value):
     return text
 
 
-def split_reporters(value):
+def split_reporters(value, people_only=False):
     value = str(value or "").strip()
     if not value:
         return []
@@ -123,7 +123,9 @@ def split_reporters(value):
     out = []
     for part in re.split(r"[,/·|]", value):
         part = re.sub(r"\s*(기자|특파원|논설위원|에디터|PD)$", "", part).strip()
-        if re.fullmatch(r"[가-힣]{2,4}", part) or re.fullmatch(r"[가-힣A-Za-z0-9]{2,10}팀", part):
+        if re.fullmatch(r"[가-힣]{2,4}", part):
+            out.append(part)
+        elif not people_only and re.fullmatch(r"[가-힣A-Za-z0-9]{2,10}팀", part):
             out.append(part)
     return list(dict.fromkeys(out))
 
@@ -261,7 +263,10 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     reporter_counts = Counter()
     for article in week_articles:
         publisher = article.get("publisher_original") or domain_of(article.get("original_url")) or "미확인"
-        for reporter in split_reporters(article.get("reporters_resolved") or article.get("reporters_original")):
+        for reporter in split_reporters(
+            article.get("reporters_resolved") or article.get("reporters_original"),
+            people_only=True,
+        ):
             reporter_counts[(reporter, publisher)] += 1
 
     category_counts = Counter(
