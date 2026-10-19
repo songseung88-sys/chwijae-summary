@@ -393,7 +393,7 @@ def parse_naver(url):
         return result
 
 
-def fetch_candidates(client_id, client_secret, target_date, max_pages=10):
+def fetch_candidates(client_id, client_secret, target_date, query, max_pages=10):
     headers = {
         "X-NCP-APIGW-API-KEY-ID": client_id,
         "X-NCP-APIGW-API-KEY": client_secret,
@@ -403,7 +403,7 @@ def fetch_candidates(client_id, client_secret, target_date, max_pages=10):
 
     for start in range(1, min(max_pages, 10) * 100 + 1, 100):
         params = {
-            "query": PHRASE,
+            "query": query,
             "display": 100,
             "start": start,
             "sort": "date",
@@ -463,12 +463,45 @@ def main():
     target_date = now.date()
     run_ref = db.collection("collector_runs").document(now.strftime("%Y%m%dT%H%M%S%z"))
 
-    candidates = fetch_candidates(client_id, client_secret, target_date)
-    candidates = candidates[:max_articles]
+    raw_query = PHRASE
+    quoted_query = f'"{PHRASE}"'
+
+    raw_candidates = fetch_candidates(
+        client_id, client_secret, target_date, query=raw_query
+    )
+    quoted_candidates = fetch_candidates(
+        client_id, client_secret, target_date, query=quoted_query
+    )
+
+    raw_urls = {x["original_url"] for x in raw_candidates}
+    quoted_urls = {x["original_url"] for x in quoted_candidates}
+
+    quoted_status = {"accepted": 0, "rejected": 0, "new": 0}
+    for item in quoted_candidates:
+        snap = db.collection("articles").document(doc_id(item["original_url"])).get()
+        if not snap.exists:
+            quoted_status["new"] += 1
+            continue
+        state = (snap.to_dict() or {}).get("status")
+        if state in ("accepted", "rejected"):
+            quoted_status[state] += 1
+        else:
+            quoted_status["new"] += 1
+
+    candidates = raw_candidates[:max_articles]
 
     summary = {
         "target_date": str(target_date),
         "started_at": now.isoformat(),
+        "search_query_used": raw_query,
+        "query_probe": {
+            "raw_candidates_today": len(raw_candidates),
+            "quoted_candidates_today": len(quoted_candidates),
+            "quoted_overlap_with_raw": len(raw_urls & quoted_urls),
+            "quoted_only": len(quoted_urls - raw_urls),
+            "raw_only": len(raw_urls - quoted_urls),
+            "quoted_existing_status": quoted_status,
+        },
         "candidates": len(candidates),
         "accepted": 0,
         "original_success": 0,
@@ -560,7 +593,7 @@ def main():
             "is_wire_reprint_suspected": wire_reprint,
             "first_seen_at": firestore.SERVER_TIMESTAMP,
             "last_seen_at": firestore.SERVER_TIMESTAMP,
-            "collector_version": "0.1.0-cloud",
+            "collector_version": "0.1.1-query-probe",
         }
         article_ref.set(article, merge=True)
         print(f"[{idx}/{len(candidates)}] {source} {item['api_title'][:70]}")
