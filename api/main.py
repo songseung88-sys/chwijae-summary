@@ -746,7 +746,7 @@ def classification_test():
         data = doc.to_dict() or {}
         if data.get("status") != "accepted":
             continue
-        if data.get("taxonomy_version") != "0.2":
+        if data.get("taxonomy_version") != "0.3":
             continue
 
         primary = data.get("category_primary")
