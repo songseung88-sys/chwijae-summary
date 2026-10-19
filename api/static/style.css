@@ -5,7 +5,7 @@ button,input,textarea{font:inherit}
 .wrap{max-width:1180px;margin:0 auto;padding:42px 20px 72px}
 .hero{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-bottom:26px}
 h1{font-size:44px;letter-spacing:-.04em;margin:0 0 10px}
-.hero p{margin:0;color:#4d535a}
+.hero p{margin:0;color:#4d535a;white-space:pre-line}
 .date-box{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:12px}
 .date-box input{border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px 12px;color:var(--text)}
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}
