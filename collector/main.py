@@ -488,12 +488,14 @@ def main():
         else:
             quoted_status["new"] += 1
 
-    candidates = raw_candidates[:max_articles]
+    # A/B test 결과, 큰따옴표 검색이 현재 표본에서 실제 본문 일치 기사와 정확히 일치했다.
+    # 운영 수집은 exact phrase(quoted) 후보를 사용하고 raw 검색은 당분간 품질 모니터링용으로만 남긴다.
+    candidates = quoted_candidates[:max_articles]
 
     summary = {
         "target_date": str(target_date),
         "started_at": now.isoformat(),
-        "search_query_used": raw_query,
+        "search_query_used": quoted_query,
         "query_probe": {
             "raw_candidates_today": len(raw_candidates),
             "quoted_candidates_today": len(quoted_candidates),
@@ -504,6 +506,8 @@ def main():
         },
         "candidates": len(candidates),
         "accepted": 0,
+        "existing_accepted": 0,
+        "new_accepted": 0,
         "original_success": 0,
         "naver_fallback": 0,
         "rejected": 0,
@@ -517,7 +521,14 @@ def main():
         article_ref = db.collection("articles").document(doc_id(original_url))
 
         existing = article_ref.get()
-        if existing.exists and existing.to_dict().get("status") == "accepted":
+        existing_data = existing.to_dict() if existing.exists else {}
+        if existing.exists and existing_data.get("status") == "accepted":
+            summary["accepted"] += 1
+            summary["existing_accepted"] += 1
+            summary["exclusive"] += int(bool(existing_data.get("is_exclusive_strict")))
+            summary["wire_reprint_suspected"] += int(
+                bool(existing_data.get("is_wire_reprint_suspected"))
+            )
             article_ref.set({
                 "last_seen_at": firestore.SERVER_TIMESTAMP,
                 "last_seen_api_pubdate": item["api_pubdate"],
@@ -554,6 +565,7 @@ def main():
         is_exclusive = strict_exclusive(item["api_title"])
         if source != "REJECTED":
             summary["accepted"] += 1
+            summary["new_accepted"] += 1
             summary["exclusive"] += int(is_exclusive)
             summary["wire_reprint_suspected"] += int(wire_reprint)
 
@@ -593,7 +605,7 @@ def main():
             "is_wire_reprint_suspected": wire_reprint,
             "first_seen_at": firestore.SERVER_TIMESTAMP,
             "last_seen_at": firestore.SERVER_TIMESTAMP,
-            "collector_version": "0.1.1-query-probe",
+            "collector_version": "0.2.0-quoted-query",
         }
         article_ref.set(article, merge=True)
         print(f"[{idx}/{len(candidates)}] {source} {item['api_title'][:70]}")
