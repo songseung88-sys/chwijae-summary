@@ -30,7 +30,7 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.3.4-team-byline"
+COLLECTOR_VERSION = "0.4.0-context-quality"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -236,6 +236,15 @@ def infer_reporters(soup, data, publisher, host):
                 )
                 if m:
                     return m.group(1)
+                # 경향신문 플랫처럼 상단에는 팀 바이라인, 기사 하단에는
+                # 실제 작성자 이름+이메일을 노출하는 경우를 처리한다.
+                if host.endswith("khan.co.kr"):
+                    matches = re.findall(
+                        r"([가-힣]{2,4})\s*기자\s+[A-Za-z0-9._%+-]+@(?:khan\.kr|kyunghyang\.com)",
+                        page_text,
+                    )
+                    if matches:
+                        return matches[-1]
             return cleaned
 
     # '기자명'은 뉴스 CMS의 명시적 메타데이터 라벨이므로 매체 공통 fallback으로 사용한다.
@@ -298,11 +307,18 @@ def choose_body_container(soup):
 def extract_paragraphs(container):
     if not container:
         return []
+
+    # 기사 영역 안의 구조화 데이터/광고 스크립트가 본문 텍스트로 섞이지 않게 제거한다.
+    for bad in container.find_all(["script", "style", "noscript", "template"]):
+        bad.decompose()
+
     paras = []
     for p in container.find_all("p"):
-        text = clean_text(p.get_text(" ", strip=True))
-        if len(text) >= 20 and text not in paras:
-            paras.append(text)
+        raw = p.get_text("\n", strip=True)
+        segments = [clean_text(x) for x in re.split(r"\n+", raw)]
+        for text in segments:
+            if len(text) >= 20 and text not in paras:
+                paras.append(text)
     if any(PHRASE in p for p in paras):
         return paras
 
@@ -461,6 +477,33 @@ def suspicious_body(text):
         return True
     if len(text) > 80000:
         return True
+    return False
+
+
+def suspicious_context(result):
+    contexts = result.get("phrase_contexts") or []
+    texts = [
+        str(item.get("text") or "")
+        for item in contexts
+        if isinstance(item, dict)
+    ]
+    if not texts:
+        return True
+    markers = [
+        '"description":',
+        '{"description"',
+        '"pageProps":',
+        '{"props":',
+        "__NEXT_DATA__",
+        "Fusion.spa",
+        '"contentArrange":',
+        "var messageText =",
+    ]
+    for text in texts:
+        if len(text) >= 1200:
+            return True
+        if any(marker in text for marker in markers):
+            return True
     return False
 
 
@@ -647,7 +690,13 @@ def main():
             "secondary": {}, "error": "NO_NAVER_PAGE"
         }
 
-        if original["phrase_count"] > 0 and not suspicious_body(original.get("body", "")):
+        original_clean = (
+            original["phrase_count"] > 0
+            and not suspicious_body(original.get("body", ""))
+            and not suspicious_context(original)
+        )
+
+        if original_clean:
             final = original
             source = "ORIGINAL"
             summary["original_success"] += 1
