@@ -1,0 +1,54 @@
+name: Run collector
+
+on:
+  schedule:
+    - cron: "7,37 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: chwijae-collector-schedule
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: chwijae-summary
+  REGION: asia-northeast3
+  JOB_NAME: chwijae-collector
+  DEPLOY_SA: github-deployer@chwijae-summary.iam.gserviceaccount.com
+  WIF_PROVIDER: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Execute collector
+        run: |
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --wait
+
+      - name: Print collector status
+        run: |
+          URL="$(gcloud run services describe "chwijae-api" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --format='value(status.url)')"
+          echo "STATUS_JSON:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/api/status"
+          echo
