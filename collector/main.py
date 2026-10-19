@@ -30,7 +30,7 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.3.2-reporter-fallback"
+COLLECTOR_VERSION = "0.3.3-reporter-label"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -227,11 +227,15 @@ def infer_reporters(soup, data, publisher, host):
             return cleaned
 
     host = (host or "").lower().removeprefix("www.")
+    page_text = clean_text(soup.get_text(" ", strip=True))
+
+    # '기자명'은 뉴스 CMS의 명시적 메타데이터 라벨이므로 매체 공통 fallback으로 사용한다.
+    m = re.search(r"기자명\s*([가-힣]{2,4})(?:\s*기자)?", page_text)
+    if m:
+        return m.group(1)
+
+    # 이메일 앞 이름은 현재 확인된 CMS에서만 제한적으로 사용한다.
     if host.endswith("ksilbo.co.kr") or host.endswith("labortoday.co.kr"):
-        page_text = clean_text(soup.get_text(" ", strip=True))
-        m = re.search(r"기자명\s*([가-힣]{2,4})\s*기자", page_text)
-        if m:
-            return m.group(1)
         m = re.search(r"([가-힣]{2,4})\s*기자\s+[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+", page_text)
         if m:
             return m.group(1)
