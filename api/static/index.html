@@ -4,16 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>취재를 종합하면</title>
-  <meta name="description" content="한국 온라인 기사에서 '취재를 종합하면' 표현의 사용을 기록하는 대시보드" />
+  <meta name="description" content="한국 언론의 기사에서 '취재를 종합하면' 표현의 사용을 기록하는 대시보드" />
   <link rel="stylesheet" href="/static/style.css" />
 </head>
 <body>
   <main class="wrap">
     <header class="hero">
       <div>
-        <div class="eyebrow">월간 송개발 #05</div>
         <h1>취재를 종합하면</h1>
-        <p>한국 온라인 기사에서 <strong>“취재를 종합하면”</strong>이 어떻게 쓰이는지 기록합니다.</p>
+        <p id="heroDescription"></p>
       </div>
       <label class="date-box">
         <span>기준일</span>
@@ -26,16 +25,19 @@
     <section class="grid two">
       <article class="panel">
         <div class="panel-head">
-          <h2>오늘의 최다 취재 종합 언론사</h2>
-          <span>상위 10개</span>
+          <h2 id="publisherTitle"></h2>
+          <button class="text-link rank-toggle" data-target="publisherRanking" type="button"></button>
         </div>
         <div id="publisherRanking" class="ranking"></div>
       </article>
 
       <article class="panel">
         <div class="panel-head">
-          <h2>이번 주 가장 많이 취재 종합한 기자</h2>
-          <span id="weekLabel"></span>
+          <div>
+            <h2 id="reporterTitle"></h2>
+            <span id="weekLabel"></span>
+          </div>
+          <button class="text-link rank-toggle" data-target="reporterRanking" type="button"></button>
         </div>
         <div id="reporterRanking" class="ranking"></div>
       </article>
@@ -44,16 +46,22 @@
     <section class="grid two">
       <article class="panel">
         <div class="panel-head">
-          <h2>원문 기사 분류</h2>
-          <span>언론사 표기 기준</span>
+          <div>
+            <h2 id="categoryTitle"></h2>
+            <span>언론사 표기 기준</span>
+          </div>
+          <button class="text-link rank-toggle" data-target="categoryRanking" type="button"></button>
         </div>
         <div id="categoryRanking" class="ranking"></div>
       </article>
 
       <article class="panel">
         <div class="panel-head">
-          <h2>함께 쓰인 무주체형 표현</h2>
-          <span>해당 기사 본문 기준</span>
+          <div>
+            <h2 id="secondaryTitle"></h2>
+            <span>해당 기사 본문 기준</span>
+          </div>
+          <button class="text-link rank-toggle" data-target="secondaryRanking" type="button"></button>
         </div>
         <div id="secondaryRanking" class="ranking"></div>
       </article>
@@ -61,24 +69,21 @@
 
     <section class="panel history">
       <div class="panel-head">
-        <h2>최근 14일</h2>
-        <span>데이터가 쌓이는 대로 채워집니다</span>
+        <h2 id="historyTitle"></h2>
       </div>
       <div id="historyBars" class="history-bars"></div>
     </section>
 
     <section class="panel">
       <div class="panel-head">
-        <h2>오늘의 기사</h2>
+        <h2 id="articlesTitle"></h2>
         <span id="articleCount"></span>
       </div>
       <div id="articleList" class="articles"></div>
+      <div class="more-wrap">
+        <button id="loadMore" class="more-button" type="button"></button>
+      </div>
     </section>
-
-    <footer>
-      <p id="methodology"></p>
-      <p class="muted">현재 주제 분류는 언론사 원문 카테고리를 참고값으로만 표시합니다. 자체 표준 분류는 추후 적용합니다.</p>
-    </footer>
   </main>
 
   <template id="articleTemplate">
@@ -88,7 +93,7 @@
       <p class="context"></p>
       <div class="chips"></div>
       <details>
-        <summary>문단 보기</summary>
+        <summary></summary>
         <p class="paragraph"></p>
       </details>
       <div class="links"></div>
