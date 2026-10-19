@@ -451,6 +451,7 @@ def diagnostics():
     category_missing_samples = []
     publisher_missing_samples = []
     suspicious_reporter_samples = []
+    reporter_fallback_samples = []
     accepted_samples = []
     rejected_samples = []
 
@@ -478,8 +479,22 @@ def diagnostics():
             publisher = data.get("publisher_original") or ""
             category = clean_category(data.get("category_original"))
 
+            reporter_source = data.get("reporter_source") or ("ORIGINAL" if raw_reporter else "NONE")
+            metadata_quality[f"reporter_source_{reporter_source.lower()}"] += 1
+
             if reporters:
                 metadata_quality["reporter_available"] += 1
+                if reporter_source == "NAVER":
+                    reporter_fallback_samples.append({
+                        "title": data.get("api_title"),
+                        "domain": domain,
+                        "publisher": publisher,
+                        "reporters": reporters,
+                        "reporters_original": raw_reporter,
+                        "reporters_naver": data.get("reporters_naver") or "",
+                        "original_url": data.get("original_url"),
+                        "naver_url": data.get("naver_url"),
+                    })
                 if any(
                     reporter in {"시민", "무산", "비상", "사회", "정치", "경제", "뉴스"}
                     for reporter in reporters
@@ -580,6 +595,7 @@ def diagnostics():
             "category_missing": category_missing_samples,
             "publisher_missing": publisher_missing_samples,
             "suspicious_reporter": suspicious_reporter_samples,
+            "reporter_fallback": reporter_fallback_samples,
         },
         "domains": domain_rows,
         "accepted_samples": accepted_samples,
