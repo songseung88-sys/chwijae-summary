@@ -52,7 +52,7 @@ jobs:
           docker push "${IMAGE}"
           echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
 
-      - name: Deploy Cloud Run Job and run first collection
+      - name: Deploy Cloud Run Job and run collection
         run: |
           gcloud run jobs deploy "${JOB_NAME}" \
             --project="${PROJECT_ID}" \
@@ -68,3 +68,16 @@ jobs:
             --set-secrets="NAVER_API_HUB_CLIENT_ID=naver-api-client-id:1,NAVER_API_HUB_CLIENT_SECRET=naver-api-client-secret:1" \
             --execute-now \
             --wait
+
+      - name: Print collector status and diagnostics
+        run: |
+          URL="$(gcloud run services describe "chwijae-api" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --format='value(status.url)')"
+          echo "STATUS_JSON:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/api/status"
+          echo
+          echo "DIAGNOSTICS_JSON:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/api/diagnostics"
+          echo
