@@ -30,7 +30,7 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.3.0-metadata-dashboard"
+COLLECTOR_VERSION = "0.3.1-clean-context"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -226,10 +226,6 @@ def infer_reporters(soup, data, publisher):
         if cleaned:
             return cleaned
 
-    page_text = clean_text(soup.get_text(" ", strip=True))[:5000]
-    matches = re.findall(r"([가-힣]{2,4})\s*기자", page_text)
-    if matches:
-        return ", ".join(dict.fromkeys(matches[:3]))
     return ""
 
 
@@ -397,6 +393,8 @@ def parse_original(url):
         result["category_original"] = clean_text(data.get("articleSection")) or meta(
             soup, "article:section", "section", "parsely-section"
         ) or breadcrumb_category(soup)
+        if result["category_original"] == result["publisher"]:
+            result["category_original"] = ""
 
         container = choose_body_container(soup)
         paragraphs = extract_paragraphs(container)
@@ -424,6 +422,23 @@ def parse_original(url):
     except Exception as e:
         result["error"] = f"PARSE_ERROR:{type(e).__name__}:{str(e)[:120]}"
         return result
+
+
+def suspicious_body(text):
+    text = str(text or "")
+    markers = [
+        '{"props":',
+        '"pageProps":',
+        "Fusion.spa",
+        "var messageText =",
+        "__NEXT_DATA__",
+        '"contentArrange":',
+    ]
+    if any(marker in text for marker in markers):
+        return True
+    if len(text) > 80000:
+        return True
+    return False
 
 
 def parse_naver(url):
@@ -593,7 +608,7 @@ def main():
             "secondary": {}, "error": "NO_NAVER_PAGE"
         }
 
-        if original["phrase_count"] > 0:
+        if original["phrase_count"] > 0 and not suspicious_body(original.get("body", "")):
             final = original
             source = "ORIGINAL"
             summary["original_success"] += 1
@@ -601,6 +616,10 @@ def main():
             final = naver
             source = "NAVER_FALLBACK"
             summary["naver_fallback"] += 1
+        elif original["phrase_count"] > 0:
+            final = original
+            source = "ORIGINAL_LOW_QUALITY"
+            summary["original_success"] += 1
         else:
             final = original
             source = "REJECTED"
