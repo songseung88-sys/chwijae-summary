@@ -447,6 +447,10 @@ def diagnostics():
     rejection_reasons = Counter()
     accepted_original_errors = Counter()
     metadata_quality = Counter()
+    reporter_missing_samples = []
+    category_missing_samples = []
+    publisher_missing_samples = []
+    suspicious_reporter_samples = []
     accepted_samples = []
     rejected_samples = []
 
@@ -470,14 +474,57 @@ def diagnostics():
 
         if state == "accepted":
             reporters = split_reporters(data.get("reporters_original"))
+            raw_reporter = str(data.get("reporters_original") or "")
+            publisher = data.get("publisher_original") or ""
+            category = clean_category(data.get("category_original"))
+
             if reporters:
                 metadata_quality["reporter_available"] += 1
+                if any(
+                    reporter in {"시민", "무산", "비상", "사회", "정치", "경제", "뉴스"}
+                    for reporter in reporters
+                ):
+                    suspicious_reporter_samples.append({
+                        "title": data.get("api_title"),
+                        "domain": domain,
+                        "publisher": publisher,
+                        "reporters": reporters,
+                        "raw_reporter": raw_reporter,
+                        "original_url": data.get("original_url"),
+                    })
             else:
                 metadata_quality["reporter_missing"] += 1
-            if data.get("publisher_original"):
+                reporter_missing_samples.append({
+                    "title": data.get("api_title"),
+                    "domain": domain,
+                    "publisher": publisher,
+                    "raw_reporter": raw_reporter,
+                    "original_url": data.get("original_url"),
+                    "naver_url": data.get("naver_url"),
+                })
+
+            if publisher:
                 metadata_quality["publisher_available"] += 1
-            if data.get("category_original"):
+            else:
+                metadata_quality["publisher_missing"] += 1
+                publisher_missing_samples.append({
+                    "title": data.get("api_title"),
+                    "domain": domain,
+                    "original_url": data.get("original_url"),
+                })
+
+            if category:
                 metadata_quality["category_available"] += 1
+            else:
+                metadata_quality["category_missing"] += 1
+                category_missing_samples.append({
+                    "title": data.get("api_title"),
+                    "domain": domain,
+                    "publisher": publisher,
+                    "reporters": reporters,
+                    "original_url": data.get("original_url"),
+                    "naver_url": data.get("naver_url"),
+                })
 
         if state == "rejected":
             reason = original_error or "UNKNOWN_REJECTION"
@@ -526,6 +573,12 @@ def diagnostics():
         "rejection_reasons": dict(rejection_reasons),
         "accepted_original_errors": dict(accepted_original_errors),
         "metadata_quality": dict(metadata_quality),
+        "metadata_issues": {
+            "reporter_missing": reporter_missing_samples,
+            "category_missing": category_missing_samples,
+            "publisher_missing": publisher_missing_samples,
+            "suspicious_reporter": suspicious_reporter_samples,
+        },
         "domains": domain_rows,
         "accepted_samples": accepted_samples,
         "rejected_samples": rejected_samples,
