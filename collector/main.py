@@ -30,7 +30,7 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.0-naver-content-basis"
+COLLECTOR_VERSION = "0.5.1-full-title"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -531,6 +531,7 @@ def suspicious_context(result):
 def parse_naver(url):
     result = {
         "ok": False,
+        "title": "",
         "reporters": "",
         "body": "",
         "paragraphs": [],
@@ -550,6 +551,11 @@ def parse_naver(url):
             return result
         r.encoding = r.apparent_encoding or "utf-8"
         soup = BeautifulSoup(r.text, "html.parser")
+        result["title"] = clean_text(
+            meta(soup, "og:title", "twitter:title")
+            or (soup.find("h2", id="title_area").get_text(" ", strip=True)
+                if soup.find("h2", id="title_area") else "")
+        )
         reporter_candidates = []
         for selector in [
             ".media_end_head_journalist_name",
@@ -708,7 +714,7 @@ def main():
 
         original = parse_original(original_url)
         naver = parse_naver(item["naver_url"]) if compare_naver and item["naver_url"] else {
-            "ok": False, "reporters": "", "body": "", "phrase_count": 0, "phrase_contexts": [],
+            "ok": False, "title": "", "reporters": "", "body": "", "phrase_count": 0, "phrase_contexts": [],
             "secondary": {}, "error": "NO_NAVER_PAGE"
         }
 
@@ -780,12 +786,19 @@ def main():
             "REJECTED": "PHRASE_NOT_CONFIRMED",
         }.get(source, source)
 
+        title_original = original.get("title", "")
+        title_naver = naver.get("title", "")
+        title_resolved = title_original or title_naver or item["api_title"]
+
         article = {
             "status": "accepted" if source != "REJECTED" else "rejected",
             "final_source": source,
             "content_basis": content_basis,
             "content_basis_reason": content_basis_reason,
             "api_title": item["api_title"],
+            "title_original": title_original,
+            "title_naver": title_naver,
+            "title_resolved": title_resolved,
             "api_description": item["api_description"],
             "api_pubdate": item["api_pubdate"],
             "original_url": original_url,
