@@ -30,6 +30,26 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
+COLLECTOR_VERSION = "0.3.0-metadata-dashboard"
+
+PUBLISHER_BY_HOST = {
+    "khan.co.kr": "경향신문",
+    "chosun.com": "조선일보",
+    "biz.chosun.com": "조선비즈",
+    "joongang.co.kr": "중앙일보",
+    "hani.co.kr": "한겨레",
+    "hankookilbo.com": "한국일보",
+    "yna.co.kr": "연합뉴스",
+    "news1.kr": "뉴스1",
+    "newsis.com": "뉴시스",
+    "mk.co.kr": "매일경제",
+    "edaily.co.kr": "이데일리",
+    "sedaily.com": "서울경제",
+    "segye.com": "세계일보",
+    "view.asiae.co.kr": "아시아경제",
+    "nocutnews.co.kr": "노컷뉴스",
+}
+
 UA = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -152,6 +172,65 @@ def author_name(value):
         if name:
             names.append(name)
     return ", ".join(dict.fromkeys(names))
+
+
+def normalize_publisher(name, host):
+    host = (host or "").lower().removeprefix("www.")
+    for domain, label in PUBLISHER_BY_HOST.items():
+        if host == domain or host.endswith("." + domain):
+            return label
+    name = clean_text(name)
+    if name.lower() == "the kyunghyang shinmun":
+        return "경향신문"
+    return name
+
+
+def normalize_reporter_text(raw, publisher=""):
+    raw = clean_text(raw)
+    if not raw:
+        return ""
+    if raw.startswith("http://") or raw.startswith("https://"):
+        return ""
+    if publisher and raw == publisher:
+        return ""
+
+    names = re.findall(r"([가-힣]{2,4})\s*기자", raw)
+    if names:
+        return ", ".join(dict.fromkeys(names))
+
+    parts = [clean_text(x) for x in re.split(r"[,/·|]", raw)]
+    good = []
+    for part in parts:
+        part = re.sub(r"\s*(기자|특파원|논설위원|에디터|PD)$", "", part).strip()
+        if re.fullmatch(r"[가-힣]{2,4}", part):
+            good.append(part)
+        elif re.fullmatch(r"[가-힣A-Za-z0-9]{2,10}팀", part):
+            good.append(part)
+    return ", ".join(dict.fromkeys(good))
+
+
+def infer_reporters(soup, data, publisher):
+    candidates = [
+        author_name(data.get("author")),
+        meta(soup, "author", "article:author", "parsely-author"),
+    ]
+    for selector in [
+        ".reporter", ".reporter_name", ".journalist", ".author", ".byline",
+        "[class*='reporter']", "[class*='journalist']", "[class*='byline']",
+    ]:
+        for node in soup.select(selector)[:5]:
+            candidates.append(node.get_text(" ", strip=True))
+
+    for raw in candidates:
+        cleaned = normalize_reporter_text(raw, publisher)
+        if cleaned:
+            return cleaned
+
+    page_text = clean_text(soup.get_text(" ", strip=True))[:5000]
+    matches = re.findall(r"([가-힣]{2,4})\s*기자", page_text)
+    if matches:
+        return ", ".join(dict.fromkeys(matches[:3]))
+    return ""
 
 
 def breadcrumb_category(soup):
@@ -301,12 +380,12 @@ def parse_original(url):
         publisher = data.get("publisher")
         if isinstance(publisher, dict):
             publisher = publisher.get("name")
-        result["publisher"] = clean_text(publisher) or meta(
+        host = (urlparse(r.url).hostname or "").lower()
+        publisher_raw = clean_text(publisher) or meta(
             soup, "og:site_name", "application-name", "publisher"
         )
-        result["reporters"] = author_name(data.get("author")) or meta(
-            soup, "author", "article:author", "parsely-author"
-        )
+        result["publisher"] = normalize_publisher(publisher_raw, host)
+        result["reporters"] = infer_reporters(soup, data, result["publisher"])
         result["published_at"] = clean_text(
             data.get("datePublished")
             or meta(soup, "article:published_time", "datePublished", "pubdate", "date")
@@ -463,47 +542,15 @@ def main():
     target_date = now.date()
     run_ref = db.collection("collector_runs").document(now.strftime("%Y%m%dT%H%M%S%z"))
 
-    raw_query = PHRASE
     quoted_query = f'"{PHRASE}"'
-
-    raw_candidates = fetch_candidates(
-        client_id, client_secret, target_date, query=raw_query
-    )
-    quoted_candidates = fetch_candidates(
+    candidates = fetch_candidates(
         client_id, client_secret, target_date, query=quoted_query
-    )
-
-    raw_urls = {x["original_url"] for x in raw_candidates}
-    quoted_urls = {x["original_url"] for x in quoted_candidates}
-
-    quoted_status = {"accepted": 0, "rejected": 0, "new": 0}
-    for item in quoted_candidates:
-        snap = db.collection("articles").document(doc_id(item["original_url"])).get()
-        if not snap.exists:
-            quoted_status["new"] += 1
-            continue
-        state = (snap.to_dict() or {}).get("status")
-        if state in ("accepted", "rejected"):
-            quoted_status[state] += 1
-        else:
-            quoted_status["new"] += 1
-
-    # A/B test 결과, 큰따옴표 검색이 현재 표본에서 실제 본문 일치 기사와 정확히 일치했다.
-    # 운영 수집은 exact phrase(quoted) 후보를 사용하고 raw 검색은 당분간 품질 모니터링용으로만 남긴다.
-    candidates = quoted_candidates[:max_articles]
+    )[:max_articles]
 
     summary = {
         "target_date": str(target_date),
         "started_at": now.isoformat(),
         "search_query_used": quoted_query,
-        "query_probe": {
-            "raw_candidates_today": len(raw_candidates),
-            "quoted_candidates_today": len(quoted_candidates),
-            "quoted_overlap_with_raw": len(raw_urls & quoted_urls),
-            "quoted_only": len(quoted_urls - raw_urls),
-            "raw_only": len(raw_urls - quoted_urls),
-            "quoted_existing_status": quoted_status,
-        },
         "candidates": len(candidates),
         "accepted": 0,
         "existing_accepted": 0,
@@ -522,7 +569,11 @@ def main():
 
         existing = article_ref.get()
         existing_data = existing.to_dict() if existing.exists else {}
-        if existing.exists and existing_data.get("status") == "accepted":
+        if (
+            existing.exists
+            and existing_data.get("status") == "accepted"
+            and existing_data.get("collector_version") == COLLECTOR_VERSION
+        ):
             summary["accepted"] += 1
             summary["existing_accepted"] += 1
             summary["exclusive"] += int(bool(existing_data.get("is_exclusive_strict")))
@@ -605,7 +656,7 @@ def main():
             "is_wire_reprint_suspected": wire_reprint,
             "first_seen_at": firestore.SERVER_TIMESTAMP,
             "last_seen_at": firestore.SERVER_TIMESTAMP,
-            "collector_version": "0.2.0-quoted-query",
+            "collector_version": COLLECTOR_VERSION,
         }
         article_ref.set(article, merge=True)
         print(f"[{idx}/{len(candidates)}] {source} {item['api_title'][:70]}")
