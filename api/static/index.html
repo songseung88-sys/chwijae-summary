@@ -48,7 +48,7 @@
         <div class="panel-head">
           <div>
             <h2 id="categoryTitle"></h2>
-            <span>언론사 표기 기준</span>
+            <span id="categoryCoverage">AI 주제 분류</span>
           </div>
           <button class="text-link rank-toggle" data-target="categoryRanking" type="button"></button>
         </div>
@@ -77,7 +77,7 @@
     <section class="panel">
       <div class="panel-head">
         <h2 id="articlesTitle"></h2>
-        <span id="articleCount"></span>
+        <div class="article-head-actions"><span id="articleCount"></span><button class="text-link" type="button" id="clearTopicFilter" hidden>주제 필터 해제</button></div>
       </div>
       <div id="articleList" class="articles"></div>
       <div class="more-wrap">
@@ -92,9 +92,17 @@
       <h3></h3>
       <p class="context"></p>
       <div class="chips"></div>
-      <details>
+      <details class="paragraph-details">
         <summary></summary>
         <p class="paragraph"></p>
+      </details>
+      <details class="topic-details" hidden>
+        <summary>주제 분류 자세히</summary>
+        <div class="topic-detail-body">
+          <div class="topic-path"></div>
+          <div class="topic-tags"></div>
+          <div class="topic-original"></div>
+        </div>
       </details>
       <div class="links"></div>
     </article>
