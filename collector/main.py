@@ -30,7 +30,7 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.3.3-reporter-label"
+COLLECTOR_VERSION = "0.3.4-team-byline"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -221,13 +221,22 @@ def infer_reporters(soup, data, publisher, host):
         for node in soup.select(selector)[:5]:
             candidates.append(node.get_text(" ", strip=True))
 
+    host = (host or "").lower().removeprefix("www.")
+    page_text = clean_text(soup.get_text(" ", strip=True))
+
     for raw in candidates:
         cleaned = normalize_reporter_text(raw, publisher)
         if cleaned:
+            # 팀 바이라인이 대표값으로 노출되는 CMS는 같은 페이지의
+            # '○○팀 개인명 기자' 표기에서 실제 작성자를 우선한다.
+            if cleaned.endswith("팀"):
+                m = re.search(
+                    rf"{re.escape(cleaned)}\s*([가-힣]{{2,4}})\s*기자",
+                    page_text,
+                )
+                if m:
+                    return m.group(1)
             return cleaned
-
-    host = (host or "").lower().removeprefix("www.")
-    page_text = clean_text(soup.get_text(" ", strip=True))
 
     # '기자명'은 뉴스 CMS의 명시적 메타데이터 라벨이므로 매체 공통 fallback으로 사용한다.
     m = re.search(r"기자명\s*([가-힣]{2,4})(?:\s*기자)?", page_text)
