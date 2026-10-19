@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>문구 편집 · 취재를 종합하면</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+  <main class="admin-wrap">
+    <header>
+      <h1>문구 편집</h1>
+      <p>공개 화면의 제목과 안내 문구를 수정합니다. 저장하면 즉시 반영됩니다.</p>
+    </header>
+    <section class="panel admin-panel">
+      <label class="admin-password">관리자 비밀번호
+        <input id="password" type="password" autocomplete="current-password" placeholder="비밀번호" />
+      </label>
+      <form id="configForm"></form>
+      <div class="admin-actions">
+        <button id="saveButton" class="save-button" type="button">저장</button>
+        <a href="/" target="_blank">공개 화면 보기</a>
+        <span id="status"></span>
+      </div>
+    </section>
+  </main>
+  <script src="/static/admin.js" defer></script>
+</body>
+</html>
