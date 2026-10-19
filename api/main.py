@@ -2,8 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import os
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
-from typing import Optional
+from urllib.parse import urlparse
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,7 +15,7 @@ db = firestore.Client(project=PROJECT_ID)
 
 app = FastAPI(
     title="취재를 종합하면 API",
-    version="0.1.0",
+    version="0.1.1",
 )
 
 app.add_middleware(
@@ -42,12 +43,25 @@ def doc_to_dict(doc):
     return serialize_value(data)
 
 
+def domain_of(url):
+    return (urlparse(url or "").hostname or "").lower().removeprefix("www.")
+
+
+def recent_article_docs(limit=300):
+    return list(
+        db.collection("articles")
+        .order_by("api_pubdate", direction=firestore.Query.DESCENDING)
+        .limit(limit)
+        .stream()
+    )
+
+
 @app.get("/")
 def root():
     return {
         "service": "취재를 종합하면 API",
-        "version": "0.1.0",
-        "endpoints": ["/health", "/api/status", "/api/articles"],
+        "version": "0.1.1",
+        "endpoints": ["/health", "/api/status", "/api/diagnostics", "/api/articles"],
     }
 
 
@@ -66,20 +80,18 @@ def status():
     )
     run_list = [doc_to_dict(doc) for doc in runs]
 
-    article_docs = (
-        db.collection("articles")
-        .order_by("api_pubdate", direction=firestore.Query.DESCENDING)
-        .limit(300)
-        .stream()
-    )
+    article_docs = recent_article_docs(300)
 
     total_seen = 0
     accepted = 0
     rejected = 0
-    source_counts = {}
+    source_counts = Counter()
     category_available = 0
+    accepted_category_available = 0
     exclusive = 0
+    accepted_exclusive = 0
     wire_reprint = 0
+    accepted_wire_reprint = 0
 
     for doc in article_docs:
         total_seen += 1
@@ -90,15 +102,20 @@ def status():
         elif state == "rejected":
             rejected += 1
 
-        source = data.get("final_source") or "UNKNOWN"
-        source_counts[source] = source_counts.get(source, 0) + 1
+        source_counts[data.get("final_source") or "UNKNOWN"] += 1
 
         if data.get("category_original"):
             category_available += 1
+            if state == "accepted":
+                accepted_category_available += 1
         if data.get("is_exclusive_strict"):
             exclusive += 1
+            if state == "accepted":
+                accepted_exclusive += 1
         if data.get("is_wire_reprint_suspected"):
             wire_reprint += 1
+            if state == "accepted":
+                accepted_wire_reprint += 1
 
     return {
         "latest_run": run_list[0] if run_list else None,
@@ -107,11 +124,104 @@ def status():
             "sample_size": total_seen,
             "accepted": accepted,
             "rejected": rejected,
-            "source_counts": source_counts,
+            "source_counts": dict(source_counts),
             "category_original_available": category_available,
-            "exclusive_strict": exclusive,
+            "accepted_category_original_available": accepted_category_available,
+            "exclusive_strict_all_candidates": exclusive,
+            "exclusive_strict_accepted": accepted_exclusive,
+            "exclusive_ratio_among_accepted": (
+                round(accepted_exclusive / accepted, 4) if accepted else None
+            ),
             "wire_reprint_suspected": wire_reprint,
+            "accepted_wire_reprint_suspected": accepted_wire_reprint,
         },
+    }
+
+
+@app.get("/api/diagnostics")
+def diagnostics():
+    docs = recent_article_docs(300)
+
+    by_domain = defaultdict(lambda: {
+        "total": 0,
+        "accepted": 0,
+        "rejected": 0,
+        "category_available": 0,
+        "has_naver_url": 0,
+        "naver_verified": 0,
+    })
+    rejection_reasons = Counter()
+    accepted_original_errors = Counter()
+    accepted_samples = []
+    rejected_samples = []
+
+    for doc in docs:
+        data = doc.to_dict() or {}
+        state = data.get("status") or "unknown"
+        domain = domain_of(data.get("original_url")) or "(unknown)"
+        stats = by_domain[domain]
+        stats["total"] += 1
+        stats[state] = stats.get(state, 0) + 1
+
+        if data.get("category_original"):
+            stats["category_available"] += 1
+        if data.get("naver_url"):
+            stats["has_naver_url"] += 1
+        if data.get("naver_url") and not data.get("naver_parse_error"):
+            stats["naver_verified"] += 1
+
+        original_error = data.get("original_parse_error") or ""
+        naver_error = data.get("naver_parse_error") or ""
+
+        if state == "rejected":
+            reason = original_error or "UNKNOWN_REJECTION"
+            rejection_reasons[reason] += 1
+            if len(rejected_samples) < 25:
+                rejected_samples.append({
+                    "title": data.get("api_title"),
+                    "domain": domain,
+                    "original_url": data.get("original_url"),
+                    "naver_url": data.get("naver_url"),
+                    "category_original": data.get("category_original"),
+                    "original_parse_error": original_error,
+                    "naver_parse_error": naver_error,
+                })
+        elif state == "accepted":
+            if original_error:
+                accepted_original_errors[original_error] += 1
+            if len(accepted_samples) < 20:
+                accepted_samples.append({
+                    "title": data.get("api_title"),
+                    "domain": domain,
+                    "publisher": data.get("publisher_original"),
+                    "reporters": data.get("reporters_original"),
+                    "category_original": data.get("category_original"),
+                    "is_exclusive_strict": data.get("is_exclusive_strict"),
+                    "phrase_count": data.get("phrase_count"),
+                    "final_source": data.get("final_source"),
+                    "body_similarity_original_vs_naver": data.get("body_similarity_original_vs_naver"),
+                    "phrase_context_similarity": data.get("phrase_context_similarity"),
+                    "original_url": data.get("original_url"),
+                    "naver_url": data.get("naver_url"),
+                })
+
+    domain_rows = []
+    for domain, stats in by_domain.items():
+        row = {"domain": domain, **stats}
+        row["success_rate"] = round(
+            stats["accepted"] / stats["total"], 4
+        ) if stats["total"] else None
+        domain_rows.append(row)
+
+    domain_rows.sort(key=lambda x: (-x["total"], x["domain"]))
+
+    return {
+        "article_count_scanned": len(docs),
+        "rejection_reasons": dict(rejection_reasons),
+        "accepted_original_errors": dict(accepted_original_errors),
+        "domains": domain_rows,
+        "accepted_samples": accepted_samples,
+        "rejected_samples": rejected_samples,
     }
 
 
@@ -120,7 +230,6 @@ def articles(
     limit: int = Query(default=30, ge=1, le=100),
     accepted_only: bool = True,
 ):
-    # 단일-field index만 사용하기 위해 최근 기사부터 넉넉히 읽고 애플리케이션에서 필터링한다.
     scan_limit = min(max(limit * 4, 100), 400)
     docs = (
         db.collection("articles")
