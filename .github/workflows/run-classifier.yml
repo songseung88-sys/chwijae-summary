@@ -1,0 +1,49 @@
+name: Classify new articles
+
+on:
+  schedule:
+    - cron: "20 * * * *"
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/run-classifier.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: chwijae-hourly-classifier
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: chwijae-summary
+  REGION: asia-northeast3
+  JOB_NAME: chwijae-classifier-test
+  DEPLOY_SA: github-deployer@chwijae-summary.iam.gserviceaccount.com
+  WIF_PROVIDER: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+
+jobs:
+  classify-new:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Classify only new articles
+        run: |
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${PROJECT_ID}" \
+            --region="${REGION}" \
+            --update-env-vars="CLASSIFY_FORCE=false,CLASSIFY_LIMIT=100" \
+            --wait
