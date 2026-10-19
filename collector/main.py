@@ -30,7 +30,7 @@ SECONDARY_EXPRESSIONS = [
     "한 셈이다",
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.4.1-structured-fragment-cleanup"
+COLLECTOR_VERSION = "0.5.0-naver-content-basis"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -675,6 +675,7 @@ def main():
         "new_accepted": 0,
         "original_success": 0,
         "naver_fallback": 0,
+        "naver_preferred_diff": 0,
         "rejected": 0,
         "exclusive": 0,
         "wire_reprint_suspected": 0,
@@ -716,16 +717,29 @@ def main():
             and not suspicious_body(original.get("body", ""))
             and not suspicious_context(original)
         )
+        original_has_phrase = original["phrase_count"] > 0
+        naver_has_phrase = naver["phrase_count"] > 0
+        body_sim = (
+            similarity(original.get("body", ""), naver.get("body", ""))
+            if original_has_phrase and naver_has_phrase
+            else None
+        )
 
-        if original_clean:
+        # 표시·집계용 본문은 NAVER 전송본이 존재하고 원문과 다르면 NAVER를 기준으로 한다.
+        # 원문은 언론사/기자/원문 카테고리 등 provenance용 메타데이터 기준으로 유지한다.
+        if naver_has_phrase and original_has_phrase and body_sim is not None and body_sim < 1.0:
+            final = naver
+            source = "NAVER_PREFERRED_DIFF"
+            summary["naver_preferred_diff"] += 1
+        elif original_clean:
             final = original
             source = "ORIGINAL"
             summary["original_success"] += 1
-        elif naver["phrase_count"] > 0:
+        elif naver_has_phrase:
             final = naver
             source = "NAVER_FALLBACK"
             summary["naver_fallback"] += 1
-        elif original["phrase_count"] > 0:
+        elif original_has_phrase:
             final = original
             source = "ORIGINAL_LOW_QUALITY"
             summary["original_success"] += 1
@@ -757,9 +771,20 @@ def main():
         reporters_resolved = reporters_original or reporters_naver
         reporter_source = "ORIGINAL" if reporters_original else ("NAVER" if reporters_naver else "NONE")
 
+        content_basis = "NAVER" if source in ("NAVER_PREFERRED_DIFF", "NAVER_FALLBACK") else "ORIGINAL"
+        content_basis_reason = {
+            "NAVER_PREFERRED_DIFF": "ORIGINAL_NAVER_DIFFER",
+            "NAVER_FALLBACK": "ORIGINAL_UNAVAILABLE_OR_LOW_QUALITY",
+            "ORIGINAL": "ORIGINAL_AND_NAVER_EQUIVALENT_OR_NAVER_UNAVAILABLE",
+            "ORIGINAL_LOW_QUALITY": "NAVER_UNAVAILABLE",
+            "REJECTED": "PHRASE_NOT_CONFIRMED",
+        }.get(source, source)
+
         article = {
             "status": "accepted" if source != "REJECTED" else "rejected",
             "final_source": source,
+            "content_basis": content_basis,
+            "content_basis_reason": content_basis_reason,
             "api_title": item["api_title"],
             "api_description": item["api_description"],
             "api_pubdate": item["api_pubdate"],
@@ -781,9 +806,7 @@ def main():
             "body_text_private": final.get("body", ""),
             "original_parse_error": original.get("error", ""),
             "naver_parse_error": naver.get("error", ""),
-            "body_similarity_original_vs_naver": similarity(
-                original.get("body", ""), naver.get("body", "")
-            ) if item["naver_url"] else None,
+            "body_similarity_original_vs_naver": body_sim if item["naver_url"] else None,
             "phrase_context_similarity": similarity(
                 " ".join(x["text"] for x in original.get("phrase_contexts", [])),
                 " ".join(x["text"] for x in naver.get("phrase_contexts", [])),
