@@ -1,0 +1,47 @@
+name: Validate dashboard changes
+
+on:
+  push:
+    branches:
+      - feature/dashboard-topic-classification
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "api/**"
+      - ".github/workflows/run-classifier.yml"
+      - ".github/workflows/validate-dashboard.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Python compile
+        run: python -m py_compile api/main.py classifier/main.py
+      - name: JavaScript syntax check
+        run: node --check api/static/app.js && node --check api/static/admin.js
+      - name: Markup and API contract checks
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import re
+
+          src = Path("api/main.py").read_text()
+          ast.parse(src)
+          html = Path("api/static/index.html").read_text()
+          js = Path("api/static/app.js").read_text()
+          for key in ["categoryCoverage", "clearTopicFilter", "categoryRanking", "articleTemplate"]:
+              assert f'id="{key}"' in html, key
+          for key in ["topic-details", "topic-path", "topic-tags", "topic-original", "paragraph-details"]:
+              assert key in html and key in js, key
+          for key in ["category_ranking_ai", "category_classified_count", "category_unclassified_count", "category_primary", "category_secondary", "category_tertiary"]:
+              assert key in src, key
+          assert 'CLASSIFY_FORCE=false' in Path(".github/workflows/run-classifier.yml").read_text()
+          print("Dashboard contract checks passed")
+          PY

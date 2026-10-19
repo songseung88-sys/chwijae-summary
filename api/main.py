@@ -173,6 +173,9 @@ def get_site_config():
             value = stored.get(key)
             if isinstance(value, str) and value.strip():
                 config[key] = value.strip()
+    # Preserve customized labels; migrate only the old built-in category title.
+    if config.get("section_category_title") == "원문 기사 분류":
+        config["section_category_title"] = "기사 주제별 사용량"
     return config
 
 
@@ -274,6 +277,14 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         for a in today_articles
     )
 
+    # A common, AI-generated secondary category is the public topic statistic.
+    # Unclassified articles remain in today's total, but not in topic rankings.
+    topic_counts = Counter()
+    for article in today_articles:
+        if article.get("taxonomy_version") == "0.3" and article.get("category_secondary"):
+            topic_counts[article["category_secondary"]] += 1
+    topic_classified_count = sum(topic_counts.values())
+
     secondary_counts = Counter()
     for article in today_articles:
         for exp, count in (article.get("secondary_expressions") or {}).items():
@@ -308,6 +319,10 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             "reporters": split_reporters(a.get("reporters_resolved") or a.get("reporters_original")),
             "published_at": a.get("api_pubdate"),
             "category_original": a.get("category_original") or "미분류",
+            "category_primary": a.get("category_primary") if a.get("taxonomy_version") == "0.3" else None,
+            "category_secondary": a.get("category_secondary") if a.get("taxonomy_version") == "0.3" else None,
+            "category_tertiary": a.get("category_tertiary") if a.get("taxonomy_version") == "0.3" else None,
+            "topic_tags": a.get("topic_tags") or [] if a.get("taxonomy_version") == "0.3" else [],
             "is_exclusive": bool(a.get("is_exclusive_strict")),
             "phrase_count": int(a.get("phrase_count") or 0),
             "context_sentence": context_sentence(first_context),
@@ -347,6 +362,12 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             {"name": name, "count": count}
             for name, count in category_counts.most_common()
         ],
+        "category_ranking_ai": [
+            {"name": name, "count": count}
+            for name, count in topic_counts.most_common()
+        ],
+        "category_classified_count": topic_classified_count,
+        "category_unclassified_count": len(today_articles) - topic_classified_count,
         "secondary_expressions": [
             {"name": name, "count": count}
             for name, count in secondary_counts.most_common()
@@ -364,7 +385,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             "query": f'"{PHRASE}"',
             "source_priority": "언론사 원문 우선, NAVER 전송본 비교",
             "refresh": "30분 간격",
-            "category_note": "현재 주제는 언론사 원문 카테고리를 참고값으로 표시합니다.",
+            "category_note": "기사 주제는 AI 공통분류의 2차 범주이며, 미분류 기사는 주제 순위에서 제외됩니다.",
         },
     }
 
