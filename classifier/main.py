@@ -4,6 +4,7 @@
 import hashlib
 import json
 import os
+import re
 import sys
 import time
 from datetime import datetime
@@ -14,7 +15,7 @@ from google.cloud import firestore
 
 KST = ZoneInfo("Asia/Seoul")
 TAXONOMY_VERSION = "0.3"
-PROMPT_VERSION = "0.3.1"
+PROMPT_VERSION = "0.3.2"
 MODEL = os.getenv("OPENAI_MODEL", "gpt-6-luna")
 OPENAI_URL = "https://api.openai.com/v1/responses"
 
@@ -140,7 +141,7 @@ SYSTEM_PROMPT = """
 3) 3차는 '정치 > 국회·정당'과 '사회 > 법조'에서만 사용한다. 그 외에는 '없음'.
 4) 정치 > 국회·정당의 3차는 여당, 야당, 없음 중 하나다. 선거는 2차 '선거', 국정감사는 2차 '국감'으로 분류한다.
 5) 국정감사 질의·답변·증인 출석·감사 결과·국감에서 새로 드러난 문제가 기사 발생의 핵심이면 정치 > 국감을 우선한다. 제목이나 리드에서 국감·국정감사를 전면에 내세우고 감사장에서의 질의·답변·지적이 핵심이면 실질 쟁점이 금융·AI·공공기관 운영이어도 국감으로 분류한다. 국감이 과거 배경이나 단순 언급일 뿐이면 기사의 실질 주제로 분류한다. 이 국감 규칙은 아래 공공기관 운영 규칙보다 우선한다.
-6) 중앙정부 부처·중앙 공공기관의 조직·인사·근태·기관 운영 자체가 중심이면 정치 > 정치 기타로 분류한다. 다만 해당 기관의 금융·복지·의료·산업 등 실질 업무 내용이 중심이면 그 분야로 분류한다. 지방자치단체 자체의 조직개편·인사·운영 또는 지방자치단체 산하 기관의 인선·운영이 중심이면 정치 > 지방자치로 분류한다.
+6) 중앙정부 부처·중앙 공공기관의 순수한 조직개편·임면·근태·내부 경영관리 자체가 중심일 때만 정치 > 정치 기타로 분류한다. 법조기관의 수사·감찰, 국방기관의 군사·방위 업무, 금융기관의 금융업무, 복지·의료기관의 서비스처럼 실질 분야가 분명하면 해당 분야를 우선한다. 지방자치단체 자체의 조직개편·인사 또는 지방 산하 기관의 임면·내부 인사 문제가 중심이면 정치 > 지방자치로 분류한다. 지방정부가 주체라는 이유만으로 축제·금융·교통·복지 등 실질 분야 기사를 지방자치로 보내지 않는다.
 7) 사회 > 법조의 3차는 법원·재판, 검찰, 중수청, 공소청, 특검, 공수처, 법무부, 법률·제도, 교정·형사정책, 법조 기타 중 하나다.
 8) 기업이 연구개발, 기술, 제품, 공정, 경쟁력, 투자, 사업화의 주체라면 과학·IT보다 경제·산업을 우선한다.
    예: 기업의 반도체 공정 개발은 경제·산업 > 전기·전자.
@@ -188,6 +189,37 @@ SCHEMA = {
     ],
     "additionalProperties": False,
 }
+
+def apply_special_rules(result, article):
+    title = (
+        article.get("title_resolved")
+        or article.get("title_original")
+        or article.get("title_naver")
+        or article.get("api_title")
+        or ""
+    )
+    body = article.get("body_text_private") or ""
+    contexts = article.get("phrase_contexts") or []
+    phrase_context = " ".join(
+        str(x.get("text") or "") for x in contexts if isinstance(x, dict)
+    )
+    audit_scope = f"{title}\n{body[:1800]}\n{phrase_context[:1200]}"
+
+    explicit_audit = bool(re.search(
+        r"(?:국정감사|국감)(?:에서|을|를|에|자료|현장|질의|답변|증인|감사)?",
+        audit_scope,
+    ))
+
+    if explicit_audit:
+        # 선거와 마찬가지로 국감은 주제와 별개로 기사 생성 계기가 뚜렷한 특수 분류다.
+        # 국감이 제목/기사 앞부분/핵심 문맥에 명시되면 안정적으로 국감에 모은다.
+        result["primary"] = "정치"
+        result["secondary"] = "국감"
+        result["tertiary"] = "없음"
+        result["reason_short"] = "국정감사 질의·자료·감사 과정이 기사 발생과 핵심 정보의 직접적인 계기이므로 국감으로 분류했다."
+
+    return result
+
 
 def validate_result(result):
     primary = result.get("primary")
@@ -370,10 +402,12 @@ def main():
     for idx, (doc, article) in enumerate(targets, start=1):
         try:
             result, response_id, usage = call_openai(api_key, article)
+            result = apply_special_rules(result, article)
             ok, err = validate_result(result)
             if not ok:
                 summary["retried_for_validation"] += 1
                 result, response_id, usage = call_openai(api_key, article, correction=err)
+                result = apply_special_rules(result, article)
                 ok, err = validate_result(result)
                 if not ok:
                     raise RuntimeError(f"validation_failed_after_retry:{err}")
