@@ -76,6 +76,18 @@ jobs:
           assert ".card:first-child" in css
           assert "highlightTargetPhrases" in editorial_js
           assert "LIVE_DASHBOARD_VALIDATED" not in home
+          # Rank details and minimal article list are served by the deployed API.
+          ranking_js=get("/static/ranking-dialog.js?v=ranking-details-1").decode("utf-8")
+          assert 'id="rankingDialog"' in home
+          assert 'id="rankingDialogMore"' in home
+          assert '<div class="chips"></div>' not in home
+          assert "node.querySelector(\".chips\")" not in editorial_js
+          assert 'a.naver_url) links.push' not in editorial_js
+          assert "openRankingDialog(id)" in editorial_js
+          assert 'rankingDialogState.visible=20' in ranking_js
+          assert 'groupReportersByPublisher' in ranking_js
+          assert ".hero::before,.hero::after{display:none}" in css
+          assert public_cfg.get("ranking_view_all_text")=="자세히 보기"
           print("EDITORIAL_BLUE_LIVE_VALIDATED")
           print("LIVE_DASHBOARD_VALIDATED")
           PY
