@@ -15,7 +15,8 @@ ranking_collapse_text:"링크 · 접기",
 paragraph_toggle_text:"링크 · 문단 보기",
 original_link_text:"링크 · 원문",
 naver_link_text:"링크 · 네이버",
-articles_more_text:"버튼 · 더 보기"
+articles_more_text:"버튼 · 더 보기",
+about_body:"자세히 보기 · 본문 (줄바꿈 유지)"
 };
 let current={};
 async function load(){
@@ -23,8 +24,8 @@ async function load(){
  const form=document.querySelector("#configForm");
  form.innerHTML=Object.entries(labels).map(([k,label])=>{
    const value=String(current[k]||"")
-     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-   const rows=k==="hero_description" ? 4 : 2;
+     .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+   const rows=k==="about_body" ? 14 : (k==="hero_description" ? 4 : 2);
    return `
    <label class="admin-field"><span>${label}</span>
    <textarea name="${k}" rows="${rows}">${value}</textarea></label>`;
