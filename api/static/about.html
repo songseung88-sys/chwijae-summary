@@ -6,17 +6,13 @@
   <title>자세히 보기 | 취재를 종합하면</title>
   <meta name="description" content="취재를 종합하면 대시보드 소개" />
   <link rel="stylesheet" href="/static/style.css" />
-  <link rel="stylesheet" href="/static/bigkinds-charts.css?v=2" />
+  <link rel="stylesheet" href="/static/bigkinds-charts.css?v=3" />
 </head>
 <body>
   <main class="wrap about-page">
     <a class="about-back" href="/">← 대시보드로 돌아가기</a>
     <h1>자세히 보기</h1>
-    <section class="bigkinds-history" aria-labelledby="bigkindsHistoryTitle">
-      <header class="bigkinds-heading">
-        <h2 id="bigkindsHistoryTitle">‘취재를 종합하면’ 10년의 기록</h2>
-        <p>빅카인즈에서 조사한 10개 언론사의 연도별 기사 수입니다.</p>
-      </header>
+    <section class="bigkinds-history" aria-label="연도별 기사 수 및 소개글">
       <div id="aboutLayout">
         <section id="aboutContent" class="about-text-block" aria-label="서비스 소개 본문" hidden></section>
         <article id="bigkindsAnnualSection" class="bigkinds-panel" aria-labelledby="bigkindsAnnualTitle">
@@ -39,8 +35,27 @@
       </div>
       <p id="aboutLoadError" class="about-load-error" hidden>소개글을 불러오지 못했습니다.</p>
     </section>
+    <section class="feedback-section" aria-label="의견 보내기">
+      <details id="feedbackDisclosure">
+        <summary>의견 보내기 <span aria-hidden="true">⌄</span></summary>
+        <form id="feedbackForm">
+          <label for="feedbackMessage">서비스에 대한 의견이나 제안을 남겨주세요.</label>
+          <textarea id="feedbackMessage" name="message" rows="6" maxlength="3000"
+            minlength="2" required placeholder="의견을 자유롭게 작성해주세요."></textarea>
+          <div class="feedback-honeypot" aria-hidden="true">
+            <label for="feedbackWebsite">웹사이트</label>
+            <input id="feedbackWebsite" name="website" type="text" tabindex="-1" autocomplete="off" />
+          </div>
+          <div class="feedback-actions">
+            <button type="submit" id="feedbackSubmit">전송하기</button>
+            <span id="feedbackStatus" role="status" aria-live="polite"></span>
+          </div>
+        </form>
+      </details>
+    </section>
   </main>
   <script src="/static/about.js?v=2" defer></script>
   <script src="/static/bigkinds-charts.js?v=2" defer></script>
+  <script src="/static/feedback.js?v=1" defer></script>
 </body>
 </html>

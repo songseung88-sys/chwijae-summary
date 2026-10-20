@@ -65,3 +65,23 @@
 .about-page .about-text-block{line-height:1.9;font-size:15px;white-space:pre-wrap;overflow-wrap:anywhere;color:#31485f;padding:17px 4px}
 .about-page #aboutLayout #aboutContent:not([hidden]){border:0;margin:0;min-height:0;padding:17px 4px}
 .about-page #aboutContent[hidden]{display:none}
+
+/* Collapsible contact box; visible after all administrator-ordered article blocks. */
+.about-page .bigkinds-history{margin-top:10px}
+.feedback-section{margin-top:28px;padding:0 0 24px;border-top:1px solid #dbe5ef}
+.feedback-section details{margin:0}
+.feedback-section summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;padding:20px 4px;color:#1c507d;font-size:15px;font-weight:700;letter-spacing:-.015em}
+.feedback-section summary::-webkit-details-marker{display:none}
+.feedback-section summary span{font-size:21px;font-weight:400;color:#5988ae;transition:transform .15s}
+.feedback-section details[open] summary span{transform:rotate(180deg)}
+.feedback-section summary:focus-visible{outline:2px solid #2a79ad;outline-offset:3px;border-radius:6px}
+#feedbackForm{padding:2px 3px 20px}
+#feedbackForm>label{display:block;margin:0 0 10px;font-size:13px;color:#617589}
+#feedbackMessage{width:100%;min-height:130px;resize:vertical;border:1px solid #c8dae9;border-radius:10px;padding:13px 15px;background:#fff;color:#203a56;line-height:1.7;font-size:14px}
+#feedbackMessage:focus-visible{outline:3px solid #cfe4f7;border-color:#467fae}
+.feedback-honeypot{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;pointer-events:none}
+.feedback-actions{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin-top:12px}
+#feedbackSubmit{background:#1f5b8d;color:#fff;border:0;border-radius:9px;padding:11px 24px;font-size:13px;font-weight:700;cursor:pointer}
+#feedbackSubmit:hover:not(:disabled){background:#153e6d}
+#feedbackSubmit:disabled{opacity:.58;cursor:not-allowed}
+#feedbackStatus{font-size:12px;line-height:1.6;color:#426583}

@@ -30,11 +30,12 @@ SHEET_HEADERS={
     "일별 통계":750549775,"언론사별":201,"기자별":202,
     "주제별":203,"무주체형 표현":204,"기사 목록":205,
     "동기화 기록":206,"30분 수집 로그":207,"언론사 수집 진단":208,
+    "의견 보내기":209,
 }
 KEY_COL={
     "일별 통계":14,"언론사별":10,"기자별":6,"주제별":7,
     "무주체형 표현":8,"기사 목록":26,"동기화 기록":7,
-    "30분 수집 로그":16,"언론사 수집 진단":12,
+    "30분 수집 로그":16,"언론사 수집 진단":12,"의견 보내기":0,
 }
 # Google Sheets stores strings with a per-cell 50K limit.
 # Keep the logical body in column V, overflow in AB/AC without silent truncation.
@@ -301,6 +302,26 @@ def collect_run_rows(runs,now):
             ])
     return out
 
+def include_pending_feedback(db, rows):
+    """Retry submissions which the public API could not confirm in Sheets."""
+    refs = []
+    incoming = []
+    for snap in db.collection("visitor_feedback").where("status", "==", "pending").limit(100).stream():
+        record = snap.to_dict() or {}
+        message = record.get("message")
+        if not isinstance(message, str) or not message.strip() or len(message) > 3000:
+            continue
+        incoming.append([snap.id, record.get("submitted_at", ""), message, "", ""])
+        refs.append(snap.reference)
+    rows["의견 보내기"] = incoming
+    return refs
+
+
+def mark_feedback_delivered(refs):
+    for ref in refs:
+        ref.update({"status": "saved", "reconciled_at": datetime.now(KST).isoformat()})
+
+
 class SheetWriter:
     def __init__(self,sheet_id):
         creds,_=google.auth.default(scopes=["https://www.googleapis.com/auth/spreadsheets"])
@@ -342,6 +363,9 @@ class SheetWriter:
             for row in rows:
                 key=str(row[KEY_COL[name]])
                 if key in index:
+                    if name == "의견 보내기":
+                        # Never overwrite mail alert timestamps or private notes.
+                        continue
                     updated.append((index[key],row))
                 else:
                     appended.append(row)
@@ -378,8 +402,10 @@ def main():
     now_iso=now.isoformat()
     writer=SheetWriter(SHEET_ID)
     run_rows=collect_run_rows(scan_runs(DB,args.mode,dates),now_iso)
+    pending_refs=include_pending_feedback(DB,run_rows)
     if args.mode=="logs":
         written=writer.write(run_rows)
+        mark_feedback_delivered(pending_refs)
         print(json.dumps({"mode":"logs","rows_written":written,"runs":len(run_rows["30분 수집 로그"])}))
         return
     raw=scan_articles(DB,dates)
@@ -389,6 +415,7 @@ def main():
     out.update(run_rows)
     try:
         written=writer.write(out)
+        mark_feedback_delivered(pending_refs)
         status="성공"
         detail="정상 완료"
     except Exception as exc:
