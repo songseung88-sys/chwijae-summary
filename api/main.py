@@ -139,10 +139,28 @@ def normalize_publisher(value):
     return name
 
 
-def publisher_display(article):
-    return normalize_publisher(
-        article.get("publisher_original") or domain_of(article.get("original_url"))
-    )
+def publisher_source_name(article):
+    """Unmodified source label (apart from whitespace), separate from display alias."""
+    value = article.get("publisher_original") or domain_of(article.get("original_url"))
+    return re.sub(r"\s+", " ", str(value or "")).strip() or "미확인"
+
+
+def get_publisher_aliases():
+    """Display-only overrides. Do not mutate article metadata or classification data."""
+    snap = db.collection("site_config").document("publisher_aliases").get()
+    stored = (snap.to_dict() or {}).get("aliases") if snap.exists else None
+    if not isinstance(stored, dict):
+        return {}
+    return {
+        key: value for key, value in stored.items()
+        if isinstance(key, str) and isinstance(value, str) and key.strip() and value.strip()
+    }
+
+
+def publisher_display(article, aliases=None):
+    raw = publisher_source_name(article)
+    default = normalize_publisher(raw)
+    return (aliases or {}).get(raw) or default
 
 
 def latest_successful_collection():
@@ -270,6 +288,68 @@ def update_site_config(payload: dict, x_admin_password: str | None = Header(defa
     return {"ok": True, "config": get_site_config()}
 
 
+@app.get("/api/admin/publishers")
+def list_publisher_names(x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    aliases = get_publisher_aliases()
+    counts = Counter(publisher_source_name(article) for article in accepted_articles(1200))
+    for source in aliases:
+        counts.setdefault(source, 0)
+    return {
+        "scope": "최근 승인 기사 최대 1,200건 + 저장된 이름 변경 항목",
+        "publishers": [
+            {
+                "source": source,
+                "default_name": normalize_publisher(source),
+                "display_name": aliases.get(source) or normalize_publisher(source),
+                "is_custom": source in aliases,
+                "article_count": count,
+            }
+            for source, count in sorted(
+                counts.items(), key=lambda item: (-item[1], item[0].casefold())
+            )
+        ],
+    }
+
+
+@app.put("/api/admin/publishers")
+def update_publisher_names(payload: dict, x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    updates = payload.get("updates")
+    if not isinstance(updates, list) or not 1 <= len(updates) <= 200:
+        raise HTTPException(status_code=400, detail="수정 항목을 1~200개 전달해주세요.")
+
+    validated = []
+    seen = set()
+    for entry in updates:
+        if not isinstance(entry, dict):
+            raise HTTPException(status_code=400, detail="잘못된 언론사 이름 형식입니다.")
+        source = entry.get("source")
+        name = entry.get("display_name")
+        if not isinstance(source, str) or not isinstance(name, str):
+            raise HTTPException(status_code=400, detail="언론사 이름은 문자열이어야 합니다.")
+        source = re.sub(r"\s+", " ", source).strip()
+        name = re.sub(r"\s+", " ", name).strip()
+        if not source or len(source) > 180 or len(name) > 80:
+            raise HTTPException(status_code=400, detail="언론사 이름은 80자 이하로 입력해주세요.")
+        if source in seen:
+            raise HTTPException(status_code=400, detail="중복된 언론사 수정 요청입니다.")
+        seen.add(source)
+        validated.append((source, name))
+
+    ref = db.collection("site_config").document("publisher_aliases")
+    aliases = get_publisher_aliases()
+    for source, name in validated:
+        if not name or name == normalize_publisher(source):
+            aliases.pop(source, None)
+        else:
+            aliases[source] = name
+    if len(aliases) > 1000:
+        raise HTTPException(status_code=400, detail="저장 가능한 이름 변경 항목의 한도를 초과했습니다.")
+    ref.set({"aliases": aliases, "updated_at": firestore.SERVER_TIMESTAMP}, merge=True)
+    return {"ok": True, "updated": len(validated)}
+
+
 @app.get("/")
 def dashboard_page():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
@@ -322,11 +402,12 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         if a.get("_dt") and week_start <= a["_dt"].date() <= selected
     ]
 
-    publisher_counts = Counter(publisher_display(a) for a in today_articles)
+    publisher_aliases = get_publisher_aliases()
+    publisher_counts = Counter(publisher_display(a, publisher_aliases) for a in today_articles)
 
     reporter_counts = Counter()
     for article in week_articles:
-        publisher = publisher_display(article)
+        publisher = publisher_display(article, publisher_aliases)
         for reporter in split_reporters(
             article.get("reporters_resolved") or article.get("reporters_original"),
             people_only=True,
@@ -421,7 +502,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         article_rows.append({
             "id": a.get("id"),
             "title": a.get("title_resolved") or a.get("title_original") or a.get("title_naver") or a.get("api_title"),
-            "publisher": publisher_display(a),
+            "publisher": publisher_display(a, publisher_aliases),
             "reporters": split_reporters(a.get("reporters_resolved") or a.get("reporters_original")),
             "published_at": a.get("api_pubdate"),
             "category_original": a.get("category_original") or "미분류",

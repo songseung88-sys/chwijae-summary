@@ -31,12 +31,13 @@ jobs:
         run: |
           python -m pip install --quiet beautifulsoup4
           python -m unittest discover -s qa -p "test_publisher_normalization.py" -v
+          python -m unittest discover -s qa -p "test_publisher_alias_admin.py" -v
           python -m unittest discover -s qa -p "test_subjectless_table3.py" -v
           python -m unittest discover -s qa -p "test_expanded_corpus.py" -v
           python -m unittest discover -s qa -p "test_article_body_extraction.py" -v
           bash -n infra/setup_scheduler.sh
       - name: JavaScript syntax check
-        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js
+        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js
       - name: Verify pie labels and small-slice leader lines
         run: |
           node - <<'JS'
@@ -133,7 +134,8 @@ jobs:
           assert 'node.querySelector(".chips")' not in app
           assert 'a.is_exclusive' not in app.split('function articleNode(a,cfg){')[1].split('function renderArticles()')[0]
           assert 'links.push(`<a' in app
-          assert 'a.naver_url) links.push' not in app
+          assert 'if(a.naver_url) links.push' in app
+          assert 'esc(cfg.naver_link_text)' in app
           for target in ("publisherRanking","reporterRanking","secondaryRanking"):
               assert f'data-target="{target}"' in html
           for target in ("rankingDialog","rankingDialogTitle","rankingDialogContent","rankingDialogMore","closeRankingDialog"):
@@ -196,6 +198,47 @@ jobs:
           assert.equal((grouped.match(/ranking-dialog-row/g)||[]).length,5);
           assert.equal(element("#rankingDialogMore").hidden,true);
           console.log("Ranking pagination 20/40/45, 20/29 and grouping validated");
+          JS
+      - name: Verify publisher admin editor and Naver link restoration
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          api=Path("api/main.py").read_text()
+          app=Path("api/static/app.js").read_text()
+          index=Path("api/static/index.html").read_text()
+          html=Path("api/static/admin.html").read_text()
+          adminjs=Path("api/static/publisher-editor.js").read_text()
+          for endpoint in ('@app.get("/api/admin/publishers")','@app.put("/api/admin/publishers")'):
+              assert endpoint in api
+          assert 'publisher_aliases = get_publisher_aliases()' in api
+          assert 'publisher_display(a, publisher_aliases)' in api
+          assert 'publisher_display(article, publisher_aliases)' in api
+          assert 'get_publisher_aliases()' in api
+          assert 'id="publisherSearch"' in html
+          assert 'id="publisherRows"' in html
+          assert 'id="savePublishers"' in html
+          assert "publisher-editor.js" in html
+          assert "X-Admin-Password" in adminjs
+          assert "publisherEditor.visible+=50" in adminjs
+          assert 'if(a.naver_url) links.push' in app
+          assert "esc(cfg.naver_link_text)" in app
+          assert "/static/app.js?v=editorial-blue-3" in index
+          print("Publisher alias admin and Naver link contract passed")
+          PY
+          node - <<'JS'
+          const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
+          const ctx={document:{addEventListener(){}}};
+          vm.createContext(ctx);
+          vm.runInContext(fs.readFileSync("api/static/publisher-editor.js","utf8"),ctx);
+          const escapeHtml=vm.runInContext('escapePublisherHtml',ctx);
+          assert.equal(escapeHtml('<img src=x onerror="bad">'),'&lt;img src=x onerror=&quot;bad&quot;&gt;');
+          const rows=vm.runInContext('publisherEditor',ctx);
+          rows.items=[
+            {source:"KBS 뉴스",display_name:"KBS 뉴스",default_name:"KBS 뉴스",draft:"KBS",article_count:3},
+            {source:"이투데이",display_name:"이투데이",default_name:"이투데이",draft:"이투데이",article_count:1},
+          ];
+          assert.equal(vm.runInContext('changedPublisherItems',ctx)().length,1);
+          console.log("Admin label safety and changed-row detection passed");
           JS
       - name: Markup and API contract checks
         run: |

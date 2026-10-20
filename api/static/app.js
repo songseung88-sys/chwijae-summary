@@ -111,6 +111,7 @@ function articleNode(a,cfg){
   }else{details.remove();}
   const links=[];
   if(a.original_url) links.push(`<a target="_blank" rel="noopener noreferrer" href="${esc(a.original_url)}">${esc(cfg.original_link_text)}</a>`);
+  if(a.naver_url) links.push(`<a target="_blank" rel="noopener noreferrer" href="${esc(a.naver_url)}">${esc(cfg.naver_link_text)}</a>`);
   node.querySelector(".links").innerHTML=links.join("");
   return node;
 }
