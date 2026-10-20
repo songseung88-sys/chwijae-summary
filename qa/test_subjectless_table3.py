@@ -28,7 +28,10 @@ fn_nodes = [
     if isinstance(node, ast.FunctionDef)
     and node.name in {"target_phrase_counts", "secondary_counts", "subjectless_type_counts"}
 ]
-exec(compile(ast.Module(body=fn_nodes, type_ignores=[]), "collector/main.py", "exec"), ns)
+pattern_assign = next(node for node in tree.body if isinstance(node, ast.Assign)
+    and any(isinstance(t, ast.Name) and t.id == "ADDITIONAL_PHRASE_PATTERN"
+            for t in node.targets))
+exec(compile(ast.Module(body=[pattern_assign]+fn_nodes, type_ignores=[]), "collector/main.py", "exec"), ns)
 counts = ns["secondary_counts"]
 group_counts = ns["subjectless_type_counts"]
 
