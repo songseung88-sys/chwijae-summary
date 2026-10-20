@@ -86,13 +86,23 @@ jobs:
             -H "Authorization: Bearer $TOKEN" \
             "https://firebase.googleapis.com/v1beta1/projects/$PROJECT_ID")"
           unset TOKEN
-          if [ "$STATUS" = 200 ]; then
-            echo "Firebase is already registered for $PROJECT_ID."
-          else
-            echo "Firebase project lookup returned HTTP $STATUS; attempting initial setup."
-            echo "This step may require the project owner to accept Firebase Terms or grant additional IAM roles."
-            firebase projects:addfirebase "$PROJECT_ID" --non-interactive
-          fi
+          case "$STATUS" in
+            200)
+              echo "Firebase is already registered for $PROJECT_ID."
+              ;;
+            404)
+              echo "Firebase project is not registered; attempting initial setup."
+              firebase projects:addfirebase "$PROJECT_ID" --non-interactive
+              ;;
+            403)
+              echo "::error::Firebase project API access is denied (HTTP 403). In Firebase Console add Firebase to the existing GCP project and accept its terms; in GCP IAM grant roles/firebasehosting.admin to $DEPLOY_SA, then rerun this workflow."
+              exit 1
+              ;;
+            *)
+              echo "::error::Firebase lookup returned unexpected HTTP $STATUS. Inspect GCP API activation and IAM permissions."
+              exit 1
+              ;;
+          esac
 
       - name: Create the default Hosting site if missing
         run: |
