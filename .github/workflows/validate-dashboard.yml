@@ -28,6 +28,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Python compile
         run: python -m py_compile api/main.py classifier/main.py collector/main.py
+      - name: Verify social sharing Open Graph tags and thumbnail image
+        run: python -m unittest discover -s qa -p "test_social_preview.py" -v
       - name: Archive exporter syntax and idempotency regression
         run: |
           python -m py_compile archive/main.py collector/main.py
