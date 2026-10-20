@@ -5,7 +5,7 @@ from pathlib import Path
 
 BASE="https://chwijae-api-ejmdmrnztq-du.a.run.app/"
 ROOT=Path(__file__).resolve().parents[1]
-JPEG=ROOT/"api/static/og-thumbnail-square.jpg"
+JPEG=ROOT/"api/static/og-thumbnail-wide.jpg"
 HTML=ROOT/"api/static/index.html"
 
 class Tags(HTMLParser):
@@ -37,29 +37,29 @@ def jpeg_dimensions(b):
         if i+2>len(b):break
         segment_size=int.from_bytes(b[i:i+2],"big")
         if marker in (0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf):
-            return int.from_bytes(b[i+3:i+5],"big"),int.from_bytes(b[i+5:i+7],"big")
+            return int.from_bytes(b[i+5:i+7],"big"),int.from_bytes(b[i+3:i+5],"big")
         i+=segment_size
     raise AssertionError("Missing JPEG size frame")
 
 class SocialPreview(unittest.TestCase):
-    def test_image_is_square_jpeg_and_under_size_budget(self):
+    def test_image_is_wide_jpeg_and_under_size_budget(self):
         im=JPEG.read_bytes()
         self.assertGreater(len(im),100000)
         self.assertLess(len(im),400000)
-        self.assertEqual(jpeg_dimensions(im),(1254,1254))
+        self.assertEqual(jpeg_dimensions(im),(1200,630))
     def test_metadata_exactly_matches_public_asset(self):
         p=Tags()
         p.feed(HTML.read_text(encoding="utf-8"))
         self.assertEqual(p.canonical,BASE)
         self.assertEqual(p.tags["og:url"],BASE)
         self.assertEqual(p.tags["og:title"],"취재를 종합하면")
-        self.assertEqual(p.tags["og:image"],BASE+"static/og-thumbnail-square.jpg")
+        self.assertEqual(p.tags["og:image"],BASE+"static/og-thumbnail-wide.jpg")
         self.assertEqual(p.tags["og:image:secure_url"],p.tags["og:image"])
         self.assertEqual(p.tags["og:image:type"],"image/jpeg")
-        self.assertEqual(p.tags["og:image:width"],"1254")
-        self.assertEqual(p.tags["og:image:height"],"1254")
+        self.assertEqual(p.tags["og:image:width"],"1200")
+        self.assertEqual(p.tags["og:image:height"],"630")
         self.assertEqual(p.tags["twitter:image"],p.tags["og:image"])
-        self.assertEqual(p.tags["twitter:card"],"summary")
+        self.assertEqual(p.tags["twitter:card"],"summary_large_image")
     def test_image_is_served_through_existing_static_mount(self):
         api=(ROOT/"api/main.py").read_text(encoding="utf-8")
         docker=(ROOT/"api/Dockerfile").read_text(encoding="utf-8")

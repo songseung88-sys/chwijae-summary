@@ -58,7 +58,7 @@ jobs:
       - name: Validate API image
         run: |
           docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py
-          docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css && test -f /app/static/admin.html && test -f /app/static/admin.js && test -s /app/static/og-thumbnail-square.jpg'
+          docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css && test -f /app/static/admin.html && test -f /app/static/admin.js && test -s /app/static/og-thumbnail-wide.jpg'
 
       - name: Detect optional admin editor secret
         run: |
@@ -111,7 +111,7 @@ jobs:
           curl --retry 5 --retry-delay 2 --fail --silent --show-error \
             -D /tmp/og-image.headers \
             -o /tmp/og-image.jpg \
-            "${URL}/static/og-thumbnail-square.jpg"
+            "${URL}/static/og-thumbnail-wide.jpg"
           python - <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
@@ -130,9 +130,9 @@ jobs:
           root="https://chwijae-api-ejmdmrnztq-du.a.run.app/"
           assert parser.tags["og:title"]=="취재를 종합하면"
           assert parser.tags["og:url"]==root
-          assert parser.tags["og:image"]==root+"static/og-thumbnail-square.jpg"
-          assert parser.tags["og:image:width"]=="1254" and parser.tags["og:image:height"]=="1254"
-          assert parser.tags["twitter:card"]=="summary"
+          assert parser.tags["og:image"]==root+"static/og-thumbnail-wide.jpg"
+          assert parser.tags["og:image:width"]=="1200" and parser.tags["og:image:height"]=="630"
+          assert parser.tags["twitter:card"]=="summary_large_image"
           assert "content-type: image/jpeg" in headers
           assert len(img)>100000 and img[:3]==bytes((255,216,255))
           print("SOCIAL_SHARE_PREVIEW_VALIDATED",len(img))
