@@ -24,7 +24,7 @@ ADDITIONAL_PHRASE = "본지 취재 결과"
 TARGET_PHRASES = (PHRASE, ADDITIONAL_PHRASE)
 # Include the documented orthographic variant in which 취재결과 is one word.
 # Both spellings contribute to one canonical '본지 취재 결과' counter.
-ADDITIONAL_PHRASE_PATTERN = re.compile(r"본지\\s*취재\\s*결과")
+ADDITIONAL_PHRASE_PATTERN = re.compile(r"본지\s*취재\s*결과")
 
 def target_phrase_counts(body):
     body = str(body or "")
