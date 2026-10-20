@@ -94,7 +94,9 @@ class FeedbackTests(unittest.TestCase):
         self.assertIn('if name == "의견 보내기":',archive)
         self.assertIn("include_pending_feedback",archive)
         self.assertIn("mark_feedback_delivered",archive)
-        self.assertIn("timeBased().everyMinutes(5)",Path("infra/feedback-alerts.gs").read_text())
+        self.assertIn("timeBased().everyHours(1)",Path("infra/feedback-alerts.gs").read_text())
+        self.assertNotIn("everyMinutes(5)",Path("infra/feedback-alerts.gs").read_text())
+        self.assertIn("ScriptApp.deleteTrigger(trigger)",Path("infra/feedback-alerts.gs").read_text())
 
 
 if __name__=="__main__":
