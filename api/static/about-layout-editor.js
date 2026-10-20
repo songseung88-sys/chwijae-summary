@@ -24,7 +24,7 @@ function renderAboutEditor(){
         '<span>글자 선택 → 적용 · 같은 버튼 다시 누르면 해제</span></div>'+
         '<div class="about-block-save-actions">'+
         '<button type="button" class="save-button about-block-save" data-save-about="'+i+'" '+
-        '(Number.isInteger(b._savedIndex)&&b._savedText!==b.text?"":"disabled")+
+        (Number.isInteger(b._savedIndex)&&b._savedText!==b.text?"":"disabled")+
         '>이 블록 저장</button>'+
         '<span class="about-block-save-status" data-save-about-status="'+i+'" role="status" aria-live="polite"></span></div>'+
         '<div class="about-editor-preview" data-about-preview="'+i+'" aria-label="본문 미리보기"></div>')+
