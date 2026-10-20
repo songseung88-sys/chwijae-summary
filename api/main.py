@@ -658,6 +658,21 @@ def status():
     }
 
 
+@app.get("/api/archive-sync-status")
+def archive_sync_status():
+    """Sanitized operational heartbeat. Does not reveal raw articles or credentials."""
+    result={}
+    for mode in ("full","logs"):
+        snap=db.collection("archive_status").document(mode).get()
+        obj=snap.to_dict() if snap.exists else {}
+        result[mode]={
+            "status":obj.get("status") or "not_run",
+            "detail":obj.get("detail") or "",
+            "updated_at":obj.get("updated_at"),
+        }
+    return result
+
+
 @app.get("/api/diagnostics")
 def diagnostics():
     docs = recent_article_docs(300)
