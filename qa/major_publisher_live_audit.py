@@ -14,6 +14,8 @@ CASES = [
     ("조선비즈 실제 대상표현 포함기사", "https://biz.chosun.com/policy/policy_sub/2026/07/06/AJELXLVC45FUBN3AQLFI3BOL54/"),
     ("조선일보 대상표현 포함기사", "https://www.chosun.com/national/court_law/2026/10/19/QBU7C6OQXJCPLKSFGWB2FVOOMI/"),
     ("조선일보 이전 제외기사", "https://www.chosun.com/politics/politics_general/2026/10/19/T6OV5ZEJJZEETISIIXKBMMCSU4/"),
+    ("조선일보 네이버 전송본(대상 표현 포함)", "https://n.news.naver.com/mnews/article/023/0004004566?sid=102"),
+    ("조선일보 네이버 전송본(이전 제외)", "https://n.news.naver.com/mnews/article/023/0004004619?sid=100"),
     ("뉴시스 이전 제외기사", "https://www.newsis.com/view/NISX20261019_0003831566"),
     ("조선비즈 이전 제외기사", "https://biz.chosun.com/industry/business-venture/2026/10/19/GTVLXA5DL5GNPGAH6G7A4EURKY/"),
     ("이투데이 이전 제외기사", "https://www.etoday.co.kr/news/view/2637259"),
@@ -77,7 +79,7 @@ def examine(name,url):
         else:
             record["extracted_length"]=0
         # The actual production parser treats a missing target expression differently.
-        result=parser.parse_original(url)
+        result=parser.parse_naver(url) if "n.news.naver.com" in url else parser.parse_original(url)
         record["production_error"]=result.get("error")
         record["production_body_length"]=len(result.get("body") or "")
         record["production_phrase_counts"]=result.get("phrase_counts") or {}
