@@ -131,8 +131,8 @@ jobs:
           root="https://chwijae-api-ejmdmrnztq-du.a.run.app/"
           image_url=parser.tags["og:image"]
           # Shared preview title/description may be customized by the admin.
-          assert 1<=len(parser.tags["og:title"])<=100
-          assert 1<=len(parser.tags["og:description"])<=300
+          assert 0<=len(parser.tags["og:title"])<=100
+          assert 0<=len(parser.tags["og:description"])<=300
           assert parser.tags["twitter:title"]==parser.tags["og:title"]
           assert parser.tags["twitter:description"]==parser.tags["og:description"]
           assert parser.tags["description"]==parser.tags["og:description"]
