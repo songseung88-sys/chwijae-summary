@@ -1,0 +1,27 @@
+name: Audit major publishers after parser fix
+
+on:
+  push:
+    branches:
+      - fix/major-publisher-body-parsing
+    paths:
+      - ".github/workflows/audit-major-publisher-fix.yml"
+      - "qa/major_publisher_live_audit.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install existing collector requirements
+        run: python -m pip install --quiet -r collector/requirements.txt
+      - name: Audit real articles; no Firestore write
+        run: python -m qa.major_publisher_live_audit
