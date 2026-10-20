@@ -96,3 +96,14 @@
   line-height:1.35;
   color:#163e6d;
 }
+
+
+/* Editor-selectable inline formatting; safe text-node rendering (no HTML). */
+.about-page .about-text-block .about-lead-phrase{font-size:30px;font-weight:750;letter-spacing:-.04em;line-height:1.35;color:#163e6d;display:inline}
+.about-page .about-text-block .about-small-phrase{font-size:12px;font-weight:400;color:#526578;display:inline}
+.about-page .about-text-block .about-bold-phrase{font-weight:750;display:inline}
+.about-page .bigkinds-panel-header p:empty,
+.about-page .bigkinds-panel-header h3:empty,
+.about-page #feedbackPromptLabel:empty,
+.about-page #aboutBackLabel:empty,
+.about-page #feedbackSummaryLabel:empty{display:none}
