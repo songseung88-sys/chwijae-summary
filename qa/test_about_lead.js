@@ -42,7 +42,7 @@ assert(!first.children.some(x=>x.type==="br"),"Do not force a line break");
 const withWhitespace=render(' \n“취재를 종합하면”은\n다음 줄입니다.');
 assert.equal(withWhitespace.children[0].value,' \n');
 assert.equal(withWhitespace.children[1].textContent,'“취재를 종합하면”은');
-assert.equal(withWhitespace.children[2].value,'\n다음 줄입니다.');
+assert.equal(withWhitespace.children[2].value,' 다음 줄입니다.'); // Visually joined without mutating stored text.
 const apostrophe=render('‘취재를 종합하면’은 의견을 소개합니다.');
 assert.equal(apostrophe.children[0].textContent,'‘취재를 종합하면’은');
 const later=render('“취재를 종합하면”은 <img src=x onerror=alert(1)>',false);
