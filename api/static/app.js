@@ -173,9 +173,9 @@ function renderHistory(rows){
 }
 function renderCards(d){
   const cfg=d.site_config;
-  const pub = d.top_publisher ? `${esc(d.top_publisher.name)} <small>${d.top_publisher.count}건</small>` : "—";
+  const pub = d.top_publisher ? `${esc(d.top_publisher.name)} <small>${d.top_publisher.count}${esc(uiCopy("count_unit","건"))}</small>` : "—";
   const rep = d.top_reporter_week
-    ? `${esc(d.top_reporter_week.name)} <small>${esc(d.top_reporter_week.publisher)} · ${d.top_reporter_week.count}건</small>`
+    ? `${esc(d.top_reporter_week.name)} <small>${esc(d.top_reporter_week.publisher)} · ${d.top_reporter_week.count}${esc(uiCopy("count_unit","건"))}</small>`
     : "—";
   qs("#summaryCards").innerHTML = `
     <div class="card"><div class="label">${esc(cfg.card_today_label)}</div><div class="value">${d.today_count}${esc(uiCopy("count_unit","건"))}</div><div class="sub">${d.date}${esc(uiCopy("card_today_asof"," 현재"))}</div><div class="sub">${esc(uiCopy("card_additional_prefix","(\'본지 취재 결과\' "))}${d.additional_phrase_article_count||0}${esc(uiCopy("card_additional_suffix","건 포함)"))}</div></div>
@@ -222,7 +222,7 @@ function renderArticles(){
   qs("#clearTopicFilter").hidden=!state.categoryFilter;
   const host = qs("#articleList");
   if(!rows.length){
-    host.innerHTML='<div class="empty">'+(state.categoryFilter?uiCopy("empty_topic","이 주제에 해당하는 기사가 없습니다."):uiCopy("empty_articles","해당 날짜에 수집된 문장이 없습니다."))+'</div>';
+    host.innerHTML='<div class="empty">'+esc(state.categoryFilter?uiCopy("empty_topic","이 주제에 해당하는 기사가 없습니다."):uiCopy("empty_articles","해당 날짜에 수집된 문장이 없습니다."))+'</div>';
     qs("#loadMore").style.display="none";
     return;
   }
