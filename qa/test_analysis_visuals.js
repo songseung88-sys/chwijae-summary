@@ -56,15 +56,35 @@ assert(colors.includes("#47785F")); // Muted green
 assert(colors.includes("#886D3F")); // Muted ochre
 assert(colors.includes("#70628D")); // Muted violet
 assert(colors.includes("#935D55")); // Muted terracotta
-// Swap exactly the two specified categories, retaining the other assigned hues.
-const swapped=vm.runInContext(
-  'topicColorMap([{name:"정치"},{name:"경제·산업"},{name:"스포츠"},{name:"국제"}])',
+// Colors are fixed by category, NOT by rank or presence of other categories.
+const dayWithSports=vm.runInContext(
+  'topicColorMap([{name:"사회",count:43},{name:"경제·산업",count:27},{name:"정치",count:25},{name:"문화·생활",count:4},{name:"국제",count:1},{name:"스포츠",count:1}])',
   context
 );
-assert.equal(swapped.get("정치"),colors[0]);
-assert.equal(swapped.get("경제·산업"),colors[2]);
-assert.equal(swapped.get("스포츠"),colors[1]);
-assert.equal(swapped.get("국제"),colors[3]);
+const dayWithoutSports=vm.runInContext(
+  'topicColorMap([{name:"사회",count:44},{name:"경제·산업",count:33},{name:"문화·생활",count:11},{name:"정치",count:11}])',
+  context
+);
+for(const [name,hue] of [
+  ["사회","#285B91"],["경제·산업","#935D55"],["정치","#47785F"],
+  ["문화·생활","#886D3F"],["국제","#70628D"],["스포츠","#337180"]
+]){
+  assert.equal(dayWithSports.get(name),hue);
+  if(dayWithoutSports.has(name)) assert.equal(dayWithoutSports.get(name),hue);
+}
+assert.equal(dayWithoutSports.get("경제·산업"),dayWithSports.get("경제·산업"));
+assert.equal(vm.runInContext('topicColorForCategory("경제산업")',context),"#935D55");
+assert.equal(vm.runInContext('topicColorForCategory("경제 · 산업")',context),"#935D55");
+assert.equal(vm.runInContext('topicColorForCategory("스포츠")',context),"#337180");
+const unknownA=vm.runInContext('topicColorMap([{name:"새로운 분야"},{name:"다른 분야"}])',context);
+const unknownB=vm.runInContext('topicColorMap([{name:"다른 분야"},{name:"새로운 분야"}])',context);
+assert.equal(unknownA.get("새로운 분야"),unknownB.get("새로운 분야"));
+// Pie fills must be independent of rank, matching the bar chart and modal legend.
+const fixedPie=vm.runInContext(
+  'labeledPieSvg([{name:"경제·산업",count:33},{name:"사회",count:44},{name:"정치",count:11},{name:"문화·생활",count:11}],99,true)',context
+);
+assert.match(fixedPie,/fill="#935D55"/);
+assert.match(fixedPie,/fill="#285B91"/);
 const svg=node("#topicPrimaryPie").innerHTML;
 const topic=node("#topicSecondaryBars").innerHTML;
 const expression=node("#secondaryRanking").innerHTML;
@@ -91,7 +111,7 @@ assert.equal(modal.open,true);
 assert.match(node("#categoryDialogContent").innerHTML,/2차 · 3차 분류/);
 assert.match(node("#categoryDialogContent").innerHTML,/국정감사/);
 
-// The overview and the detail legend must share the swapped color mapping.
+// The overview, bars and detail legend must share permanent category colors.
 state.categoryFilter=null;
 state.data.category_primary_ranking=[
   {name:"정치",count:10},{name:"경제·산업",count:7},{name:"스포츠",count:5}
@@ -103,12 +123,12 @@ state.data.category_hierarchy=[
 ];
 vm.runInContext("renderRankings()",context);
 assert.match(node("#topicSecondaryBars").innerHTML,
-  new RegExp('data-category="기업·산업"[\\s\\S]*?background:'+colors[2]));
+  new RegExp('data-category="기업·산업"[\\s\\S]*?background:#935D55'));
 assert.match(node("#topicSecondaryBars").innerHTML,
-  new RegExp('data-category="축구"[\\s\\S]*?background:'+colors[1]));
+  new RegExp('data-category="축구"[\\s\\S]*?background:#337180'));
 vm.runInContext("openCategoryDialog()",context);
-assert(node("#categoryDialogContent").innerHTML.includes('background:'+colors[2]));
-assert(node("#categoryDialogContent").innerHTML.includes('background:'+colors[1]));
+assert(node("#categoryDialogContent").innerHTML.includes('background:#935D55'));
+assert(node("#categoryDialogContent").innerHTML.includes('background:#337180'));
 
 // The charts should degrade gracefully on dates without classified articles.
 state.data.category_primary_ranking=[];

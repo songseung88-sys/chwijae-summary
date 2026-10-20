@@ -84,7 +84,7 @@ function renderTopicOverview(d){
     const selected=state.categoryFilter===r.secondary;
     const width=Math.min(100,Math.max(3,r.count/max*100));
     const pct=(r.count/total*100).toFixed(1);
-    const fill=byPrimary.get(r.primary)||topicColors[0];
+    const fill=byPrimary.get(r.primary)||topicColorForCategory(r.primary);
     return `<button type="button" class="topic-bar-row rank-filter${selected?" selected":""}"
       data-category="${esc(r.secondary)}" aria-pressed="${selected}">
       <span class="topic-bar-rank">${i+1}</span>
