@@ -58,8 +58,9 @@ function renderRankings(){
     renderRanking(qs("#"+id),rows,!!state.rankingExpanded[id],id==="categoryRanking");
     const btn=document.querySelector(`.rank-toggle[data-target="${id}"]`);
     if(!btn) continue;
-    btn.style.display=(rows?.length||0)>5?"inline":"none";
-    btn.textContent=state.rankingExpanded[id]?cfg.ranking_collapse_text:cfg.ranking_view_all_text;
+    btn.style.display=id==="categoryRanking" ? ((rows?.length||0)>0?"inline":"none") : ((rows?.length||0)>5?"inline":"none");
+    btn.textContent=id==="categoryRanking" ? cfg.ranking_view_all_text
+      : (state.rankingExpanded[id]?cfg.ranking_collapse_text:cfg.ranking_view_all_text);
   }
 }
 function renderHistory(rows){
@@ -78,7 +79,7 @@ function renderCards(d){
     ? `${esc(d.top_reporter_week.name)} <small>${esc(d.top_reporter_week.publisher)} · ${d.top_reporter_week.count}건</small>`
     : "—";
   qs("#summaryCards").innerHTML = `
-    <div class="card"><div class="label">${esc(cfg.card_today_label)}</div><div class="value">${d.today_count}건</div><div class="sub">${d.date} 현재</div></div>
+    <div class="card"><div class="label">${esc(cfg.card_today_label)}</div><div class="value">${d.today_count}건</div><div class="sub">${d.date} 현재</div><div class="sub">('본지 취재 결과' ${d.additional_phrase_article_count||0}건 포함)</div></div>
     <div class="card"><div class="label">${esc(cfg.card_publisher_label)}</div><div class="value compact">${pub}</div><div class="sub">오늘 기준</div></div>
     <div class="card"><div class="label">${esc(cfg.card_reporter_label)}</div><div class="value compact">${rep}</div><div class="sub">${d.week_start} 이후</div></div>
     <div class="card"><div class="label">${esc(cfg.card_exclusive_label)}</div><div class="value">${(d.exclusive_ratio*100).toFixed(1)}%</div><div class="sub">${d.exclusive_count} / ${d.today_count}건</div></div>`;
@@ -140,7 +141,6 @@ async function load(date){
   applyCopy(d);
   renderCards(d);
   renderCollectionHealth(d.last_successful_collection);
-  qs("#categoryCoverage").textContent=`AI 공통분류 · ${d.category_classified_count||0}/${d.today_count}건 분류됨`;
   renderRankings();
   renderHistory(d.daily_counts_14d);
   renderArticles();
@@ -154,9 +154,14 @@ document.addEventListener("DOMContentLoaded",()=>{
   input.addEventListener("change",()=>load(input.value));
   document.querySelectorAll(".rank-toggle").forEach(btn=>btn.addEventListener("click",()=>{
     const id=btn.dataset.target;
+    if(id==="categoryRanking"){openCategoryDialog();return;}
     state.rankingExpanded[id]=!state.rankingExpanded[id];
     renderRankings();
   }));
+  qs("#closeCategoryDialog").addEventListener("click",()=>qs("#categoryDialog").close());
+  qs("#categoryDialog").addEventListener("click",e=>{
+    if(e.target===qs("#categoryDialog")) qs("#categoryDialog").close();
+  });
   qs("#loadMore").addEventListener("click",()=>{state.articleVisible+=10;renderArticles();});
   qs("#categoryRanking").addEventListener("click",e=>{
     const target=e.target.closest(".rank-filter");

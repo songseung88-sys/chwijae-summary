@@ -20,16 +20,26 @@ from google.cloud import firestore
 
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
+ADDITIONAL_PHRASE = "본지 취재 결과"
+TARGET_PHRASES = (PHRASE, ADDITIONAL_PHRASE)
+
+def target_phrase_counts(body):
+    return {term: str(body or "").count(term) for term in TARGET_PHRASES}
+
+def contains_target_phrase(text):
+    return any(term in str(text or "") for term in TARGET_PHRASES)
 NAVER_API_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
 # Song & Ihm (2026), Table 3: two broad types and six subtypes.
 # These are lexical candidate matches, not contextual judgments about whether
 # a sentence actually suppresses its source. Keep precise versioned metadata.
-SECONDARY_TAXONOMY_VERSION = "paper-table3-v1"
+SECONDARY_TAXONOMY_VERSION = "paper-table3-v2"
 SUBJECTLESS_RULES = [
     # (major type, subtype, displayed canonical expression, lexical pattern)
     ("출처소거형", "피동형", "알려졌다", r"알려졌(?:다|고|으며|지만|는데)"),
     ("출처소거형", "피동형", "전해졌다", r"전해졌(?:다|고|으며|지만|는데)"),
     ("출처소거형", "전언형", "했다고 한다", r"(?:했|하였)다고\s+한다"),
+    # User-approved extension beyond the paper's Table 3:
+    ("출처소거형", "전언형", "법조계에 따르면", r"법조계에\s+따르면"),
     ("출처소거형", "자생발생형", "지적이 나온다", r"지적(?:이|도)\s+나(?:온다|왔다|오고|오면서)"),
     ("출처소거형", "자생발생형", "해석이 나온다", r"해석(?:이|도)\s+나(?:온다|왔다|오고|오면서)"),
     ("출처소거형", "자생발생형", "분석이 나온다", r"분석(?:이|도)\s+나(?:온다|왔다|오고|오면서)"),
@@ -42,8 +52,13 @@ SUBJECTLESS_RULES = [
     ("기자귀속형", "명사형", "대목이다", r"대목이다(?![가-힣])"),
     ("기자귀속형", "명사형", "관측이다", r"관측이다(?![가-힣])"),
 ]
+# Exploratory non-paper expressions. Keep them separate from paper type totals.
+SUBJECTLESS_OTHER_RULES = [
+    ("기타", "기타", "파악됐다", r"파악됐(?:다|고|으며|지만|는데)"),
+    ("기타", "기타", "확인됐다", r"확인됐(?:다|고|으며|지만|는데)"),
+]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.2-paper-table3"
+COLLECTOR_VERSION = "0.5.3-expanded-phrases"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -364,11 +379,13 @@ def extract_paragraphs(container):
 def phrase_contexts(paragraphs):
     out = []
     for idx, paragraph in enumerate(paragraphs, start=1):
-        count = paragraph.count(PHRASE)
+        counts = target_phrase_counts(paragraph)
+        count = sum(counts.values())
         if count:
             out.append({
                 "paragraph_no": idx,
                 "count": count,
+                "phrase_counts": {k: v for k, v in counts.items() if v},
                 "text": paragraph,
             })
     return out
@@ -377,7 +394,7 @@ def phrase_contexts(paragraphs):
 def secondary_counts(body):
     """Paper Table 3 expressions, excluding the mandatory seed phrase itself."""
     result = {}
-    for _major, _subtype, label, pattern in SUBJECTLESS_RULES:
+    for _major, _subtype, label, pattern in (*SUBJECTLESS_RULES, *SUBJECTLESS_OTHER_RULES):
         count = len(re.findall(pattern, body))
         if count:
             result[label] = count
@@ -388,12 +405,12 @@ def subjectless_type_counts(body, expressions=None):
     """Versioned grouping; 종합형 is tracked through PHRASE separately."""
     expressions = expressions if expressions is not None else secondary_counts(body)
     groups = {}
-    for major, subtype, label, _pattern in SUBJECTLESS_RULES:
+    for major, subtype, label, _pattern in (*SUBJECTLESS_RULES, *SUBJECTLESS_OTHER_RULES):
         count = expressions.get(label, 0)
         if count:
             key = f"{major} / {subtype}"
             groups[key] = groups.get(key, 0) + count
-    seed = body.count(PHRASE)
+    seed = sum(target_phrase_counts(body).values())
     if seed:
         groups["기자귀속형 / 종합형"] = seed
     return groups
@@ -489,15 +506,16 @@ def parse_original(url):
         container = choose_body_container(soup)
         paragraphs = extract_paragraphs(container)
 
-        if not any(PHRASE in p for p in paragraphs):
+        if not any(contains_target_phrase(p) for p in paragraphs):
             article_body = clean_text(data.get("articleBody"))
-            if PHRASE in article_body:
+            if contains_target_phrase(article_body):
                 paragraphs = [article_body]
 
         body = "\n".join(paragraphs)
         result["body"] = body
         result["paragraphs"] = paragraphs
-        result["phrase_count"] = body.count(PHRASE)
+        result["phrase_count"] = sum(target_phrase_counts(body).values())
+        result["phrase_counts"] = target_phrase_counts(body)
         result["phrase_contexts"] = phrase_contexts(paragraphs)
         result["secondary"] = secondary_counts(body)
         result["ok"] = bool(body)
@@ -611,7 +629,8 @@ def parse_naver(url):
         body = "\n".join(paragraphs)
         result["body"] = body
         result["paragraphs"] = paragraphs
-        result["phrase_count"] = body.count(PHRASE)
+        result["phrase_count"] = sum(target_phrase_counts(body).values())
+        result["phrase_counts"] = target_phrase_counts(body)
         result["phrase_contexts"] = phrase_contexts(paragraphs)
         result["secondary"] = secondary_counts(body)
         result["ok"] = bool(body)
@@ -676,6 +695,21 @@ def fetch_candidates(client_id, client_secret, target_date, query, max_pages=10)
     return candidates
 
 
+def collect_target_candidates(client_id, client_secret, target_date, max_articles):
+    queries = [f'"{phrase}"' for phrase in TARGET_PHRASES]
+    by_url = {}
+    for query in queries:
+        for item in fetch_candidates(client_id, client_secret, target_date, query=query):
+            # Same published URL may appear in both search responses.
+            key = item.get("original_url") or item.get("naver_url")
+            if key:
+                by_url.setdefault(key, item)
+    candidates = sorted(
+        by_url.values(), key=lambda row: row["api_pubdate"], reverse=True
+    )
+    return candidates[:max_articles], queries
+
+
 def doc_id(url):
     return hashlib.sha256(url.encode("utf-8")).hexdigest()[:32]
 
@@ -704,10 +738,14 @@ def backfill_subjectless_once(db):
             missing_body += 1
             continue
         expressions = secondary_counts(body)
+        counts = target_phrase_counts(body)
         doc.reference.set({
             "secondary_expressions": expressions,
             "subjectless_type_counts": subjectless_type_counts(body, expressions),
             "secondary_taxonomy_version": SECONDARY_TAXONOMY_VERSION,
+            "phrase_counts": counts,
+            "phrase_count": sum(counts.values()),
+            "phrase_contexts": phrase_contexts(body.split("\n")),
         }, merge=True)
         changed += 1
 
@@ -738,15 +776,15 @@ def main():
     target_date = now.date()
     run_ref = db.collection("collector_runs").document(now.strftime("%Y%m%dT%H%M%S%z"))
 
-    quoted_query = f'"{PHRASE}"'
-    candidates = fetch_candidates(
-        client_id, client_secret, target_date, query=quoted_query
-    )[:max_articles]
+    candidates, queries = collect_target_candidates(
+        client_id, client_secret, target_date, max_articles
+    )
 
     summary = {
         "target_date": str(target_date),
         "started_at": now.isoformat(),
-        "search_query_used": quoted_query,
+        "search_query_used": " ; ".join(queries),
+        "search_queries_used": queries,
         "candidates": len(candidates),
         "accepted": 0,
         "existing_accepted": 0,
@@ -766,6 +804,29 @@ def main():
 
         existing = article_ref.get()
         existing_data = existing.to_dict() if existing.exists else {}
+        # On a rules-only upgrade, do not fetch all previously accepted articles.
+        # The stored body already contains the text needed for an idempotent update.
+        if (existing.exists and existing_data.get("status") == "accepted"
+                and existing_data.get("collector_version") != COLLECTOR_VERSION
+                and existing_data.get("body_text_private")):
+            body = existing_data["body_text_private"]
+            counts = target_phrase_counts(body)
+            if sum(counts.values()):
+                expressions = secondary_counts(body)
+                article_ref.set({
+                    "collector_version": COLLECTOR_VERSION,
+                    "secondary_expressions": expressions,
+                    "secondary_taxonomy_version": SECONDARY_TAXONOMY_VERSION,
+                    "subjectless_type_counts": subjectless_type_counts(body, expressions),
+                    "phrase_counts": counts,
+                    "phrase_count": sum(counts.values()),
+                    "phrase_contexts": phrase_contexts(body.split("\n")),
+                    "last_seen_at": firestore.SERVER_TIMESTAMP,
+                }, merge=True)
+                summary["accepted"] += 1
+                summary["existing_accepted"] += 1
+                summary["exclusive"] += int(bool(existing_data.get("is_exclusive_strict")))
+                continue
         if (
             existing.exists
             and existing_data.get("status") == "accepted"
@@ -885,6 +946,7 @@ def main():
             "category_original": original.get("category_original", ""),
             "is_exclusive_strict": is_exclusive,
             "phrase": PHRASE,
+            "phrase_counts": final.get("phrase_counts", target_phrase_counts(final.get("body", ""))),
             "phrase_count": final.get("phrase_count", 0),
             "phrase_contexts": final.get("phrase_contexts", []),
             "secondary_expressions": final.get("secondary", {}),

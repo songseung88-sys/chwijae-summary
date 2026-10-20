@@ -49,9 +49,9 @@
         <div class="panel-head">
           <div>
             <h2 id="categoryTitle"></h2>
-            <span id="categoryCoverage">AI 주제 분류</span>
+            
           </div>
-          <button class="text-link rank-toggle" data-target="categoryRanking" type="button"></button>
+          <button class="text-link rank-toggle" data-target="categoryRanking" type="button" aria-haspopup="dialog" aria-controls="categoryDialog">전체 보기</button>
         </div>
         <div id="categoryRanking" class="ranking"></div>
       </article>
@@ -85,6 +85,13 @@
         <button id="loadMore" class="more-button" type="button"></button>
       </div>
     </section>
+    <dialog class="topic-dialog" id="categoryDialog" aria-labelledby="categoryDialogTitle">
+      <header class="topic-dialog-head">
+        <h2 id="categoryDialogTitle">기사 분류별 비중</h2>
+        <button type="button" id="closeCategoryDialog" aria-label="팝업 닫기">✕</button>
+      </header>
+      <div id="categoryDialogContent"></div>
+    </dialog>
   </main>
 
   <template id="articleTemplate">
@@ -102,5 +109,6 @@
   </template>
 
   <script src="/static/app.js" defer></script>
+  <script src="/static/topic-dialog.js" defer></script>
 </body>
 </html>

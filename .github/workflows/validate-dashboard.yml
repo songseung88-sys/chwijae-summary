@@ -31,9 +31,10 @@ jobs:
         run: |
           python -m unittest discover -s qa -p "test_publisher_normalization.py" -v
           python -m unittest discover -s qa -p "test_subjectless_table3.py" -v
+          python -m unittest discover -s qa -p "test_expanded_corpus.py" -v
           bash -n infra/setup_scheduler.sh
       - name: JavaScript syntax check
-        run: node --check api/static/app.js && node --check api/static/admin.js
+        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js
       - name: Markup and API contract checks
         run: |
           python - <<'PY'
@@ -45,15 +46,22 @@ jobs:
           ast.parse(src)
           html = Path("api/static/index.html").read_text()
           js = Path("api/static/app.js").read_text()
-          for key in ["categoryCoverage", "clearTopicFilter", "categoryRanking", "articleTemplate", "collectionHealth"]:
+          for key in ["categoryDialog", "clearTopicFilter", "categoryRanking", "articleTemplate", "collectionHealth"]:
               assert f'id="{key}"' in html, key
           for key in ["paragraph-details", "about-link"]:
               assert key in html, key
           assert "topic-details" not in html
+          assert "categoryCoverage" not in html
+          assert "category_primary_ranking" in src
+          assert "category_hierarchy" in src
+          assert "additional_phrase_article_count" in src
+          assert '"about_body": ""' in src
+          assert 'id="aboutContent"' in Path("api/static/about.html").read_text()
+          assert 'topic-dialog.js' in html
           assert 'href="/about"' in html
           assert Path("api/static/about.html").exists()
           assert '@app.get("/about")' in src
-          assert "paper-table3-v1" in src
+          assert "paper-table3-v2" in src
           for key in ["category_ranking_ai", "category_classified_count", "category_unclassified_count", "category_primary", "category_secondary", "category_tertiary"]:
               assert key in src, key
           assert 'CLASSIFY_FORCE=false' in Path(".github/workflows/run-classifier.yml").read_text()

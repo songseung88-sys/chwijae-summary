@@ -18,12 +18,15 @@ def get_assignment(name):
 ns = {
     "re": re,
     "PHRASE": get_assignment("PHRASE"),
+    "ADDITIONAL_PHRASE": get_assignment("ADDITIONAL_PHRASE"),
+    "TARGET_PHRASES": ("취재를 종합하면", "본지 취재 결과"),
     "SUBJECTLESS_RULES": get_assignment("SUBJECTLESS_RULES"),
+    "SUBJECTLESS_OTHER_RULES": get_assignment("SUBJECTLESS_OTHER_RULES"),
 }
 fn_nodes = [
     node for node in tree.body
     if isinstance(node, ast.FunctionDef)
-    and node.name in {"secondary_counts", "subjectless_type_counts"}
+    and node.name in {"target_phrase_counts", "secondary_counts", "subjectless_type_counts"}
 ]
 exec(compile(ast.Module(body=fn_nodes, type_ignores=[]), "collector/main.py", "exec"), ns)
 counts = ns["secondary_counts"]
@@ -62,8 +65,15 @@ class SubjectlessTable3(unittest.TestCase):
 
     def test_legacy_or_direct_quote_not_mixed(self):
         data = counts("법조계에 따르면 기자는 말했다. 당국은 이를 전했다. 취재를 종합하면 사실이다.")
-        self.assertEqual(data, {})
+        self.assertEqual(data, {"법조계에 따르면": 1})
         self.assertEqual(group_counts("취재를 종합하면").get("기자귀속형 / 종합형"), 1)
+
+    def test_added_reporting_phrase_is_core_not_secondary(self):
+        data = counts("본지 취재 결과 추가로 파악됐다. 법조계에 따르면 확인됐다.")
+        self.assertEqual(data, {"법조계에 따르면": 1, "파악됐다": 1, "확인됐다": 1})
+        self.assertEqual(group_counts("본지 취재 결과").get("기자귀속형 / 종합형"), 1)
+        self.assertEqual(group_counts("법조계에 따르면").get("출처소거형 / 전언형"), 1)
+        self.assertEqual(group_counts("확인됐다").get("기타 / 기타"), 1)
 
     def test_public_api_labels_match_collector_table3(self):
         api = ast.parse(Path("api/main.py").read_text(encoding="utf-8"))
@@ -71,7 +81,8 @@ class SubjectlessTable3(unittest.TestCase):
                           and any(isinstance(t, ast.Name) and t.id == "PAPER_SUBJECTLESS_LABELS"
                                   for t in node.targets))
         labels = ast.literal_eval(assignment.value)
-        expected = {label for _major, _subtype, label, _pattern in ns["SUBJECTLESS_RULES"]}
+        expected = {label for _major, _subtype, label, _pattern in
+                    ns["SUBJECTLESS_RULES"] + ns["SUBJECTLESS_OTHER_RULES"]}
         self.assertEqual(labels, expected)
 
     def test_six_subtypes_present(self):

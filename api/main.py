@@ -19,6 +19,7 @@ from google.cloud import firestore
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "").strip() or None
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
+ADDITIONAL_PHRASE = "본지 취재 결과"
 ADMIN_EDITOR_PASSWORD = os.getenv("ADMIN_EDITOR_PASSWORD", "")
 # Canonical paper Table 3 lexical labels; guard against stale legacy tags.
 PAPER_SUBJECTLESS_LABELS = {
@@ -26,6 +27,7 @@ PAPER_SUBJECTLESS_LABELS = {
     "지적이 나온다", "해석이 나온다", "분석이 나온다",
     "우려가 제기된다", "풀이된다", "해석된다", "보인다",
     "거론된다", "셈이다", "대목이다", "관측이다",
+    "법조계에 따르면", "파악됐다", "확인됐다",
 }
 
 db = firestore.Client(project=PROJECT_ID)
@@ -48,6 +50,7 @@ DEFAULT_SITE_CONFIG = {
     "original_link_text": "원문 보기",
     "naver_link_text": "네이버 뉴스에서 보기",
     "articles_more_text": "더 보기",
+    "about_body": "",
 }
 
 app = FastAPI(
@@ -217,7 +220,9 @@ def get_site_config():
         stored = snap.to_dict() or {}
         for key in DEFAULT_SITE_CONFIG:
             value = stored.get(key)
-            if isinstance(value, str) and value.strip():
+            if key == "about_body" and isinstance(value, str):
+                config[key] = value
+            elif isinstance(value, str) and value.strip():
                 config[key] = value.strip()
     # Preserve customized labels; migrate only the old built-in category title.
     if config.get("section_category_title") == "원문 기사 분류":
@@ -248,7 +253,9 @@ def update_site_config(payload: dict, x_admin_password: str | None = Header(defa
     updates = {}
     for key in DEFAULT_SITE_CONFIG:
         value = payload.get(key)
-        if isinstance(value, str) and value.strip():
+        if key == "about_body" and isinstance(value, str):
+            updates[key] = value[:30000]
+        elif isinstance(value, str) and value.strip():
             updates[key] = value.strip()
     if not updates:
         raise HTTPException(status_code=400, detail="저장할 문구가 없습니다.")
@@ -328,22 +335,60 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     # A common, AI-generated secondary category is the public topic statistic.
     # Unclassified articles remain in today's total, but not in topic rankings.
     topic_counts = Counter()
+    primary_counts = Counter()
+    hierarchy = {}
     for article in today_articles:
-        if article.get("taxonomy_version") == "0.3" and article.get("category_secondary"):
-            topic_counts[article["category_secondary"]] += 1
-    topic_classified_count = sum(topic_counts.values())
+        if article.get("taxonomy_version") != "0.3" or not article.get("category_secondary"):
+            continue
+        primary = article.get("category_primary") or "기타"
+        secondary = article["category_secondary"]
+        tertiary = article.get("category_tertiary") or ""
+        topic_counts[secondary] += 1
+        primary_counts[primary] += 1
+        node = hierarchy.setdefault(primary, {})
+        leaf = node.setdefault(secondary, {"count": 0, "tertiary": Counter()})
+        leaf["count"] += 1
+        if tertiary:
+            leaf["tertiary"][tertiary] += 1
+    topic_classified_count = sum(primary_counts.values())
+    category_hierarchy = [
+        {
+            "primary": primary,
+            "count": total,
+            "secondaries": [
+                {
+                    "secondary": secondary,
+                    "count": data["count"],
+                    "tertiaries": [
+                        {"name": label, "count": n}
+                        for label, n in data["tertiary"].most_common()
+                    ],
+                }
+                for secondary, data in sorted(hierarchy[primary].items(),
+                    key=lambda x: (-x[1]["count"], x[0]))
+            ],
+        }
+        for primary, total in primary_counts.most_common()
+    ]
 
     secondary_counts = Counter()
     for article in today_articles:
         # Keep old taxonomy rows out of the new paper-based comparison ranking
         # until they have been reprocessed; never mix incompatible versions.
-        if article.get("secondary_taxonomy_version") != "paper-table3-v1":
+        if article.get("secondary_taxonomy_version") != "paper-table3-v2":
             continue
         for exp, count in (article.get("secondary_expressions") or {}).items():
             canonical = "셈이다" if exp == "한 셈이다" else exp
             if canonical in PAPER_SUBJECTLESS_LABELS:
                 secondary_counts[canonical] += int(count or 0)
 
+    # Count unique articles carrying the added wording, including overlap;
+    # one article still contributes only once to today_count.
+    additional_article_count = sum(
+        bool((a.get("phrase_counts") or {}).get(ADDITIONAL_PHRASE)
+             or ADDITIONAL_PHRASE in (a.get("body_text_private") or ""))
+        for a in today_articles
+    )
     exclusive_count = sum(bool(a.get("is_exclusive_strict")) for a in today_articles)
 
     daily_counts = Counter()
@@ -392,6 +437,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         "week_start": str(week_start),
         "last_successful_collection": last_collection,
         "today_count": len(today_articles),
+        "additional_phrase_article_count": additional_article_count,
         "exclusive_count": exclusive_count,
         "exclusive_ratio": round(exclusive_count / len(today_articles), 4) if today_articles else 0,
         "top_publisher": (
@@ -422,6 +468,11 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             {"name": name, "count": count}
             for name, count in topic_counts.most_common()
         ],
+        "category_primary_ranking": [
+            {"name": name, "count": count}
+            for name, count in primary_counts.most_common()
+        ],
+        "category_hierarchy": category_hierarchy,
         "category_classified_count": topic_classified_count,
         "category_unclassified_count": len(today_articles) - topic_classified_count,
         "secondary_expressions": [
@@ -429,10 +480,10 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             for name, count in secondary_counts.most_common()
         ],
         "secondary_methodology": {
-            "version": "paper-table3-v1",
-            "basis": "송승환·임소영(2026), Table 3. 무주체형 서술어",
+            "version": "paper-table3-v2",
+            "basis": "송승환·임소영(2026), Table 3 + 추가 후보 표현",
             "measure": "정규표현식 기반 출현 빈도(문맥 판별 아님)",
-            "scope": "새 기준으로 집계된 기사만 포함",
+            "scope": "새 기준으로 집계된 기사만 포함(일부 추가 표현은 기타·전언형)",
         },
         "daily_counts_14d": [
             {
@@ -444,7 +495,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         "articles": article_rows,
         "site_config": config,
         "methodology": {
-            "query": f'"{PHRASE}"',
+            "query": f'"{PHRASE}" OR "{ADDITIONAL_PHRASE}"',
             "source_priority": "언론사 원문 우선, NAVER 전송본 비교",
             "refresh": "30분 간격",
             "category_note": "기사 주제는 AI 공통분류의 2차 범주이며, 미분류 기사는 주제 순위에서 제외됩니다.",

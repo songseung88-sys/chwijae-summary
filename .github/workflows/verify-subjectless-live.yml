@@ -34,14 +34,30 @@ jobs:
           print("METHODOLOGY",json.dumps(data.get("secondary_methodology"),ensure_ascii=False))
           labels=[x["name"] for x in data.get("secondary_expressions",[])]
           print("EXPRESSIONS",json.dumps(data.get("secondary_expressions",[]),ensure_ascii=False))
-          assert data.get("secondary_methodology",{}).get("version")=="paper-table3-v1"
-          assert not set(labels).intersection({"한 셈이다","법조계에 따르면","취재를 종합하면"}), labels
+          assert data.get("secondary_methodology",{}).get("version")=="paper-table3-v2"
+          assert not set(labels).intersection({"한 셈이다","취재를 종합하면","본지 취재 결과"}), labels
+          assert 0<=data["additional_phrase_article_count"]<=data["today_count"]
+          assert "category_primary_ranking" in data and "category_hierarchy" in data
+          total=sum(r["count"] for r in data["category_primary_ranking"])
+          assert total==sum(row["count"] for row in data["category_hierarchy"])
+          for node in data["category_hierarchy"]:
+              assert node["count"]==sum(row["count"] for row in node["secondaries"])
+          print("ADDITIONAL_PHRASE_ARTICLES",data["additional_phrase_article_count"])
+          print("PRIMARY",json.dumps(data["category_primary_ranking"],ensure_ascii=False))
 
           home=get("/").decode("utf-8")
           about=get("/about").decode("utf-8")
           js=get("/static/app.js").decode("utf-8")
+          topic_js=get("/static/topic-dialog.js").decode("utf-8")
+          about_js=get("/static/about.js").decode("utf-8")
+          public_cfg=json.loads(get("/api/config").decode("utf-8"))
           assert 'href="/about"' in home
           assert 'id="aboutContent"' in about
+          assert 'id="categoryDialog"' in home
+          assert 'categoryCoverage' not in home
+          assert "about_body" in public_cfg
+          assert 'showModal()' in topic_js
+          assert 'textContent' in about_js
           assert "chips.push(a.category_secondary" not in js
           assert 'Object.entries(a.secondary_expressions' not in js
           assert "정상 갱신" not in js and "해당 실행 신규" not in js
