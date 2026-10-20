@@ -142,7 +142,7 @@ def normalize_publisher(value):
 def publisher_source_name(article):
     """Unmodified source label (apart from whitespace), separate from display alias."""
     value = article.get("publisher_original") or domain_of(article.get("original_url"))
-    return re.sub(r"\\s+", " ", str(value or "")).strip() or "미확인"
+    return re.sub(r"\s+", " ", str(value or "")).strip() or "미확인"
 
 
 def get_publisher_aliases():
@@ -328,8 +328,8 @@ def update_publisher_names(payload: dict, x_admin_password: str | None = Header(
         name = entry.get("display_name")
         if not isinstance(source, str) or not isinstance(name, str):
             raise HTTPException(status_code=400, detail="언론사 이름은 문자열이어야 합니다.")
-        source = re.sub(r"\\s+", " ", source).strip()
-        name = re.sub(r"\\s+", " ", name).strip()
+        source = re.sub(r"\s+", " ", source).strip()
+        name = re.sub(r"\s+", " ", name).strip()
         if not source or len(source) > 180 or len(name) > 80:
             raise HTTPException(status_code=400, detail="언론사 이름은 80자 이하로 입력해주세요.")
         if source in seen:
