@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>취재를 종합하면</title>
   <meta name="description" content="한국 언론의 기사에서 '취재를 종합하면' 표현의 사용을 기록하는 대시보드" />
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css?v=editorial-blue-1" />
 </head>
 <body>
   <main class="wrap">
@@ -23,7 +23,9 @@
 
     <section class="cards" id="summaryCards"></section>
 
-    <section class="grid two">
+    <section class="dashboard-group usage-group" aria-labelledby="usageGroupTitle">
+      <div class="group-heading"><h2 id="usageGroupTitle"></h2></div>
+      <div class="grid two">
       <article class="panel">
         <div class="panel-head">
           <h2 id="publisherTitle"></h2>
@@ -42,9 +44,12 @@
         </div>
         <div id="reporterRanking" class="ranking"></div>
       </article>
+      </div>
     </section>
 
-    <section class="grid two">
+    <section class="dashboard-group analysis-group" aria-labelledby="analysisGroupTitle">
+      <div class="group-heading"><h2 id="analysisGroupTitle"></h2></div>
+      <div class="grid two">
       <article class="panel">
         <div class="panel-head">
           <div>
@@ -66,6 +71,7 @@
         </div>
         <div id="secondaryRanking" class="ranking"></div>
       </article>
+      </div>
     </section>
 
     <section class="panel history">
@@ -75,7 +81,7 @@
       <div id="historyBars" class="history-bars"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel articles-panel">
       <div class="panel-head">
         <h2 id="articlesTitle"></h2>
         <div class="article-head-actions"><span id="articleCount"></span><button class="text-link" type="button" id="clearTopicFilter" hidden>주제 필터 해제</button></div>
@@ -108,7 +114,7 @@
     </article>
   </template>
 
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js?v=editorial-blue-1" defer></script>
   <script src="/static/topic-dialog.js" defer></script>
 </body>
 </html>

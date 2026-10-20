@@ -84,21 +84,37 @@ function renderCards(d){
     <div class="card"><div class="label">${esc(cfg.card_reporter_label)}</div><div class="value compact">${rep}</div><div class="sub">${d.week_start} 이후</div></div>
     <div class="card"><div class="label">${esc(cfg.card_exclusive_label)}</div><div class="value">${(d.exclusive_ratio*100).toFixed(1)}%</div><div class="sub">${d.exclusive_count} / ${d.today_count}건</div></div>`;
 }
+function highlightTargetPhrases(element, value){
+  // Use text nodes rather than injecting HTML from published article content.
+  const text=String(value||"");
+  const regex=/(취재를\s*종합하면|본지\s*취재\s*결과)/g;
+  let cursor=0;
+  for(const match of text.matchAll(regex)){
+    if(match.index>cursor) element.appendChild(document.createTextNode(text.slice(cursor,match.index)));
+    const mark=document.createElement("mark");
+    mark.className="phrase-highlight";
+    mark.textContent=match[0];
+    element.appendChild(mark);
+    cursor=match.index+match[0].length;
+  }
+  element.appendChild(document.createTextNode(text.slice(cursor)));
+}
+
 function articleNode(a,cfg){
   const node = qs("#articleTemplate").content.cloneNode(true);
   node.querySelector(".news-meta").textContent = [a.publisher,(a.reporters||[]).join(", "),fmtDateTime(a.published_at)].filter(Boolean).join(" · ");
   node.querySelector("h3").textContent = a.title || "";
-  node.querySelector(".context").textContent = a.context_sentence || "";
+  highlightTargetPhrases(node.querySelector(".context"), a.context_sentence || "");
   const chips = [];
   if(a.is_exclusive) chips.push("[단독]");
 
   if(a.phrase_count>1) chips.push(`표현 ${a.phrase_count}회`);
 
-  node.querySelector(".chips").innerHTML = chips.map(x=>`<span class="chip">${esc(x)}</span>`).join("");
+  node.querySelector(".chips").innerHTML = chips.map(x=>`<span class="chip ${x==="[단독]"?"chip--exclusive":"chip--frequency"}">${esc(x)}</span>`).join("");
   const details=node.querySelector(".paragraph-details");
   if(a.context_paragraph){
     node.querySelector("summary").textContent=cfg.paragraph_toggle_text;
-    node.querySelector(".paragraph").textContent=a.context_paragraph;
+    highlightTargetPhrases(node.querySelector(".paragraph"),a.context_paragraph);
   }else{details.remove();}
   const links=[];
   if(a.original_url) links.push(`<a target="_blank" rel="noopener noreferrer" href="${esc(a.original_url)}">${esc(cfg.original_link_text)}</a>`);
@@ -126,6 +142,8 @@ function renderArticles(){
 function applyCopy(d){
   const c=d.site_config;
   qs("#heroDescription").textContent=c.hero_description;
+  qs("#usageGroupTitle").textContent=c.group_usage_title||"";
+  qs("#analysisGroupTitle").textContent=c.group_analysis_title||"";
   qs("#publisherTitle").textContent=c.section_publisher_title;
   qs("#reporterTitle").textContent=c.section_reporter_title;
   qs("#categoryTitle").textContent=c.section_category_title;
