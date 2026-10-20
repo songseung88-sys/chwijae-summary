@@ -19,6 +19,12 @@ const BIGKINDS_COLORS={
   "중앙일보":"#966B5D"
 };
 const BIGKINDS_PLOT={width:940,height:380,left:65,right:23,top:25,bottom:53};
+const BIGKINDS_MOBILE_PLOT={width:360,height:320,left:45,right:9,top:20,bottom:42};
+function bigkindsMobileView(){
+  return typeof window!=="undefined" && typeof window.matchMedia==="function"
+    ? window.matchMedia("(max-width:690px)").matches
+    : typeof window!=="undefined" && window.innerWidth<=690;
+}
 const bigkindsFormat=new Intl.NumberFormat("ko-KR");
 const bigkindsNumber=value=>bigkindsFormat.format(value);
 const bigkindsEscape=value=>String(value).replace(/&/g,"&amp;").replace(/</g,"&lt;")
@@ -48,26 +54,26 @@ function validateBigkinds(data){
   return true;
 }
 
-function bigkindsLayout(){
-  const p=BIGKINDS_PLOT;
+function bigkindsLayout(compact=false){
+  const p=compact?BIGKINDS_MOBILE_PLOT:BIGKINDS_PLOT;
   const innerWidth=p.width-p.left-p.right;
   const bottom=p.height-p.bottom;
   return {p,innerWidth,bottom,innerHeight:bottom-p.top,step:innerWidth/10};
 }
-function bigkindsX(index){
-  const l=bigkindsLayout();
+function bigkindsX(index,compact=false){
+  const l=bigkindsLayout(compact);
   return l.p.left+(index+.5)*l.step;
 }
-function bigkindsY(value,ymax){
-  const l=bigkindsLayout();
+function bigkindsY(value,ymax,compact=false){
+  const l=bigkindsLayout(compact);
   return l.bottom-(value/ymax)*l.innerHeight;
 }
-function bigkindsAxis(data,ymax,ticks){
-  const l=bigkindsLayout();
+function bigkindsAxis(data,ymax,ticks,compact=false){
+  const l=bigkindsLayout(compact);
   let markup="";
   for(let n=0;n<=ticks;n++){
     const val=ymax*n/ticks;
-    const y=bigkindsY(val,ymax);
+    const y=bigkindsY(val,ymax,compact);
     markup+='<line class="bigkinds-gridline" x1="'+l.p.left+'" y1="'+y+
       '" x2="'+(l.p.width-l.p.right)+'" y2="'+y+'"/>'+
       '<text class="bigkinds-axis-label" text-anchor="end" x="'+(l.p.left-11)+
@@ -75,15 +81,15 @@ function bigkindsAxis(data,ymax,ticks){
   }
   data.years.forEach((year,i)=>{
     markup+='<text class="bigkinds-axis-label bigkinds-axis-year" text-anchor="middle" x="'+
-      bigkindsX(i)+'" y="'+(l.bottom+28)+'">'+year+'</text>';
+      bigkindsX(i,compact)+'" y="'+(l.bottom+(compact?24:28))+'">'+year+'</text>';
   });
   return markup;
 }
-function bigkindsHoverGuides(){
-  const l=bigkindsLayout();
+function bigkindsHoverGuides(compact=false){
+  const l=bigkindsLayout(compact);
   let lines="",hits="";
   for(let i=0;i<10;i++){
-    const x=bigkindsX(i);
+    const x=bigkindsX(i,compact);
     lines+='<line class="bigkinds-guide" data-guide="'+i+'" x1="'+x+
       '" x2="'+x+'" y1="'+l.p.top+'" y2="'+l.bottom+'" />';
     hits+='<rect class="bigkinds-hit" data-year-index="'+i+'" tabindex="0" '+
@@ -92,48 +98,49 @@ function bigkindsHoverGuides(){
   }
   return {lines,hits};
 }
-function annualBigkindsSvg(data){
-  const l=bigkindsLayout();
+function annualBigkindsSvg(data,compact=false){
+  const l=bigkindsLayout(compact);
   const max=bigkindsYMax(data.totals,1000);
-  const guides=bigkindsHoverGuides();
+  const guides=bigkindsHoverGuides(compact);
   const bars=data.totals.map((count,i)=>{
-    const y=bigkindsY(count,max);
+    const y=bigkindsY(count,max,compact);
     const h=Math.max(l.bottom-y,2);
-    const x=bigkindsX(i)-l.step*.29;
+    const x=bigkindsX(i,compact)-l.step*.29;
     return '<rect class="bigkinds-annual-bar'+(i===9?' bigkinds-latest':'')+
       '" x="'+x+'" y="'+(l.bottom-h)+'" width="'+(l.step*.58)+
       '" height="'+h+'" rx="3"/>';
   }).join("");
-  return '<svg class="bigkinds-svg" viewBox="0 0 940 380" role="img" '+
+  return '<svg class="bigkinds-svg'+(compact?' bigkinds-svg-compact':'')+'" viewBox="0 0 '+
+    l.p.width+' '+l.p.height+'" role="img" '+
     'aria-label="빅카인즈 취재를 종합하면 연도별 기사 수, 2016년부터 2025년까지. '+
     '연도에 마우스를 올리거나 Tab 키로 자세한 수치를 확인할 수 있습니다.">'+
-    bigkindsAxis(data,max,max/1000)+bars+guides.lines+guides.hits+'</svg>';
+    bigkindsAxis(data,max,max/1000,compact)+bars+guides.lines+guides.hits+'</svg>';
 }
 function orderedBigkindsPublishers(data){
   const all=Object.keys(data.publishers);
   return BIGKINDS_DEFAULT_PUBLISHERS.filter(name=>all.includes(name))
     .concat(all.filter(name=>!BIGKINDS_DEFAULT_PUBLISHERS.includes(name)));
 }
-function publisherBigkindsSvg(data,selected){
+function publisherBigkindsSvg(data,selected,compact=false){
   const names=orderedBigkindsPublishers(data).filter(name=>selected.has(name));
   const values=names.flatMap(name=>data.publishers[name]);
   const ymax=bigkindsYMax(values,values.length&&Math.max(...values)>1000?300:200);
-  const l=bigkindsLayout();
-  const guides=bigkindsHoverGuides();
-  const axis=bigkindsAxis(data,ymax,5);
+  const l=bigkindsLayout(compact);
+  const guides=bigkindsHoverGuides(compact);
+  const axis=bigkindsAxis(data,ymax,5,compact);
   if(!names.length){
-    return '<svg class="bigkinds-svg" viewBox="0 0 940 380" role="img" aria-label="선택된 언론사가 없습니다.">'+
-      axis+'<text x="470" y="165" class="bigkinds-empty" text-anchor="middle">'+bigkindsEscape(bigkindsPublicCopy("publisher_chart_empty","비교할 언론사를 선택해 주세요"))+'</text></svg>';
+    return '<svg class="bigkinds-svg'+(compact?' bigkinds-svg-compact':'')+'" viewBox="0 0 '+l.p.width+' '+l.p.height+'" role="img" aria-label="선택된 언론사가 없습니다.">'+
+      axis+'<text x="'+(l.p.width/2)+'" y="'+(l.p.height/2)+'" class="bigkinds-empty" text-anchor="middle">'+bigkindsEscape(bigkindsPublicCopy("publisher_chart_empty","비교할 언론사를 선택해 주세요"))+'</text></svg>';
   }
   const lines=names.map(name=>{
     const values=data.publishers[name];
     const color=BIGKINDS_COLORS[name]||"#344E6B";
-    const d=values.map((n,i)=>(i?"L":"M")+bigkindsX(i)+" "+bigkindsY(n,ymax)).join(" ");
-    const points=values.map((n,i)=>'<circle class="bigkinds-series-dot" cx="'+bigkindsX(i)+
-      '" cy="'+bigkindsY(n,ymax)+'" r="3.7" fill="'+color+'"/>').join("");
+    const d=values.map((n,i)=>(i?"L":"M")+bigkindsX(i,compact)+" "+bigkindsY(n,ymax,compact)).join(" ");
+    const points=values.map((n,i)=>'<circle class="bigkinds-series-dot" cx="'+bigkindsX(i,compact)+
+      '" cy="'+bigkindsY(n,ymax,compact)+'" r="3.7" fill="'+color+'"/>').join("");
     return '<path class="bigkinds-series-line" stroke="'+color+'" d="'+d+'"/>'+points;
   }).join("");
-  return '<svg class="bigkinds-svg" viewBox="0 0 940 380" role="img" '+
+  return '<svg class="bigkinds-svg'+(compact?' bigkinds-svg-compact':'')+'" viewBox="0 0 '+l.p.width+' '+l.p.height+'" role="img" '+
     'aria-label="선택한 언론사별 취재를 종합하면 연간 기사 수. 연도에 마우스를 올리거나 Tab 키로 정확한 수치를 확인할 수 있습니다.">'+
     axis+lines+guides.lines+guides.hits+'</svg>';
 }
