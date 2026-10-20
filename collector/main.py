@@ -843,7 +843,12 @@ def main():
         # The stored body already contains the text needed for an idempotent update.
         if (existing.exists and existing_data.get("status") == "accepted"
                 and existing_data.get("collector_version") != COLLECTOR_VERSION
-                and existing_data.get("body_text_private")):
+                and existing_data.get("body_text_private")
+                and not suspicious_body(existing_data["body_text_private"])
+                and not suspicious_context({
+                    "phrase_contexts": existing_data.get("phrase_contexts") or [],
+                })):
+
             body = existing_data["body_text_private"]
             counts = target_phrase_counts(body)
             if sum(counts.values()):
