@@ -6,16 +6,17 @@ from pathlib import Path
 
 source=Path("archive/main.py").read_text(encoding="utf-8")
 tree=ast.parse(source)
-names={"body_parts","body_quality","phrase_counts","norm_time","display_name"}
+names={"body_parts","body_quality","phrase_counts","norm_time","basename","display_name"}
 nodes=[copy.deepcopy(x) for x in tree.body if isinstance(x,ast.FunctionDef) and x.name in names]
 from datetime import datetime
 from zoneinfo import ZoneInfo
+from urllib.parse import urlparse
 import re
 ns={
     "BODY_LIMIT":47500,"MAX_BODY_PARTS":3,
     "parser":type("Parser",(),{"suspicious_body":staticmethod(lambda x:"__NEXT_DATA__" in x),
         "contains_target_phrase":staticmethod(lambda x:"취재를 종합하면" in x or "본지 취재 결과" in x)})(),
-    "datetime":datetime,"KST":ZoneInfo("Asia/Seoul"),"re":re,
+    "datetime":datetime,"KST":ZoneInfo("Asia/Seoul"),"re":re,"urlparse":urlparse,
 }
 exec(compile(ast.Module(body=nodes,type_ignores=[]),"archive/main.py","exec"),ns)
 
