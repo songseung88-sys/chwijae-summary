@@ -33,11 +33,11 @@ SHEET_HEADERS={
 }
 KEY_COL={
     "일별 통계":14,"언론사별":10,"기자별":6,"주제별":7,
-    "무주체형 표현":8,"기사 목록":27,"동기화 기록":7,
+    "무주체형 표현":8,"기사 목록":26,"동기화 기록":7,
     "30분 수집 로그":16,"언론사 수집 진단":12,
 }
 # Google Sheets stores strings with a per-cell 50K limit.
-# Keep the logical body in column W, overflow in AD/AE without silent truncation.
+# Keep the logical body in column V, overflow in AB/AC without silent truncation.
 def body_parts(text):
     text=str(text or "")
     if len(text)>BODY_LIMIT*MAX_BODY_PARTS:
@@ -93,6 +93,7 @@ def phrase_counts(article):
 def body_quality(result):
     text=str(result.get("body") or "").strip()
     if len(text)<140:return False,"BODY_TOO_SHORT"
+    if not parser.contains_target_phrase(text):return False,"TARGET_PHRASE_NOT_CONFIRMED"
     if parser.suspicious_body(text):return False,"SCRIPT_OR_STRUCTURED_DATA"
     if text.count("\n")<1 and len(text)>40000:return False,"LONG_UNSTRUCTURED_TEXT"
     if text.count("{")>40 and text.count('":')>20:return False,"SERIALIZED_METADATA"
