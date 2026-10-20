@@ -19,6 +19,14 @@ if ! gcloud iam service-accounts describe "${INVOKER_SA}" --project="${PROJECT_I
     --display-name="Chwijae scheduled Cloud Run jobs invoker"
 fi
 
+# Cloud Scheduler uses the job's persisted environment; execution-time overrides
+# from GitHub Actions do not persist. Do this before creating new schedules.
+gcloud run jobs update chwijae-classifier-test \
+  --project="${PROJECT_ID}" \
+  --region="${REGION}" \
+  --update-env-vars="CLASSIFY_FORCE=false,CLASSIFY_LIMIT=100" \
+  --quiet
+
 for JOB in chwijae-collector chwijae-classifier-test; do
   echo "Granting limited Cloud Run invoker role on ${JOB}"
   gcloud run jobs add-iam-policy-binding "${JOB}" \
