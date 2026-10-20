@@ -137,7 +137,7 @@ jobs:
               assert cfg[name]==title,(name,cfg[name])
           for key,node_id in (("group_usage_title","usageGroupTitle"),("group_analysis_title","analysisGroupTitle")):
               assert cfg.get(key),key
-              assert key+':' in admin,key
+              assert '"key": "'+key+'"' in Path("api/static/ui-copy-fields.json").read_text(),key
               assert f'id="{node_id}"' in html,node_id
               assert f'#{node_id}' in js,node_id
           assert 'analysis-visual-1' in html
