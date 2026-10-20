@@ -135,7 +135,7 @@ jobs:
           # The thumbnail is editable in /admin. Allow the bundled image or
           # a Firestore-backed immutable version; do not demand a fixed URL.
           assert image_url==root+"static/og-thumbnail-wide.jpg" or re.fullmatch(
-              re.escape(root)+r"share-images/[a-f0-9]{64}\\.jpg",image_url
+              re.escape(root)+r"share-images/[a-f0-9]{64}\.jpg",image_url
           ),image_url
           assert parser.tags["og:image:secure_url"]==image_url
           assert parser.tags["twitter:image"]==image_url
