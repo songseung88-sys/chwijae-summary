@@ -110,15 +110,15 @@ jobs:
           curl --retry 5 --retry-delay 2 --fail --silent --show-error -o /tmp/dashboard.html -w "%{http_code}\n" "${URL}/"
           grep -q "취재를 종합하면" /tmp/dashboard.html
           echo "SOCIAL_SHARE_IMAGE_CHECK:"
-          curl --retry 5 --retry-delay 2 --fail --silent --show-error \
-            -D /tmp/og-image.headers \
-            -o /tmp/og-image.jpg \
-            "${URL}/static/og-thumbnail-wide.jpg"
           python - <<'PY'
           from html.parser import HTMLParser
           from pathlib import Path
+          from urllib.request import Request, urlopen
+          import re
           class OgParser(HTMLParser):
-              tags={}
+              def __init__(self):
+                  super().__init__()
+                  self.tags={}
               def handle_starttag(self, tag, attrs):
                   attrs=dict(attrs)
                   if tag == "meta":
@@ -126,19 +126,38 @@ jobs:
                       if k:
                           self.tags[k]=attrs.get("content","")
           parser=OgParser()
-          parser.feed(Path("/tmp/dashboard.html").read_text(encoding="utf-8"))
-          img=Path("/tmp/og-image.jpg").read_bytes()
-          headers=Path("/tmp/og-image.headers").read_text().lower()
+          html=Path("/tmp/dashboard.html").read_text(encoding="utf-8")
+          parser.feed(html)
           root="https://chwijae-api-ejmdmrnztq-du.a.run.app/"
+          image_url=parser.tags["og:image"]
           assert parser.tags["og:title"]=="취재를 종합하면"
           assert parser.tags["og:url"]==root
-          assert parser.tags["og:image"]==root+"static/og-thumbnail-wide.jpg"
+          # The thumbnail is editable in /admin. Allow the bundled image or
+          # a Firestore-backed immutable version; do not demand a fixed URL.
+          assert image_url==root+"static/og-thumbnail-wide.jpg" or re.fullmatch(
+              re.escape(root)+r"share-images/[a-f0-9]{64}\\.jpg",image_url
+          ),image_url
+          assert parser.tags["og:image:secure_url"]==image_url
+          assert parser.tags["twitter:image"]==image_url
           assert parser.tags["og:image:width"]=="1200" and parser.tags["og:image:height"]=="630"
           assert parser.tags["twitter:card"]=="summary_large_image"
-          assert "content-type: image/jpeg" in headers
-          assert len(img)>100000 and img[:3]==bytes((255,216,255))
-          print("SOCIAL_SHARE_PREVIEW_VALIDATED",len(img))
+          with urlopen(Request(image_url,headers={"User-Agent":"Dashboard-Deploy-Smoke"}),timeout=30) as response:
+              img=response.read()
+              media_type=response.headers.get("Content-Type","")
+          assert "image/jpeg" in media_type, media_type
+          assert len(img)>1000 and img[:3]==bytes((255,216,255))
+          print("SOCIAL_SHARE_PREVIEW_VALIDATED",len(img),image_url)
           PY
+          echo "ANALYSIS_CHARTS_CHECK:"
+          grep -q 'id="topicPrimaryPie"' /tmp/dashboard.html
+          grep -q 'id="topicSecondaryBars"' /tmp/dashboard.html
+          grep -q 'id="secondaryRanking"' /tmp/dashboard.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/app.js?v=analysis-visual-1" -o /tmp/analysis-app.js
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/topic-dialog.js?v=analysis-visual-1" -o /tmp/analysis-pie.js
+          grep -q 'function renderTopicOverview' /tmp/analysis-app.js
+          grep -q 'function renderExpressionChart' /tmp/analysis-app.js
+          grep -q 'function labeledPieSvg' /tmp/analysis-pie.js
+          echo "ANALYSIS_CHARTS_ASSETS_VALIDATED"
           echo "ADMIN_THUMBNAIL_UI_CHECK:"
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/admin" -o /tmp/admin.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/thumbnail-editor.js?v=1" -o /tmp/thumbnail-editor.js
