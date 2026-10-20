@@ -1,0 +1,52 @@
+"""Regression tests for real-world article-body selection with both phrase variants."""
+import ast
+import html
+import json
+import re
+import unittest
+from pathlib import Path
+from bs4 import BeautifulSoup
+
+source = Path("collector/main.py").read_text(encoding="utf-8")
+tree = ast.parse(source)
+def literal_assignment(key):
+    node = next(n for n in tree.body if isinstance(n, ast.Assign) and
+                any(isinstance(t, ast.Name) and t.id == key for t in n.targets))
+    return ast.literal_eval(node.value)
+names={"clean_text", "target_phrase_counts", "contains_target_phrase",
+       "choose_body_container", "extract_paragraphs", "clean_structured_fragment"}
+funcs=[n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
+reg=next(n for n in tree.body if isinstance(n, ast.Assign) and
+    any(isinstance(t, ast.Name) and t.id=="ADDITIONAL_PHRASE_PATTERN" for t in n.targets))
+ns={
+    "re": re, "html": html, "json": json,
+    "PHRASE": "취재를 종합하면",
+    "ADDITIONAL_PHRASE": "본지 취재 결과",
+    "TARGET_PHRASES": ("취재를 종합하면", "본지 취재 결과"),
+    "COMMON_BODY_SELECTORS": literal_assignment("COMMON_BODY_SELECTORS"),
+}
+exec(compile(ast.Module(body=[reg]+funcs,type_ignores=[]),"collector/main.py","exec"),ns)
+
+
+class SiteBodySelection(unittest.TestCase):
+    def test_published_spaced_phrase_in_article_div(self):
+        body="20일 본지 취재 결과 연구자료 보안 점검이 실시됐으며 절차 보완이 필요하다는 사실이 확인됐다."
+        html_doc="<html><body><div class='article-body'><p>"+body+"</p><p>"+("추가 현장 취재로 정보를 확인했습니다. "*5)+"</p></div></body></html>"
+        soup=BeautifulSoup(html_doc,"html.parser")
+        container=ns["choose_body_container"](soup)
+        self.assertIsNotNone(container)
+        extracted=ns["extract_paragraphs"](container)
+        self.assertTrue(any("본지 취재 결과" in x for x in extracted))
+
+    def test_kado_spaceless_variant_in_article(self):
+        body="19일 본지 취재결과 춘천시의 행정절차에 변경이 있었으며 추후 관리체계 개편이 논의됐다."
+        html_doc="<html><article><p>"+body+"</p><p>"+("사업 관련 기관이 추가 설명을 내놓았다. "*5)+"</p></article></html>"
+        soup=BeautifulSoup(html_doc,"html.parser")
+        container=ns["choose_body_container"](soup)
+        extracted=ns["extract_paragraphs"](container)
+        self.assertEqual(ns["target_phrase_counts"]("\n".join(extracted))["본지 취재 결과"],1)
+        self.assertTrue(ns["contains_target_phrase"]("\n".join(extracted)))
+
+
+if __name__=="__main__":
+    unittest.main()

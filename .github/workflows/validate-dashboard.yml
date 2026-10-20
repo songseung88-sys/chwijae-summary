@@ -29,12 +29,30 @@ jobs:
         run: python -m py_compile api/main.py classifier/main.py collector/main.py
       - name: Publisher and scheduler regression checks
         run: |
+          python -m pip install --quiet beautifulsoup4
           python -m unittest discover -s qa -p "test_publisher_normalization.py" -v
           python -m unittest discover -s qa -p "test_subjectless_table3.py" -v
           python -m unittest discover -s qa -p "test_expanded_corpus.py" -v
+          python -m unittest discover -s qa -p "test_article_body_extraction.py" -v
           bash -n infra/setup_scheduler.sh
       - name: JavaScript syntax check
         run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js
+      - name: Verify pie labels and small-slice leader lines
+        run: |
+          node - <<'JS'
+          const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
+          const ctx={esc:s=>String(s).replaceAll("&","&amp;").replaceAll("<","&lt;")};
+          vm.createContext(ctx);
+          vm.runInContext(fs.readFileSync("api/static/topic-dialog.js","utf8"),ctx);
+          const graph=vm.runInContext('labeledPieSvg([{name:"사회",count:7},{name:"경제·산업",count:6},{name:"정치",count:5},{name:"스포츠",count:1},{name:"문화·생활",count:1}],20)',ctx);
+          assert.match(graph,/>사회<\/text>/);
+          assert.match(graph,/>정치<\/text>/);
+          assert.match(graph,/>스포츠<\/text>/);
+          assert.match(graph,/<polyline /);
+          assert.match(graph,/role="img"/);
+          assert.match(graph,/#[0-9A-Fa-f]{6}/);
+          console.log("Colorful labeled SVG chart and leader-line checks passed");
+          JS
       - name: Markup and API contract checks
         run: |
           python - <<'PY'
