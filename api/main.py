@@ -44,6 +44,8 @@ DEFAULT_SITE_CONFIG = {
     "section_secondary_title": "함께 쓰인 무주체형 표현",
     "section_history_title": "최근 14일",
     "section_articles_title": "오늘의 '취재 종합' 문장들",
+    "group_usage_title": "누가 사용하는가",
+    "group_analysis_title": "어디에서 어떻게 쓰이는가",
     "ranking_view_all_text": "전체 보기",
     "ranking_collapse_text": "접기",
     "paragraph_toggle_text": "문단 보기",
