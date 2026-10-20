@@ -6,6 +6,7 @@
   <title>자세히 보기 | 취재를 종합하면</title>
   <meta name="description" content="취재를 종합하면 대시보드 소개" />
   <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/bigkinds-charts.css?v=1" />
 </head>
 <body>
   <main class="wrap about-page">
@@ -13,7 +14,43 @@
     <h1>자세히 보기</h1>
     <section id="aboutContent" aria-label="서비스 소개 본문"></section>
     <p id="aboutLoadError" class="about-load-error" hidden>소개글을 불러오지 못했습니다.</p>
+    <section class="bigkinds-history" aria-labelledby="bigkindsHistoryTitle">
+      <header class="bigkinds-heading">
+        <p class="bigkinds-eyebrow">BIGKINDS · 2016—2025</p>
+        <h2 id="bigkindsHistoryTitle">‘취재를 종합하면’ 10년의 기록</h2>
+        <p>빅카인즈에서 조사한 10개 언론사의 연도별 기사 수입니다. 마우스를 올리거나 그래프의 연도를 선택하면 정확한 수치를 볼 수 있습니다.</p>
+      </header>
+
+      <article class="bigkinds-panel" aria-labelledby="bigkindsAnnualTitle">
+        <div class="bigkinds-panel-header">
+          <div>
+            <h3 id="bigkindsAnnualTitle">‘취재를 종합하면’ 연간 기사 수</h3>
+            <p>10개 언론사 합계 · 연도별 검색 기사 수</p>
+          </div>
+          <span class="bigkinds-featured" id="bigkindsPeakYear" aria-label="2025년 기사 수">데이터 불러오는 중</span>
+        </div>
+        <div class="bigkinds-chart-shell" id="bigkindsAnnualChart" aria-label="연간 기사 수 그래프"></div>
+        <p class="bigkinds-hint">막대에 마우스를 올리거나, 키보드의 Tab 키로 연도를 선택하면 정확한 기사 수를 확인할 수 있습니다.</p>
+      </article>
+
+      <article class="bigkinds-panel" aria-labelledby="bigkindsPublisherTitle">
+        <div class="bigkinds-panel-header">
+          <div>
+            <h3 id="bigkindsPublisherTitle">언론사별 ‘취재를 종합하면’ 사용 추이</h3>
+            <p>한겨레 · 경향신문 · 조선일보 · 한국일보를 기본으로 표시합니다.</p>
+          </div>
+          <button class="bigkinds-reset-button" id="bigkindsResetPublishers" type="button">기본 4개로 되돌리기</button>
+        </div>
+        <div id="bigkindsPublisherFilters" class="bigkinds-publisher-filters" role="group" aria-label="그래프에 표시할 언론사 선택"></div>
+        <p id="bigkindsSelectedCount" class="bigkinds-selection-note" aria-live="polite"></p>
+        <div class="bigkinds-chart-shell" id="bigkindsPublisherChart" aria-label="선택한 언론사들의 연도별 기사 수 추이 그래프"></div>
+        <p class="bigkinds-hint">언론사 이름을 누르면 그래프에서 해당 언론사를 표시하거나 숨깁니다. 그래프의 연도에 마우스를 올리면 선택한 언론사들의 기사 수를 모두 확인할 수 있습니다.</p>
+      </article>
+
+      <p class="bigkinds-source"><strong>출처·해석 안내</strong> 빅카인즈(BigKinds), 검색 표현 ‘취재를 종합하면’, 2016~2025년. 사용자가 직접 조사해 제공한 10개 언론사(경향신문·국민일보·동아일보·문화일보·서울신문·세계일보·조선일보·중앙일보·한겨레·한국일보)의 연도별 집계입니다. 검색 대상과 방식에 따라 결과가 달라질 수 있으며, 사용 빈도가 곧 취재의 질이나 언론사의 우수성을 뜻하지는 않습니다.</p>
+    </section>
   </main>
   <script src="/static/about.js" defer></script>
+  <script src="/static/bigkinds-charts.js?v=1" defer></script>
 </body>
 </html>
