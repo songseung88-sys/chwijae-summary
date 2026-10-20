@@ -47,11 +47,25 @@ assert.match(charts.publisherBigkindsSvg(data,selected),/비교할 언론사를 
 const html=fs.readFileSync("api/static/about.html","utf8");
 const css=fs.readFileSync("api/static/bigkinds-charts.css","utf8");
 for(const token of ["bigkindsAnnualChart","bigkindsPublisherChart","bigkindsPublisherFilters",
-  "bigkindsResetPublishers","bigkindsSelectedCount","bigkinds-charts.js","bigkinds-charts.css",
-  "빅카인즈","2016","2025"]){
+  "bigkinds-charts.js","bigkinds-charts.css","빅카인즈","aboutLayout"]){
   assert(html.includes(token),token);
 }
+for(const unwanted of ["bigkindsPeakYear","bigkindsResetPublishers","bigkinds-hint",
+  "bigkinds-source","bigkinds-eyebrow","BIGKINDS · 2016","사용 빈도가 곧 취재의 질"]){
+  assert(!html.includes(unwanted),"Remove highlighted copy: "+unwanted);
+}
+const chartCode=fs.readFileSync("api/static/bigkinds-charts.js","utf8");
+assert(chartCode.includes('fetch("/api/bigkinds-history"'));
+assert(!chartCode.includes("bigkindsPeakYear"));
+const aboutCode=fs.readFileSync("api/static/about.js","utf8");
+assert(aboutCode.includes("renderAboutLayout"));
+assert(aboutCode.includes("textContent=block.text")); // Never render admin-provided text as HTML.
 assert(css.includes("bigkinds-tooltip"));
 assert(css.includes("bigkinds-hit:focus-visible"));
-assert(html.includes('id="aboutContent"'),"Keep admin-editable About content");
+assert(html.includes('id="aboutContent"'),"Keep legacy About content migration");
+const adminHtml=fs.readFileSync("api/static/admin.html","utf8");
+for(const id of ["aboutLayoutEditor","aboutLayoutRows","addAboutBlock","saveAboutLayout",
+    "bigkindsDataEditor","bigkindsEditorBody","saveBigkindsData"]){
+  assert(adminHtml.includes('id="'+id+'"'),id);
+}
 console.log("BigKinds annual totals, publisher comparison, 4 defaults, all 10 toggles and tooltips validated");
