@@ -366,6 +366,42 @@ def admin_update_about_layout(payload: dict, x_admin_password: str | None = Head
     return {"ok": True, "blocks": blocks}
 
 
+@app.patch("/api/admin/about-block")
+def admin_update_single_about_block(payload: dict, x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    index = payload.get("index")
+    expected = payload.get("expected_text")
+    value = payload.get("text")
+    if (type(index) is not int or index < 0 or index > 21 or
+            not isinstance(expected, str) or not isinstance(value, str) or len(value) > 30000):
+        raise HTTPException(status_code=400, detail="소개글 저장 정보가 올바르지 않습니다.")
+
+    ref = db.collection("site_config").document("public")
+
+    @firestore.transactional
+    def update_one(transaction):
+        snap = ref.get(transaction=transaction)
+        saved = snap.to_dict() or {} if snap.exists else {}
+        try:
+            blocks = validate_about_layout(saved.get("about_layout"))
+        except ValueError:
+            blocks = default_about_layout(saved.get("about_body", ""))
+        if index >= len(blocks) or blocks[index].get("type") != "text":
+            raise HTTPException(status_code=409, detail="소개글 배치가 변경됐습니다. 다시 불러와주세요.")
+        if blocks[index]["text"] != expected:
+            raise HTTPException(status_code=409, detail="해당 소개글이 다른 곳에서 수정됐습니다. 다시 불러와주세요.")
+        blocks[index] = {"type": "text", "text": value}
+        try:
+            blocks = validate_about_layout(blocks)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        transaction.set(ref, {"about_layout": blocks, "updated_at": firestore.SERVER_TIMESTAMP}, merge=True)
+        return blocks[index]
+
+    result = update_one(db.transaction())
+    return {"ok": True, "block": result}
+
+
 @app.get("/api/bigkinds-history")
 def public_bigkinds_history():
     snap = db.collection("site_config").document("bigkinds_history").get()
