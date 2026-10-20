@@ -91,7 +91,7 @@ jobs:
           else
             echo "Firebase project lookup returned HTTP $STATUS; attempting initial setup."
             echo "This step may require the project owner to accept Firebase Terms or grant additional IAM roles."
-            firebase projects:addfirebase --project "$PROJECT_ID" --non-interactive
+            firebase projects:addfirebase "$PROJECT_ID" --non-interactive
           fi
 
       - name: Create the default Hosting site if missing
