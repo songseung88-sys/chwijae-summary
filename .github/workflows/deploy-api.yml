@@ -168,7 +168,9 @@ jobs:
           grep -q 'id="bigkindsAnnualChart"' /tmp/about.html
           grep -q 'id="bigkindsPublisherChart"' /tmp/about.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-annual-2016-2025.json" -o /tmp/bigkinds.json
-          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.js?v=1" -o /tmp/bigkinds-charts.js
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.js?v=2" -o /tmp/bigkinds-charts.js
+          grep -q 'fetch("/api/bigkinds-history"' /tmp/bigkinds-charts.js
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/api/bigkinds-history" -o /tmp/bigkinds-live.json
           grep -q 'function annualBigkindsSvg' /tmp/bigkinds-charts.js
           python - <<'PY'
           import json
@@ -178,6 +180,9 @@ jobs:
           assert d['totals'][-1]==4391
           assert len(d['publishers'])==10
           assert all(sum(v[i] for v in d['publishers'].values())==d['totals'][i] for i in range(10))
+          live=json.loads(Path('/tmp/bigkinds-live.json').read_text())
+          assert live['years']==d['years'] and set(live['publishers'])==set(d['publishers'])
+          assert all(sum(v[i] for v in live['publishers'].values())==live['totals'][i] for i in range(10))
           print('BIGKINDS_HISTORICAL_DATA_AND_CHARTS_OK')
           PY
 
@@ -196,6 +201,14 @@ jobs:
           META_CODE="$(curl --silent --show-error -o /tmp/metadata-unauthorized.json -w '%{http_code}' -X PUT -H 'Content-Type: application/json' \
             --data '{"title":"unauthorized","description":"unauthorized"}' "${URL}/api/admin/thumbnail/metadata")"
           test "${META_CODE}" = "401"
+          echo "ADMIN_LAYOUT_AND_BIGKINDS_AUTH_CHECK:"
+          grep -q 'id="aboutLayoutRows"' /tmp/admin.html
+          grep -q 'id="bigkindsEditorBody"' /tmp/admin.html
+          for API_PATH in /api/admin/about-layout /api/admin/bigkinds-history; do
+            HTTP_CODE="$(curl -sS -o /tmp/admin-api-response -w '%{http_code}' -X PUT -H 'Content-Type: application/json' --data '{}' "${URL}${API_PATH}")"
+            test "$HTTP_CODE" = 401
+          done
+          echo "ADMIN_LAYOUT_AND_BIGKINDS_AUTH_REQUIRED"
           echo "ADMIN_THUMBNAIL_AUTH_REQUIRED"
           echo "### Dashboard" >> "${GITHUB_STEP_SUMMARY}"
           echo "${URL}" >> "${GITHUB_STEP_SUMMARY}"
