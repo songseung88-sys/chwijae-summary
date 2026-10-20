@@ -18,6 +18,9 @@ from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from google.cloud import firestore
 
+from bigkinds_content import (SOURCE as BIGKINDS_SOURCE, default_about_layout,
+                              validate_about_layout, validate_history)
+
 from share_thumbnail import (
     DEFAULT_OG_TITLE, DEFAULT_OG_DESCRIPTION, InvalidThumbnail, MAX_UPLOAD_BYTES,
     image_url, image_version, process_thumbnail, render_preview_html,
@@ -254,6 +257,12 @@ def get_site_config():
                 config[key] = value
             elif isinstance(value, str) and value.strip():
                 config[key] = value.strip()
+    # Newer block layout overrides the legacy single introduction paragraph.
+    stored_layout = (snap.to_dict() or {}).get("about_layout") if snap.exists else None
+    try:
+        config["about_layout"] = validate_about_layout(stored_layout)
+    except ValueError:
+        config["about_layout"] = default_about_layout(config["about_body"])
     # Preserve customized labels; migrate only the old built-in category title.
     if config.get("section_category_title") == "원문 기사 분류":
         config["section_category_title"] = "기사 주제별 사용량"
@@ -296,6 +305,44 @@ def update_site_config(payload: dict, x_admin_password: str | None = Header(defa
     updates["updated_at"] = firestore.SERVER_TIMESTAMP
     db.collection("site_config").document("public").set(updates, merge=True)
     return {"ok": True, "config": get_site_config()}
+
+
+@app.put("/api/admin/about-layout")
+def admin_update_about_layout(payload: dict, x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    try:
+        blocks = validate_about_layout(payload.get("blocks"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.collection("site_config").document("public").set({
+        "about_layout": blocks, "updated_at": firestore.SERVER_TIMESTAMP,
+    }, merge=True)
+    return {"ok": True, "blocks": blocks}
+
+
+@app.get("/api/bigkinds-history")
+def public_bigkinds_history():
+    snap = db.collection("site_config").document("bigkinds_history").get()
+    if snap.exists:
+        try:
+            return validate_history(snap.to_dict() or {})
+        except ValueError:
+            # The original user-supplied dataset is a verified safe fallback.
+            pass
+    return validate_history(BIGKINDS_SOURCE)
+
+
+@app.put("/api/admin/bigkinds-history")
+def admin_update_bigkinds_history(payload: dict, x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    try:
+        dataset = validate_history(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.collection("site_config").document("bigkinds_history").set({
+        **dataset, "updated_at": firestore.SERVER_TIMESTAMP,
+    })
+    return {"ok": True, "data": dataset}
 
 
 @app.get("/api/admin/publishers")
