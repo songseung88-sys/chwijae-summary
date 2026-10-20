@@ -68,7 +68,7 @@ jobs:
             --tasks=1 \
             --max-retries=0 \
             --task-timeout=20m \
-            --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},OPENAI_MODEL=gpt-6-luna,CLASSIFY_LIMIT=100,CLASSIFY_FORCE=true" \
+            --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},OPENAI_MODEL=gpt-6-luna,CLASSIFY_LIMIT=100,CLASSIFY_FORCE=false" \
             --set-secrets="OPENAI_API_KEY=openai-api-key:latest" \
             --execute-now \
             --wait
