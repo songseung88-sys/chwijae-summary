@@ -804,6 +804,7 @@ def main():
         "exclusive": 0,
         "wire_reprint_suspected": 0,
         "errors": {},
+        "rejected_examples": [],
     }
 
     for idx, item in enumerate(candidates, start=1):
@@ -894,6 +895,14 @@ def main():
             final = original
             source = "REJECTED"
             summary["rejected"] += 1
+            if len(summary["rejected_examples"]) < 20:
+                summary["rejected_examples"].append({
+                    "title": item["api_title"][:130],
+                    "domain": (urlparse(original_url).hostname or "").lower(),
+                    "original_error": original.get("error") or "",
+                    "naver_error": naver.get("error") or "",
+                    "has_naver_copy": bool(item["naver_url"]),
+                })
 
         host = (urlparse(original_url).hostname or "").lower()
         wire_source, wire_reprint = detect_wire_reprint(
@@ -977,7 +986,15 @@ def main():
             "collector_version": COLLECTOR_VERSION,
         }
         article_ref.set(article, merge=True)
-        print(f"[{idx}/{len(candidates)}] {source} {item['api_title'][:70]}")
+        if source == "REJECTED":
+            print(
+                f"[{idx}/{len(candidates)}] REJECTED"
+                f" original={original.get('error') or '-'}"
+                f" naver={naver.get('error') or '-'}"
+                f" {item['api_title'][:70]}"
+            )
+        else:
+            print(f"[{idx}/{len(candidates)}] {source} {item['api_title'][:70]}")
 
     summary["finished_at"] = datetime.now(KST).isoformat()
     run_ref.set(summary)
