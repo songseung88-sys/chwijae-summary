@@ -49,6 +49,8 @@ DEFAULT_SITE_CONFIG = {
     "section_reporter_title": "이번 주 가장 많이 '취재 종합'한 기자",
     "section_category_title": "원문 기사 분류",
     "section_secondary_title": "함께 쓰인 무주체형 표현",
+    "topic_primary_caption": "1차 분류",
+    "topic_secondary_caption": "2차 분류별 비중",
     "section_history_title": "최근 14일",
     "section_articles_title": "오늘의 '취재 종합' 문장들",
     "group_usage_title": "누가 사용하는가",
