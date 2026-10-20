@@ -16,11 +16,37 @@ function renderAboutEditor(){
       (chart?'':'<button type="button" data-action="delete" data-index="'+i+'" aria-label="이 소개글 삭제">삭제</button>')+
       '</div></div>'+
       (chart?'<p class="about-editor-chart-info">이 그래프는 공개 페이지에서 자동으로 표시됩니다.</p>':
-        '<label class="admin-field"><span>본문 (줄바꿈 유지)</span><textarea data-about-text="'+i+'" rows="6" maxlength="30000" placeholder="이 위치에 소개글을 입력하세요.">'+aboutEscape(b.text||"")+'</textarea></label>')+
+        '<label class="admin-field"><span>본문 (줄바꿈 유지)</span><textarea data-about-text="'+i+'" rows="6" maxlength="30000" placeholder="이 위치에 소개글을 입력하세요.">'+aboutEscape(b.text||"")+'</textarea></label>'+
+        '<div class="about-format-toolbar" role="group" aria-label="선택한 글자 서식">'+
+        '<button type="button" data-format="큰글씨" data-index="'+i+'">큰 글씨</button>'+
+        '<button type="button" data-format="작은글씨" data-index="'+i+'">작은 글씨</button>'+
+        '<button type="button" data-format="굵게" data-index="'+i+'">굵게</button>'+
+        '<span>글자 선택 → 서식 버튼 → 미리보기 → 저장</span></div>'+
+        '<div class="about-editor-preview" data-about-preview="'+i+'" aria-label="본문 미리보기"></div>')+
       '</div>';
   }).join("");
-  host.querySelectorAll("textarea[data-about-text]").forEach(t=>t.addEventListener("input",()=>{
-    aboutDraft[Number(t.dataset.aboutText)].text=t.value;
+  host.querySelectorAll("textarea[data-about-text]").forEach(t=>{
+    const idx=Number(t.dataset.aboutText);
+    const preview=host.querySelector('[data-about-preview="'+idx+'"]');
+    const first=aboutDraft.findIndex(block=>block.type==="text"&&block.text.trim());
+    function update(){
+      aboutDraft[idx].text=t.value;
+      renderAboutText(preview,t.value,idx===first);
+    }
+    t.addEventListener("input",update);
+    update();
+  });
+  host.querySelectorAll("button[data-format]").forEach(button=>button.addEventListener("click",()=>{
+    const idx=Number(button.dataset.index);
+    const field=host.querySelector('textarea[data-about-text="'+idx+'"]');
+    const start=field.selectionStart,end=field.selectionEnd;
+    if(start===end){field.focus();return;}
+    const tag=button.dataset.format;
+    const chosen=field.value.slice(start,end);
+    const prefix="["+tag+"]",suffix="[/"+tag+"]";
+    field.setRangeText(prefix+chosen+suffix,start,end,"select");
+    field.dispatchEvent(new Event("input",{bubbles:true}));
+    field.focus();
   }));
   host.querySelectorAll("button[data-action]").forEach(button=>button.addEventListener("click",()=>{
     const i=Number(button.dataset.index), action=button.dataset.action;
