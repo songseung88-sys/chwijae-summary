@@ -21,7 +21,7 @@ function renderAboutEditor(){
         '<button type="button" data-format="큰글씨" data-index="'+i+'">큰 글씨</button>'+
         '<button type="button" data-format="작은글씨" data-index="'+i+'">작은 글씨</button>'+
         '<button type="button" data-format="굵게" data-index="'+i+'">굵게</button>'+
-        '<span>글자 선택 → 서식 버튼 → 미리보기 → 저장</span></div>'+
+        '<span>글자 선택 → 적용 · 같은 버튼 다시 누르면 해제</span></div>'+
         '<div class="about-editor-preview" data-about-preview="'+i+'" aria-label="본문 미리보기"></div>')+
       '</div>';
   }).join("");
@@ -42,11 +42,19 @@ function renderAboutEditor(){
     const start=field.selectionStart,end=field.selectionEnd;
     if(start===end){field.focus();return;}
     const tag=button.dataset.format;
-    const chosen=field.value.slice(start,end);
-    const prefix="["+tag+"]",suffix="[/"+tag+"]";
-    field.setRangeText(prefix+chosen+suffix,start,end,"select");
-    field.dispatchEvent(new Event("input",{bubbles:true}));
+    const change=toggleAboutFormatting(field.value,start,end,tag);
+    if(!change){
+      document.querySelector("#aboutLayoutStatus").textContent=
+        "서식을 적용하거나 해제할 글자 범위를 다시 선택해주세요.";
+      field.focus();
+      return;
+    }
+    field.value=change.text;
     field.focus();
+    field.setSelectionRange(change.start,change.end);
+    field.dispatchEvent(new Event("input",{bubbles:true}));
+    document.querySelector("#aboutLayoutStatus").textContent=
+      change.applied?"선택한 글자에 서식을 적용했습니다.":"선택한 글자의 서식을 해제했습니다.";
   }));
   host.querySelectorAll("button[data-action]").forEach(button=>button.addEventListener("click",()=>{
     const i=Number(button.dataset.index), action=button.dataset.action;
