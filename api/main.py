@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import ast
+import base64
+import binascii
 import hmac
 import os
 import re
@@ -12,9 +14,14 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from google.cloud import firestore
+
+from share_thumbnail import (
+    InvalidThumbnail, MAX_UPLOAD_BYTES, image_url, image_version,
+    process_thumbnail, render_preview_html,
+)
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "").strip() or None
 KST = ZoneInfo("Asia/Seoul")
@@ -350,9 +357,95 @@ def update_publisher_names(payload: dict, x_admin_password: str | None = Header(
     return {"ok": True, "updated": len(validated)}
 
 
+def current_thumbnail():
+    snap = db.collection("site_config").document("social_preview").get()
+    data = snap.to_dict() or {} if snap.exists else {}
+    version = data.get("version")
+    if not isinstance(version, str) or not re.fullmatch(r"[a-f0-9]{64}", version):
+        return {"version": None, "url": image_url(), "updated_at": None}
+    updated = data.get("updated_at")
+    return {
+        "version": version,
+        "url": image_url(version),
+        "updated_at": updated.isoformat() if hasattr(updated, "isoformat") else updated,
+    }
+
+
+@app.get("/api/admin/thumbnail")
+def admin_thumbnail(x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    return current_thumbnail()
+
+
+@app.put("/api/admin/thumbnail")
+def upload_thumbnail(payload: dict, x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    encoded = payload.get("image_base64")
+    if not isinstance(encoded, str) or not encoded:
+        raise HTTPException(status_code=400, detail="등록할 이미지가 없습니다.")
+    # Prevent oversized requests from being decoded in 256 MiB Cloud Run.
+    if len(encoded) > ((MAX_UPLOAD_BYTES + 2) // 3) * 4 + 16:
+        raise HTTPException(status_code=413, detail="이미지는 5MB 이하여야 합니다.")
+    try:
+        raw = base64.b64decode(encoded, validate=True)
+    except (ValueError, binascii.Error) as exc:
+        raise HTTPException(status_code=400, detail="이미지 인코딩이 올바르지 않습니다.") from exc
+    try:
+        jpeg = process_thumbnail(raw)
+    except InvalidThumbnail as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    version = image_version(jpeg)
+    # Immutable content-addressed documents mean old social previews still load
+    # after a new image is selected. Never store blobs in the ephemeral container.
+    db.collection("share_images").document(version).set({
+        "jpeg_base64": base64.b64encode(jpeg).decode("ascii"),
+        "media_type": "image/jpeg",
+        "width": 1200,
+        "height": 630,
+        "size_bytes": len(jpeg),
+        "created_at": firestore.SERVER_TIMESTAMP,
+    })
+    db.collection("site_config").document("social_preview").set({
+        "version": version, "updated_at": firestore.SERVER_TIMESTAMP,
+    })
+    return {"ok": True, "version": version, "url": image_url(version),
+            "width": 1200, "height": 630, "size_bytes": len(jpeg)}
+
+
+@app.delete("/api/admin/thumbnail")
+def reset_thumbnail(x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    db.collection("site_config").document("social_preview").delete()
+    return {"ok": True, "url": image_url()}
+
+
+@app.get("/share-images/{version}.jpg")
+def public_thumbnail(version: str):
+    if not re.fullmatch(r"[a-f0-9]{64}", version):
+        raise HTTPException(status_code=404, detail="이미지가 없습니다.")
+    snap = db.collection("share_images").document(version).get()
+    if not snap.exists:
+        raise HTTPException(status_code=404, detail="이미지가 없습니다.")
+    encoded = (snap.to_dict() or {}).get("jpeg_base64", "")
+    if not isinstance(encoded, str):
+        raise HTTPException(status_code=404, detail="이미지가 없습니다.")
+    data = base64.b64decode(encoded)
+    return Response(
+        content=data, media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable",
+                 "X-Content-Type-Options": "nosniff"},
+    )
+
+
 @app.get("/")
 def dashboard_page():
-    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
+    html = open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8").read()
+    current = current_thumbnail()
+    html = render_preview_html(html, current["url"])
+    return HTMLResponse(
+        content=html,
+        headers={"Cache-Control": "no-cache, max-age=0"},
+    )
 
 
 @app.get("/about")
