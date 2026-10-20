@@ -49,6 +49,13 @@ state.data={
   ],
 };
 vm.runInContext("renderRankings()",context);
+const colors=vm.runInContext("topicColors",context);
+assert.equal(new Set(colors).size,colors.length);
+assert(colors.includes("#285B91")); // Muted blue
+assert(colors.includes("#47785F")); // Muted green
+assert(colors.includes("#886D3F")); // Muted ochre
+assert(colors.includes("#70628D")); // Muted violet
+assert(colors.includes("#935D55")); // Muted terracotta
 const svg=node("#topicPrimaryPie").innerHTML;
 const topic=node("#topicSecondaryBars").innerHTML;
 const expression=node("#secondaryRanking").innerHTML;
@@ -100,4 +107,6 @@ for(const label of ["topic_primary_caption","topic_secondary_caption"]){
 }
 assert(css.includes("@media(max-width:750px)")&&css.includes("@media(max-width:540px)"));
 assert(css.includes(".analysis-group .analysis-stack"));
+assert(css.includes(".expression-fill{background:linear-gradient(90deg,#72a9da,#367cbd)}"));
+assert(css.includes(".expression-row:first-child .expression-fill{background:linear-gradient(90deg,#4b8fc9,#215f9f)}"));
 console.log("Analysis charts, sorted 2nd-level topics, full 3rd-level detail, expression counts and no-type grouping validated");
