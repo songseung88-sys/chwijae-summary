@@ -54,7 +54,7 @@ async function loadCurrentThumbnail(){
     if(!result)return;
     releaseLocalPreview();
     setPreview(result.url);
-    document.querySelector("#thumbnailMetaTitle").value=result.title||"취재를 종합하면";
+    document.querySelector("#thumbnailMetaTitle").value=typeof result.title==="string"?result.title:"취재를 종합하면";
     document.querySelector("#thumbnailMetaDescription").value=result.description||"";
     setThumbnailMetaStatus("현재 공유 제목과 설명을 불러왔습니다.");
     setThumbnailStatus(result.version
@@ -80,10 +80,6 @@ async function thumbnailRequestMetadata(payload){
 async function saveThumbnailMetadata(){
   if(!thumbnailPassword())return;
   const payload=thumbnailMetaFields();
-  if(!payload.title||!payload.description){
-    setThumbnailMetaStatus("공유 제목과 설명을 모두 입력해주세요.");
-    return;
-  }
   if(payload.title.length>100||payload.description.length>300){
     setThumbnailMetaStatus("제목은 100자, 설명은 300자를 넘을 수 없습니다.");
     return;
