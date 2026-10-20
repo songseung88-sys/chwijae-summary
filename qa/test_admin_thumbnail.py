@@ -80,5 +80,84 @@ class ThumbnailUploadTests(unittest.TestCase):
         self.assertIn('return HTMLResponse(',main)
         self.assertIn('Cache-Control": "no-cache',main)
 
+
+class SimulatedEndpoints(unittest.TestCase):
+    """Exercise the real admin handlers against a tiny local Firestore fake."""
+    def test_upload_persists_and_updates_crawler_html_then_resets(self):
+        import ast, base64, binascii, copy, hmac, os, re
+        from share_thumbnail import process_thumbnail
+        class HTTPError(Exception):
+            def __init__(self,status_code,detail):
+                self.status_code=status_code
+                self.detail=detail
+        class Snapshot:
+            def __init__(self,data):
+                self.exists=data is not None
+                self.data=data
+            def to_dict(self):return self.data
+        class Doc:
+            def __init__(self,data,key):
+                self.data=data;self.key=key
+            def get(self):return Snapshot(self.data.get(self.key))
+            def set(self,info):self.data[self.key]=info
+            def delete(self):self.data.pop(self.key,None)
+        class Collection:
+            def __init__(self,data):self.data=data
+            def document(self,key):return Doc(self.data,key)
+        class DB:
+            def __init__(self):self.data={}
+            def collection(self,key):return Collection(self.data.setdefault(key,{}))
+        source=(ROOT/"api/main.py").read_text(encoding="utf-8")
+        methods={"require_admin","current_thumbnail","admin_thumbnail",
+                 "upload_thumbnail","reset_thumbnail","public_thumbnail","dashboard_page"}
+        functions=[]
+        for node in ast.parse(source).body:
+            if isinstance(node,ast.FunctionDef) and node.name in methods:
+                node=copy.deepcopy(node);node.decorator_list=[];functions.append(node)
+        database=DB()
+        ns=dict(
+            db=database,base64=base64,binascii=binascii,hmac=hmac,
+            re=re,os=os,open=open,
+            ADMIN_EDITOR_PASSWORD="protected",MAX_UPLOAD_BYTES=5*1024*1024,
+            Header=lambda default=None:default,HTTPException=HTTPError,
+            InvalidThumbnail=InvalidThumbnail,image_url=image_url,
+            image_version=image_version,process_thumbnail=process_thumbnail,
+            render_preview_html=render_preview_html,
+            STATIC_DIR=str(ROOT/"api/static"),
+            firestore=type("F",(),{"SERVER_TIMESTAMP":"timestamp"})(),
+            Response=lambda content,media_type,headers:dict(content=content,media_type=media_type,headers=headers),
+            HTMLResponse=lambda content,headers:dict(content=content,headers=headers),
+        )
+        exec(compile(ast.Module(body=functions,type_ignores=[]),"<thumbnail-functions>","exec"),ns)
+        self.assertEqual(ns["current_thumbnail"]()["url"],STATIC_FALLBACK_URL)
+        for method,args in (
+            ("admin_thumbnail",("bad",)),
+            ("upload_thumbnail",({"image_base64":"abcd"},"bad")),
+            ("reset_thumbnail",("bad",)),
+        ):
+            with self.assertRaises(HTTPError) as error:
+                ns[method](*args)
+            self.assertEqual(error.exception.status_code,401)
+        png=self.make_image()
+        result=ns["upload_thumbnail"]({"image_base64":base64.b64encode(png).decode("ascii")},"protected")
+        url=result["url"]
+        self.assertIn("/share-images/",url)
+        self.assertEqual(ns["current_thumbnail"]()["url"],url)
+        page=ns["dashboard_page"]()
+        self.assertEqual(page["content"].count(url),3)
+        self.assertEqual(page["headers"]["Cache-Control"],"no-cache, max-age=0")
+        image=ns["public_thumbnail"](result["version"])
+        self.assertEqual(image["media_type"],"image/jpeg")
+        self.assertEqual(image["content"],process_thumbnail(png))
+        self.assertIn("immutable",image["headers"]["Cache-Control"])
+        with self.assertRaises(HTTPError) as err:
+            ns["upload_thumbnail"]({"image_base64":base64.b64encode(b"not-an-image").decode()},"protected")
+        self.assertEqual(err.exception.status_code,400)
+        ns["reset_thumbnail"]("protected")
+        self.assertEqual(ns["current_thumbnail"]()["url"],STATIC_FALLBACK_URL)
+        self.assertEqual(ns["dashboard_page"]()["content"].count(STATIC_FALLBACK_URL),3)
+        self.assertEqual(ns["public_thumbnail"](result["version"])["content"],image["content"])
+
+
 if __name__=="__main__":
     unittest.main()
