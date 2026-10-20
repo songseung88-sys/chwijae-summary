@@ -37,7 +37,7 @@ def jpeg_dimensions(b):
         if i+2>len(b):break
         segment_size=int.from_bytes(b[i:i+2],"big")
         if marker in (0xc0,0xc1,0xc2,0xc3,0xc5,0xc6,0xc7,0xc9,0xca,0xcb,0xcd,0xce,0xcf):
-            return int.from_bytes(b[i+3:i+5],"big"),int.from_bytes(b[i+5:i+7],"big")
+            return int.from_bytes(b[i+5:i+7],"big"),int.from_bytes(b[i+3:i+5],"big")
         i+=segment_size
     raise AssertionError("Missing JPEG size frame")
 
