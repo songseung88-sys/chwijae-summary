@@ -10,6 +10,7 @@ on:
       - main
     paths:
       - "api/**"
+      - "collector/**"
       - "infra/**"
       - "qa/**"
       - ".github/workflows/run-classifier.yml"
@@ -25,10 +26,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Python compile
-        run: python -m py_compile api/main.py classifier/main.py
+        run: python -m py_compile api/main.py classifier/main.py collector/main.py
       - name: Publisher and scheduler regression checks
         run: |
           python -m unittest discover -s qa -p "test_publisher_normalization.py" -v
+          python -m unittest discover -s qa -p "test_subjectless_table3.py" -v
           bash -n infra/setup_scheduler.sh
       - name: JavaScript syntax check
         run: node --check api/static/app.js && node --check api/static/admin.js
@@ -45,8 +47,13 @@ jobs:
           js = Path("api/static/app.js").read_text()
           for key in ["categoryCoverage", "clearTopicFilter", "categoryRanking", "articleTemplate", "collectionHealth"]:
               assert f'id="{key}"' in html, key
-          for key in ["topic-details", "topic-path", "topic-tags", "topic-original", "paragraph-details"]:
-              assert key in html and key in js, key
+          for key in ["paragraph-details", "about-link"]:
+              assert key in html, key
+          assert "topic-details" not in html
+          assert 'href="/about"' in html
+          assert Path("api/static/about.html").exists()
+          assert '@app.get("/about")' in src
+          assert "paper-table3-v1" in src
           for key in ["category_ranking_ai", "category_classified_count", "category_unclassified_count", "category_primary", "category_secondary", "category_tertiary"]:
               assert key in src, key
           assert 'CLASSIFY_FORCE=false' in Path(".github/workflows/run-classifier.yml").read_text()

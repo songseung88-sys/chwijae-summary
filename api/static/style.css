@@ -72,3 +72,14 @@ summary{cursor:pointer;font-size:12px;color:#555}
 .collection-health::before{content:"";flex:none;width:7px;height:7px;border-radius:999px;background:#38865c}
 .collection-health-warning{background:#fff8e8;border-color:#f0dfb0;color:#856123}
 .collection-health-warning::before{background:#c38c26}
+
+/* Compact intro navigation and a deliberately content-free about page. */
+.hero-intro{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 12px}
+.hero-intro p{margin:0}
+.about-link,.about-back{color:var(--text);font-size:12px;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.about-link:hover,.about-back:hover{opacity:.65}
+.about-back{display:inline-block;margin-bottom:22px;color:var(--muted)}
+.about-page h1{font-size:30px;margin:0 0 26px}
+.about-page #aboutContent{min-height:160px}
+.collection-health{color:var(--muted);background:transparent;border-color:transparent;padding:0;font-size:12px}
+.collection-health::before{background:var(--muted)}
