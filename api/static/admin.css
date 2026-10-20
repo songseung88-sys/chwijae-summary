@@ -146,3 +146,22 @@
 .about-editor-preview .about-small-phrase{font-size:12px;color:#526578}
 .about-editor-preview .about-bold-phrase{font-weight:750}
 @media(max-width:680px){.copy-editor-group{grid-template-columns:1fr}}
+
+/* A local save action sits directly under each independently editable value. */
+.copy-editor-inline-actions{align-items:center;flex-wrap:wrap}
+.copy-editor-inline-actions .copy-item-save{background:#245e90;color:#fff;border-color:#245e90;font-weight:750;margin-left:auto}
+.copy-editor-inline-actions .copy-item-save:hover:not(:disabled){background:#154570;color:#fff}
+.copy-editor-inline-actions .copy-item-save:disabled,
+.publisher-row-save:disabled,.bigkinds-year-save:disabled,.about-block-save:disabled{opacity:.42;cursor:not-allowed}
+.copy-editor-entry-modified textarea{border-color:#7baccf}
+.copy-item-status{font-size:11px;color:#476d89;min-height:14px;line-height:1.5}
+.publisher-row-save,.bigkinds-year-save{cursor:pointer;white-space:nowrap;background:#245e90;color:#fff;border:0;border-radius:7px;padding:8px 10px;font-size:11px}
+.publisher-row-save:hover:not(:disabled),.bigkinds-year-save:hover:not(:disabled){background:#154570}
+.bigkinds-year-status{display:block;max-width:135px;line-height:1.4;font-size:10px;margin-top:5px;color:#476d89;white-space:normal}
+.about-block-save-actions{display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:12px}
+.about-block-save{padding:8px 12px;font-size:12px}
+.about-block-save-status{color:#476d89;font-size:11px;line-height:1.5}
+@media(max-width:680px){
+  .copy-editor-inline-actions .copy-item-save{margin-left:0}
+  .copy-editor-group{gap:18px}
+}
