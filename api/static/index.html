@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>취재를 종합하면</title>
   <meta name="description" content="한국 언론의 기사에서 '취재를 종합하면' 표현의 사용을 기록하는 대시보드" />
-  <link rel="stylesheet" href="/static/style.css?v=editorial-blue-1" />
+  <link rel="stylesheet" href="/static/style.css?v=editorial-blue-2" />
 </head>
 <body>
   <main class="wrap">
@@ -29,7 +29,7 @@
       <article class="panel">
         <div class="panel-head">
           <h2 id="publisherTitle"></h2>
-          <button class="text-link rank-toggle" data-target="publisherRanking" type="button"></button>
+          <button class="text-link rank-toggle" data-target="publisherRanking" type="button" aria-haspopup="dialog" aria-controls="rankingDialog"></button>
         </div>
         <div id="publisherRanking" class="ranking"></div>
       </article>
@@ -40,7 +40,7 @@
             <h2 id="reporterTitle"></h2>
             <span id="weekLabel"></span>
           </div>
-          <button class="text-link rank-toggle" data-target="reporterRanking" type="button"></button>
+          <button class="text-link rank-toggle" data-target="reporterRanking" type="button" aria-haspopup="dialog" aria-controls="rankingDialog"></button>
         </div>
         <div id="reporterRanking" class="ranking"></div>
       </article>
@@ -56,7 +56,7 @@
             <h2 id="categoryTitle"></h2>
             
           </div>
-          <button class="text-link rank-toggle" data-target="categoryRanking" type="button" aria-haspopup="dialog" aria-controls="categoryDialog">전체 보기</button>
+          <button class="text-link rank-toggle" data-target="categoryRanking" type="button" aria-haspopup="dialog" aria-controls="categoryDialog">자세히 보기</button>
         </div>
         <div id="categoryRanking" class="ranking"></div>
       </article>
@@ -67,7 +67,7 @@
             <h2 id="secondaryTitle"></h2>
             <span>해당 기사 본문 기준</span>
           </div>
-          <button class="text-link rank-toggle" data-target="secondaryRanking" type="button"></button>
+          <button class="text-link rank-toggle" data-target="secondaryRanking" type="button" aria-haspopup="dialog" aria-controls="rankingDialog"></button>
         </div>
         <div id="secondaryRanking" class="ranking"></div>
       </article>
@@ -98,6 +98,16 @@
       </header>
       <div id="categoryDialogContent"></div>
     </dialog>
+    <dialog class="ranking-dialog" id="rankingDialog" aria-labelledby="rankingDialogTitle">
+      <header class="topic-dialog-head">
+        <h2 id="rankingDialogTitle"></h2>
+        <button type="button" id="closeRankingDialog" aria-label="팝업 닫기">✕</button>
+      </header>
+      <div id="rankingDialogContent"></div>
+      <div class="more-wrap ranking-dialog-more-wrap">
+        <button id="rankingDialogMore" class="more-button" type="button" hidden></button>
+      </div>
+    </dialog>
   </main>
 
   <template id="articleTemplate">
@@ -105,7 +115,6 @@
       <div class="news-meta"></div>
       <h3></h3>
       <p class="context"></p>
-      <div class="chips"></div>
       <details class="paragraph-details">
         <summary></summary>
         <p class="paragraph"></p>
@@ -114,7 +123,8 @@
     </article>
   </template>
 
-  <script src="/static/app.js?v=editorial-blue-1" defer></script>
+  <script src="/static/app.js?v=editorial-blue-2" defer></script>
   <script src="/static/topic-dialog.js" defer></script>
+  <script src="/static/ranking-dialog.js?v=ranking-details-1" defer></script>
 </body>
 </html>
