@@ -23,3 +23,36 @@
 #publisherNameEditor .save-button:disabled{opacity:.48;cursor:not-allowed}
 .publisher-editor-actions [hidden]{display:none!important}
 @media(max-width:640px){.publisher-table th,.publisher-table td{padding:10px 9px}.publisher-table td.publisher-source{min-width:120px}.publisher-table input{min-width:120px}.publisher-editor-tools #loadPublishers{width:100%}.publisher-table{font-size:12px}}
+
+/* Editable Open Graph share image */
+.thumbnail-preview-wrap{
+  max-width:600px;
+  border-radius:12px;
+  border:1px solid #d3e0ec;
+  overflow:hidden;
+  margin:16px 0 18px;
+  background:#f4f8fd;
+}
+.thumbnail-preview-wrap img{
+  display:block;
+  width:100%;
+  height:auto;
+  aspect-ratio:1200/630;
+  object-fit:contain;
+}
+.thumbnail-controls{display:flex;align-items:end;flex-wrap:wrap;gap:16px}
+.thumbnail-file-label{display:flex;min-width:220px;flex:1;flex-direction:column;gap:9px;font-size:13px;color:var(--muted);font-weight:650}
+.thumbnail-file-label input{
+  width:100%;max-width:550px;padding:12px 10px;
+  border-radius:9px;border:1px solid #d5e1ed;background:#fff;color:var(--text)
+}
+.thumbnail-file-label input:focus-visible{outline:3px solid #bddef6;outline-offset:3px}
+.thumbnail-cache-tip{margin-top:16px}
+.thumbnail-cache-tip a{color:#246cba}
+#thumbnailSave:disabled{opacity:.48;cursor:not-allowed}
+#thumbnailStatus{color:var(--muted);font-size:12px;line-height:1.6}
+@media(max-width:540px){
+  .thumbnail-preview-wrap{width:100%}
+  .thumbnail-controls>#thumbnailLoad{width:100%}
+  .thumbnail-file-label{min-width:0;width:100%}
+}

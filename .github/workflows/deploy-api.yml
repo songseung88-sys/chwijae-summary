@@ -137,5 +137,14 @@ jobs:
           assert len(img)>100000 and img[:3]==bytes((255,216,255))
           print("SOCIAL_SHARE_PREVIEW_VALIDATED",len(img))
           PY
+          echo "ADMIN_THUMBNAIL_UI_CHECK:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/admin" -o /tmp/admin.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/thumbnail-editor.js?v=1" -o /tmp/thumbnail-editor.js
+          grep -q 'id="thumbnailFile"' /tmp/admin.html
+          grep -q 'id="thumbnailSave"' /tmp/admin.html
+          grep -q '/api/admin/thumbnail' /tmp/thumbnail-editor.js
+          CODE="$(curl --silent --show-error -o /tmp/unauthorized.json -w '%{http_code}' "${URL}/api/admin/thumbnail")"
+          test "${CODE}" = "401"
+          echo "ADMIN_THUMBNAIL_AUTH_REQUIRED"
           echo "### Dashboard" >> "${GITHUB_STEP_SUMMARY}"
           echo "${URL}" >> "${GITHUB_STEP_SUMMARY}"
