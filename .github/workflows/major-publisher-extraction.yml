@@ -1,0 +1,27 @@
+name: Diagnose major publisher article extraction
+
+on:
+  push:
+    branches:
+      - qa/major-publisher-body-audit
+    paths:
+      - "qa/major_publisher_live_audit.py"
+      - ".github/workflows/major-publisher-extraction.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install collector parser dependencies
+        run: python -m pip install --quiet -r collector/requirements.txt
+      - name: Test regular Hankyoreh article and five publisher failure cases
+        run: python -m qa.major_publisher_live_audit
