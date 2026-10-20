@@ -19,8 +19,9 @@ from fastapi.staticfiles import StaticFiles
 from google.cloud import firestore
 
 from share_thumbnail import (
-    InvalidThumbnail, MAX_UPLOAD_BYTES, image_url, image_version,
-    process_thumbnail, render_preview_html,
+    DEFAULT_OG_TITLE, DEFAULT_OG_DESCRIPTION, InvalidThumbnail, MAX_UPLOAD_BYTES,
+    image_url, image_version, process_thumbnail, render_preview_html,
+    validate_preview_copy,
 )
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "").strip() or None
@@ -364,11 +365,20 @@ def current_thumbnail():
     data = snap.to_dict() or {} if snap.exists else {}
     version = data.get("version")
     if not isinstance(version, str) or not re.fullmatch(r"[a-f0-9]{64}", version):
-        return {"version": None, "url": image_url(), "updated_at": None}
+        version = None
+    title = data.get("title", DEFAULT_OG_TITLE)
+    description = data.get("description", DEFAULT_OG_DESCRIPTION)
+    # Preserve the last valid stored metadata even if a future writer is faulty.
+    try:
+        title, description = validate_preview_copy(title, description)
+    except ValueError:
+        title, description = DEFAULT_OG_TITLE, DEFAULT_OG_DESCRIPTION
     updated = data.get("updated_at")
     return {
         "version": version,
         "url": image_url(version),
+        "title": title,
+        "description": description,
         "updated_at": updated.isoformat() if hasattr(updated, "isoformat") else updated,
     }
 
@@ -377,6 +387,21 @@ def current_thumbnail():
 def admin_thumbnail(x_admin_password: str | None = Header(default=None)):
     require_admin(x_admin_password)
     return current_thumbnail()
+
+
+@app.put("/api/admin/thumbnail/metadata")
+def update_thumbnail_metadata(payload: dict, x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    try:
+        title, description = validate_preview_copy(payload.get("title"), payload.get("description"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    db.collection("site_config").document("social_preview").set({
+        "title": title,
+        "description": description,
+        "updated_at": firestore.SERVER_TIMESTAMP,
+    }, merge=True)
+    return {"ok": True, "title": title, "description": description}
 
 
 @app.put("/api/admin/thumbnail")
@@ -409,7 +434,7 @@ def upload_thumbnail(payload: dict, x_admin_password: str | None = Header(defaul
     })
     db.collection("site_config").document("social_preview").set({
         "version": version, "updated_at": firestore.SERVER_TIMESTAMP,
-    })
+    }, merge=True)
     return {"ok": True, "version": version, "url": image_url(version),
             "width": 1200, "height": 630, "size_bytes": len(jpeg)}
 
@@ -417,7 +442,10 @@ def upload_thumbnail(payload: dict, x_admin_password: str | None = Header(defaul
 @app.delete("/api/admin/thumbnail")
 def reset_thumbnail(x_admin_password: str | None = Header(default=None)):
     require_admin(x_admin_password)
-    db.collection("site_config").document("social_preview").delete()
+    # Reset the image without discarding the separately saved OG copy.
+    db.collection("site_config").document("social_preview").set({
+        "version": None, "updated_at": firestore.SERVER_TIMESTAMP,
+    }, merge=True)
     return {"ok": True, "url": image_url()}
 
 
@@ -443,7 +471,9 @@ def public_thumbnail(version: str):
 def dashboard_page():
     html = open(os.path.join(STATIC_DIR, "index.html"), encoding="utf-8").read()
     current = current_thumbnail()
-    html = render_preview_html(html, current["url"])
+    html = render_preview_html(
+        html, current["url"], current["title"], current["description"]
+    )
     return HTMLResponse(
         content=html,
         headers={"Cache-Control": "no-cache, max-age=0"},
