@@ -1,8 +1,11 @@
 name: Keep Google Sheets archive in sync
 
 on:
-  # Enable scheduled runs after Google Sheets API is activated by project owner.
-  # Planned: 16,46 * * * * for logs; 13 17 * * * for full daily export (UTC).
+  schedule:
+    # UTC minute :16 and :46 = KST :16 and :46, after the :07/:37 collector.
+    - cron: "16,46 * * * *"
+    # 02:13 KST = 17:13 UTC; reconcile seven days after hourly classification.
+    - cron: "13 17 * * *"
   workflow_dispatch:
     inputs:
       mode:
