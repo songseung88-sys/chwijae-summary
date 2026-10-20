@@ -171,6 +171,14 @@ jobs:
           fi
           grep -q '/static/about.js?v=4' /tmp/about.html
           grep -q '/static/bigkinds-charts.css?v=6' /tmp/about.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.css?v=6" -o /tmp/about-charts.css
+          grep -Fq '.feedback-section details[open] summary > span[aria-hidden="true"]{transform:rotate(180deg)}' /tmp/about-charts.css
+          grep -Fq '.feedback-section summary #feedbackSummaryLabel{font-size:14px' /tmp/about-charts.css
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/admin" -o /tmp/format-admin.html
+          grep -q '/static/about-format.js?v=1' /tmp/format-admin.html
+          grep -q '/static/about-layout-editor.js?v=3' /tmp/format-admin.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/about-format.js?v=1" -o /tmp/about-format.js
+          grep -q 'function toggleAboutFormatting' /tmp/about-format.js
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/about.js?v=4" -o /tmp/about-lead.js
           grep -q 'about-lead-phrase' /tmp/about-lead.js
           grep -q 'id="bigkindsPublisherChart"' /tmp/about.html
