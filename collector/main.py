@@ -22,12 +22,19 @@ KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
 ADDITIONAL_PHRASE = "본지 취재 결과"
 TARGET_PHRASES = (PHRASE, ADDITIONAL_PHRASE)
+# Include the documented orthographic variant in which 취재결과 is one word.
+# Both spellings contribute to one canonical '본지 취재 결과' counter.
+ADDITIONAL_PHRASE_PATTERN = re.compile(r"본지\\s*취재\\s*결과")
 
 def target_phrase_counts(body):
-    return {term: str(body or "").count(term) for term in TARGET_PHRASES}
+    body = str(body or "")
+    return {
+        PHRASE: body.count(PHRASE),
+        ADDITIONAL_PHRASE: len(ADDITIONAL_PHRASE_PATTERN.findall(body)),
+    }
 
 def contains_target_phrase(text):
-    return any(term in str(text or "") for term in TARGET_PHRASES)
+    return any(target_phrase_counts(text).values())
 NAVER_API_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
 # Song & Ihm (2026), Table 3: two broad types and six subtypes.
 # These are lexical candidate matches, not contextual judgments about whether
@@ -58,7 +65,7 @@ SUBJECTLESS_OTHER_RULES = [
     ("기타", "기타", "확인됐다", r"확인됐(?:다|고|으며|지만|는데)"),
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.3-expanded-phrases"
+COLLECTOR_VERSION = "0.5.4-phrase-variants"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -314,19 +321,19 @@ def choose_body_container(soup):
     for selector in COMMON_BODY_SELECTORS:
         for node in soup.select(selector):
             text = clean_text(node.get_text("\n", strip=True))
-            if PHRASE in text and len(text) >= 120:
+            if contains_target_phrase(text) and len(text) >= 120:
                 candidates.append((len(text), node))
     if candidates:
         return max(candidates, key=lambda x: x[0])[1]
 
-    phrase_nodes = soup.find_all(string=lambda s: isinstance(s, str) and PHRASE in s)
+    phrase_nodes = soup.find_all(string=lambda s: isinstance(s, str) and contains_target_phrase(s))
     for text_node in phrase_nodes:
         node = text_node.parent
         for _ in range(8):
             if node is None:
                 break
             text = clean_text(node.get_text("\n", strip=True))
-            if PHRASE in text and len(text) >= 300:
+            if contains_target_phrase(text) and len(text) >= 300:
                 return node
             node = node.parent
     return soup.select_one("article") or soup.select_one("main")
@@ -368,7 +375,7 @@ def extract_paragraphs(container):
         for text in segments:
             if len(text) >= 20 and text not in paras:
                 paras.append(text)
-    if any(PHRASE in p for p in paras):
+    if any(contains_target_phrase(p) for p in paras):
         return paras
 
     raw = container.get_text("\n", strip=True)
@@ -696,7 +703,8 @@ def fetch_candidates(client_id, client_secret, target_date, query, max_pages=10)
 
 
 def collect_target_candidates(client_id, client_secret, target_date, max_articles):
-    queries = [f'"{phrase}"' for phrase in TARGET_PHRASES]
+    # Naver may match either spacing convention; query both spellings and deduplicate.
+    queries = [f'"{PHRASE}"', f'"{ADDITIONAL_PHRASE}"', '"본지 취재결과"']
     by_url = {}
     for query in queries:
         for item in fetch_candidates(client_id, client_secret, target_date, query=query):
