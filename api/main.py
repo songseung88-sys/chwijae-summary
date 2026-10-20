@@ -288,6 +288,7 @@ def get_site_config():
     # Preserve customized labels; migrate only the old built-in category title.
     if config.get("section_category_title") == "원문 기사 분류" and not (isinstance(overrides, dict) and "section_category_title" in overrides):
         config["section_category_title"] = "기사 주제별 사용량"
+        config["ui_copy"]["section_category_title"] = "기사 주제별 사용량"
     # Migrate the previous built-in text even if it was saved by the editor.
     # Other administrator customizations remain untouched.
     if config.get("ranking_view_all_text") == "전체 보기":
