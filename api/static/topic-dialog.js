@@ -1,4 +1,5 @@
-const topicColors=["#245C9E","#4481B8","#517C9F","#6486AD","#526D9A","#4A8A9D","#6F88AF","#4B7399","#718FAB","#587B9E"];
+// Restrained editorial palette: distinct hues with similar visual weight.
+const topicColors=["#285B91","#337180","#47785F","#886D3F","#70628D","#935D55","#4A6D8A","#4C7771","#775F76","#806B52"];
 
 function piePoint(cx,cy,r,angle){
   return [cx+r*Math.cos(angle), cy+r*Math.sin(angle)];
