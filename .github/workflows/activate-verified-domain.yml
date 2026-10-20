@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/activate-verified-domain.yml'
+      - '.github/workflows/deploy-api.yml'
 
 permissions:
   contents: write
