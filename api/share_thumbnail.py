@@ -10,7 +10,7 @@ from io import BytesIO
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-PUBLIC_BASE_URL = "https://chwijae-api-ejmdmrnztq-du.a.run.app/"
+PUBLIC_BASE_URL = "https://based-on-our-reporting.com/"
 STATIC_FALLBACK_URL = PUBLIC_BASE_URL + "static/og-thumbnail-wide.jpg"
 DEFAULT_OG_TITLE = "취재를 종합하면"
 DEFAULT_OG_DESCRIPTION = "한국 언론의 기사에서 '취재를 종합하면' 표현의 사용을 기록하는 대시보드"
