@@ -61,5 +61,21 @@ jobs:
           assert "chips.push(a.category_secondary" not in js
           assert 'Object.entries(a.secondary_expressions' not in js
           assert "정상 갱신" not in js and "해당 실행 신규" not in js
+          # Live editorial-blue deployment and editability contract.
+          css=get("/static/style.css?v=editorial-blue-1").decode("utf-8")
+          editorial_js=get("/static/app.js?v=editorial-blue-1").decode("utf-8")
+          admin_js=get("/static/admin.js").decode("utf-8")
+          assert "editorial-blue-1" in home
+          for element in ['id="usageGroupTitle"','id="analysisGroupTitle"','id="summaryCards"']:
+              assert element in home,element
+          for k in ("group_usage_title","group_analysis_title"):
+              assert public_cfg.get(k),k
+              assert k in admin_js,k
+              assert k in editorial_js,k
+          assert ".phrase-highlight" in css
+          assert ".card:first-child" in css
+          assert "highlightTargetPhrases" in editorial_js
+          assert "LIVE_DASHBOARD_VALIDATED" not in home
+          print("EDITORIAL_BLUE_LIVE_VALIDATED")
           print("LIVE_DASHBOARD_VALIDATED")
           PY
