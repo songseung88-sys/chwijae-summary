@@ -20,6 +20,14 @@ PROJECT_ID = os.getenv("GCP_PROJECT_ID", "").strip() or None
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
 ADMIN_EDITOR_PASSWORD = os.getenv("ADMIN_EDITOR_PASSWORD", "")
+# Canonical paper Table 3 lexical labels; guard against stale legacy tags.
+PAPER_SUBJECTLESS_LABELS = {
+    "알려졌다", "전해졌다", "했다고 한다",
+    "지적이 나온다", "해석이 나온다", "분석이 나온다",
+    "우려가 제기된다", "풀이된다", "해석된다", "보인다",
+    "거론된다", "셈이다", "대목이다", "관측이다",
+}
+
 db = firestore.Client(project=PROJECT_ID)
 
 DEFAULT_SITE_CONFIG = {
@@ -332,7 +340,9 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         if article.get("secondary_taxonomy_version") != "paper-table3-v1":
             continue
         for exp, count in (article.get("secondary_expressions") or {}).items():
-            secondary_counts[exp] += int(count or 0)
+            canonical = "셈이다" if exp == "한 셈이다" else exp
+            if canonical in PAPER_SUBJECTLESS_LABELS:
+                secondary_counts[canonical] += int(count or 0)
 
     exclusive_count = sum(bool(a.get("is_exclusive_strict")) for a in today_articles)
 
