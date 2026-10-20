@@ -38,8 +38,12 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           html=Path("api/static/admin.html").read_text()
-          for x in ("thumbnailEditor","thumbnailFile","thumbnailPreview","thumbnailLoad","thumbnailSave","thumbnailReset"):
+          for x in ("thumbnailEditor","thumbnailFile","thumbnailPreview","thumbnailLoad","thumbnailSave","thumbnailReset",
+                    "thumbnailMetaTitle","thumbnailMetaDescription","thumbnailMetaSave","thumbnailMetaStatus"):
               assert ('id="'+x+'"') in html,x
+          ui=Path("api/static/thumbnail-editor.js").read_text()
+          assert '/api/admin/thumbnail/metadata' in ui
+          assert 'saveThumbnailMetadata' in ui
           assert "thumbnail-editor.js" in html
           print("Admin thumbnail page wiring validated")
           PY
