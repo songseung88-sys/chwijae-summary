@@ -6,6 +6,8 @@ function renderAboutText(node,text,highlightLead){
     if(lead[1])node.appendChild(document.createTextNode(lead[1]));
     const title=document.createElement("span");
     title.className="about-lead-phrase";
+    title.setAttribute("role","heading");
+    title.setAttribute("aria-level","1");
     title.textContent=lead[2];
     node.appendChild(title);
     node.appendChild(document.createTextNode(text.slice(lead[0].length)));
