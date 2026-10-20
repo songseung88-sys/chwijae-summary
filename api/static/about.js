@@ -10,7 +10,10 @@ function renderAboutText(node,text,highlightLead){
     title.setAttribute("aria-level","1");
     title.textContent=lead[2];
     node.appendChild(title);
-    node.appendChild(document.createTextNode(text.slice(lead[0].length)));
+    // If the editor placed a newline right after the lead, join only the displayed
+    // first line to keep the smaller continuation visually inline.
+    const suffix=text.slice(lead[0].length).replace(/^[ \\t]*(?:\\r?\\n)[ \\t]*/, " ");
+    node.appendChild(document.createTextNode(suffix));
   }else{
     node.textContent=text;
   }
