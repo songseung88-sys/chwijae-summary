@@ -57,3 +57,11 @@
   .bigkinds-tooltip{padding:10px 11px}
 }
 @media(prefers-reduced-motion:reduce){.bigkinds-annual-bar,.bigkinds-publisher-toggle{transition:none}}
+
+
+/* Administrator-ordered introduction blocks may sit above, between or below charts. */
+.about-page #aboutLayout{display:flex;flex-direction:column;gap:20px}
+.about-page #aboutLayout .bigkinds-panel{margin-top:0}
+.about-page .about-text-block{line-height:1.9;font-size:15px;white-space:pre-wrap;overflow-wrap:anywhere;color:#31485f;padding:17px 4px}
+.about-page #aboutLayout #aboutContent:not([hidden]){border:0;margin:0;min-height:0;padding:17px 4px}
+.about-page #aboutContent[hidden]{display:none}
