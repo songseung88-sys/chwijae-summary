@@ -114,6 +114,44 @@ def clean_category(value):
     return text
 
 
+def normalize_publisher(value):
+    """Normalize display and ranking labels without changing archived source metadata."""
+    name = re.sub(r"\s+", " ", str(value or "")).strip()
+    if not name:
+        return "미확인"
+    if name.casefold() in {"etoday", "e-today"}:
+        return "이투데이"
+    if re.match(r"^중부일보\s*[-–—]\s*.+$", name):
+        return "중부일보"
+    return name
+
+
+def publisher_display(article):
+    return normalize_publisher(
+        article.get("publisher_original") or domain_of(article.get("original_url"))
+    )
+
+
+def latest_successful_collection():
+    runs = (
+        db.collection("collector_runs")
+        .order_by("started_at", direction=firestore.Query.DESCENDING)
+        .limit(8)
+        .stream()
+    )
+    for doc in runs:
+        run = doc.to_dict() or {}
+        if run.get("finished_at"):
+            return {
+                "finished_at": run["finished_at"],
+                "target_date": run.get("target_date"),
+                "new_accepted": int(run.get("new_accepted") or 0),
+                "accepted": int(run.get("accepted") or 0),
+                "candidates": int(run.get("candidates") or 0),
+            }
+    return None
+
+
 def split_reporters(value, people_only=False):
     value = str(value or "").strip()
     if not value:
@@ -258,14 +296,11 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         if a.get("_dt") and week_start <= a["_dt"].date() <= selected
     ]
 
-    publisher_counts = Counter(
-        (a.get("publisher_original") or domain_of(a.get("original_url")) or "미확인")
-        for a in today_articles
-    )
+    publisher_counts = Counter(publisher_display(a) for a in today_articles)
 
     reporter_counts = Counter()
     for article in week_articles:
-        publisher = article.get("publisher_original") or domain_of(article.get("original_url")) or "미확인"
+        publisher = publisher_display(article)
         for reporter in split_reporters(
             article.get("reporters_resolved") or article.get("reporters_original"),
             people_only=True,
@@ -303,6 +338,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     top_publisher = publisher_counts.most_common(1)
     top_reporter = reporter_counts.most_common(1)
     config = get_site_config()
+    last_collection = latest_successful_collection()
 
     article_rows = []
     for a in sorted(
@@ -315,7 +351,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         article_rows.append({
             "id": a.get("id"),
             "title": a.get("title_resolved") or a.get("title_original") or a.get("title_naver") or a.get("api_title"),
-            "publisher": a.get("publisher_original") or domain_of(a.get("original_url")) or "미확인",
+            "publisher": publisher_display(a),
             "reporters": split_reporters(a.get("reporters_resolved") or a.get("reporters_original")),
             "published_at": a.get("api_pubdate"),
             "category_original": a.get("category_original") or "미분류",
@@ -335,6 +371,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     return {
         "date": str(selected),
         "week_start": str(week_start),
+        "last_successful_collection": last_collection,
         "today_count": len(today_articles),
         "exclusive_count": exclusive_count,
         "exclusive_ratio": round(exclusive_count / len(today_articles), 4) if today_articles else 0,
