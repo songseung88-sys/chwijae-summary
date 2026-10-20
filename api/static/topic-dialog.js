@@ -1,4 +1,75 @@
-const topicColors=["#273c56","#438e9b","#b59b69","#6e829b","#8e796c","#789c85","#95778f","#a7a6a0","#5f6676"];
+const topicColors=["#377CF6","#F46B55","#16AFA2","#F7BB39","#8A5CF6","#EC4899","#84BF41","#14A9D4","#6366F1","#E98A45"];
+
+function piePoint(cx,cy,r,angle){
+  return [cx+r*Math.cos(angle), cy+r*Math.sin(angle)];
+}
+function svgCoord(number){
+  return Number(number.toFixed(2));
+}
+function labeledPieSvg(rows,total){
+  const cx=230, cy=198, radius=123;
+  const size=[460,396];
+  let start=-Math.PI/2;
+  const segments=[];
+  const outer=[];
+  rows.forEach((row,i)=>{
+    const fraction=row.count/total;
+    const end=start+Math.PI*2*fraction;
+    const mid=(start+end)/2;
+    const hue=topicColors[i%topicColors.length];
+    const startPt=piePoint(cx,cy,radius,start),endPt=piePoint(cx,cy,radius,end);
+    const path=(fraction>=.999999)
+      ? '<circle cx="'+cx+'" cy="'+cy+'" r="'+radius+'" fill="'+hue+'"/>'
+      : '<path d="M '+cx+' '+cy+' L '+svgCoord(startPt[0])+' '+svgCoord(startPt[1])+
+        ' A '+radius+' '+radius+' 0 '+(fraction>.5?1:0)+' 1 '+svgCoord(endPt[0])+' '+svgCoord(endPt[1])+
+        ' Z" fill="'+hue+'" stroke="#fff" stroke-width="2.5"/>';
+    segments.push(path);
+    const name=String(row.name||"미분류");
+    // Wide slices can carry a readable label directly; small slices use leader lines.
+    if(fraction>=.13 && name.length<=7){
+      const p=piePoint(cx,cy,radius*.64,mid);
+      const color=(i===3||i===6)?"#283044":"#fff";
+      segments.push('<text x="'+svgCoord(p[0])+'" y="'+svgCoord(p[1])+
+        '" text-anchor="middle" dominant-baseline="middle" fill="'+color+
+        '" font-size="15" font-weight="700">'+esc(name)+'</text>');
+    }else{
+      const sign=Math.cos(mid)>=0?1:-1;
+      const anchor=piePoint(cx,cy,radius+9,mid);
+      outer.push({name,sign,anchor,
+        bend:piePoint(cx,cy,radius+27,mid),
+        y:cy+(radius+33)*Math.sin(mid)});
+    }
+    start=end;
+  });
+  // Collision handling independently on left and right for narrow mobile screens.
+  const leaderLines=[];
+  for(const sign of [-1,1]){
+    const column=outer.filter(x=>x.sign===sign).sort((a,b)=>a.y-b.y);
+    const ymin=22,ymax=size[1]-22,step=25;
+    for(let i=0;i<column.length;i++){
+      const minY=i===0?ymin:column[i-1].y+step;
+      column[i].y=Math.max(minY,Math.min(ymax,column[i].y));
+    }
+    for(let i=column.length-1;i>=0;i--){
+      const maxY=i===column.length-1?ymax:column[i+1].y-step;
+      column[i].y=Math.min(column[i].y,maxY);
+    }
+    column.forEach(entry=>{
+      const endX=sign>0?392:68;
+      const textX=sign>0?398:62;
+      const anchor=sign>0?"start":"end";
+      leaderLines.push('<polyline points="'+svgCoord(entry.anchor[0])+','+svgCoord(entry.anchor[1])+' '+
+        svgCoord(entry.bend[0])+','+svgCoord(entry.bend[1])+' '+endX+','+svgCoord(entry.y)+
+        '" fill="none" stroke="#667085" stroke-width="1.35" stroke-linejoin="round"/>');
+      leaderLines.push('<text x="'+textX+'" y="'+svgCoord(entry.y)+
+        '" text-anchor="'+anchor+'" dominant-baseline="middle" font-size="13" font-weight="650" fill="#344054">'+
+        esc(entry.name)+'</text>');
+    });
+  }
+  const description=esc(rows.map(r=>r.name+" "+r.count+"건").join(", "));
+  return '<svg class="topic-pie-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+size.join(' ')+
+    '" role="img" aria-label="'+description+'">'+segments.join("")+leaderLines.join("")+'</svg>';
+}
 
 function openCategoryDialog(){
   const dialog=qs("#categoryDialog");
@@ -12,14 +83,7 @@ function openCategoryDialog(){
     dialog.showModal();
     return;
   }
-  let offset=0;
-  const slices=rows.map((r,i)=>{
-    const start=offset;
-    offset+=r.count/total*100;
-    return topicColors[i%topicColors.length]+" "+start.toFixed(3)+"% "+offset.toFixed(3)+"%";
-  });
-  const aria=rows.map(r=>r.name+" "+r.count+"건").join(", ");
-  const pie='<div class="topic-pie" role="img" aria-label="'+esc(aria)+'" style="background:conic-gradient('+slices.join(",")+')"><span class="topic-pie-center">1차 분류</span></div>';
+  const pie=labeledPieSvg(rows,total);
   const legend=rows.map((r,i)=>'<li><span class="topic-legend-dot" style="background:'+topicColors[i%topicColors.length]+'"></span>'+
     '<span class="topic-legend-name">'+esc(r.name)+'</span><strong>'+r.count+'건</strong><small>'+(r.count/total*100).toFixed(1)+'%</small></li>').join("");
   const sections=hierarchy.map(group=>{
