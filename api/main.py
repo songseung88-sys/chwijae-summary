@@ -254,6 +254,11 @@ def dashboard_page():
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 
+@app.get("/about")
+def about_page():
+    return FileResponse(os.path.join(STATIC_DIR, "about.html"))
+
+
 @app.get("/api")
 def api_root():
     return {
@@ -322,6 +327,10 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
 
     secondary_counts = Counter()
     for article in today_articles:
+        # Keep old taxonomy rows out of the new paper-based comparison ranking
+        # until they have been reprocessed; never mix incompatible versions.
+        if article.get("secondary_taxonomy_version") != "paper-table3-v1":
+            continue
         for exp, count in (article.get("secondary_expressions") or {}).items():
             secondary_counts[exp] += int(count or 0)
 
@@ -409,6 +418,12 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             {"name": name, "count": count}
             for name, count in secondary_counts.most_common()
         ],
+        "secondary_methodology": {
+            "version": "paper-table3-v1",
+            "basis": "송승환·임소영(2026), Table 3. 무주체형 서술어",
+            "measure": "정규표현식 기반 출현 빈도(문맥 판별 아님)",
+            "scope": "새 기준으로 집계된 기사만 포함",
+        },
         "daily_counts_14d": [
             {
                 "date": str(selected - timedelta(days=offset)),
