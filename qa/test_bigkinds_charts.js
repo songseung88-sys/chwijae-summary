@@ -85,6 +85,13 @@ const aboutCode=fs.readFileSync("api/static/about.js","utf8");
 assert(aboutCode.includes("renderAboutLayout"));
 assert(aboutCode.includes("renderAboutText(node,block.text,!leadSeen)")); // First section is safely rendered with text nodes.
 assert(aboutCode.includes("node.textContent=text")); // Remaining content never treated as HTML.
+assert(css.includes(".bigkinds-svg{min-width:0;width:100%;max-width:100%}"));
+assert(css.includes(".bigkinds-chart-shell{overflow-x:visible;overflow-y:visible}"));
+assert(css.includes(".bigkinds-svg-compact .bigkinds-hit{touch-action:pan-y}"));
+assert(html.includes('class="feedback-chevron" aria-hidden="true">▼</span>'));
+assert(!html.includes('aria-hidden="true">⌄</span>'));
+assert(html.includes('bigkinds-charts.js?v=4'));
+assert(html.includes('bigkinds-charts.css?v=7'));
 assert(css.includes("bigkinds-tooltip"));
 assert(css.includes("bigkinds-hit:focus-visible"));
 assert(html.includes('id="aboutContent"'),"Keep legacy About content migration");
