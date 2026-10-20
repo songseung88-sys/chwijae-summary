@@ -348,7 +348,7 @@ def main():
     project_id = os.getenv("GCP_PROJECT_ID", "").strip() or None
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     limit = int(os.getenv("CLASSIFY_LIMIT", "100"))
-    force = os.getenv("CLASSIFY_FORCE", "true").lower() == "true"
+    force = os.getenv("CLASSIFY_FORCE", "false").lower() == "true"
 
     if not api_key:
         print("Missing OPENAI_API_KEY", file=sys.stderr)
