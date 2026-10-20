@@ -97,5 +97,7 @@ jobs:
           assert ".hero::before,.hero::after{display:none}" in css
           assert public_cfg.get("ranking_view_all_text")=="자세히 보기"
           print("EDITORIAL_BLUE_LIVE_VALIDATED")
+          archive_status=json.loads(get("/api/archive-sync-status").decode("utf-8"))
+          print("ARCHIVE_STATUS",json.dumps(archive_status,ensure_ascii=False))
           print("LIVE_DASHBOARD_VALIDATED")
           PY
