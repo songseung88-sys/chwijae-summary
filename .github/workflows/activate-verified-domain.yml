@@ -1,0 +1,236 @@
+name: Activate verified custom domain
+
+# Check hourly, then perform the already-prepared canonical URL migration once.
+on:
+  schedule:
+    - cron: '13 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/activate-verified-domain.yml'
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+  id-token: write
+
+concurrency:
+  group: activate-based-on-our-reporting-domain
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: chwijae-summary
+  HOSTING_SITE: chwijae-summary
+  DOMAIN: based-on-our-reporting.com
+  PR_NUMBER: '25'
+  # Protect against silently merging unrelated future edits to the PR branch.
+  APPROVED_PR_SHA: 06bd6097a605d2749c049b4d06d78df3ce42cde5
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Authenticate to existing Google Cloud project
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: chwijae-summary
+          workload_identity_provider: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+          service_account: github-deployer@chwijae-summary.iam.gserviceaccount.com
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Check Firebase ownership, domain routing and real HTTPS
+        id: ready
+        shell: bash
+        run: |
+          set -euo pipefail
+          ENDPOINT="https://firebasehosting.googleapis.com/v1beta1/projects/$PROJECT_ID/sites/$HOSTING_SITE/customDomains/$DOMAIN"
+          HTTP="$(curl -sS --max-time 25 -o /tmp/domain-status.json -w '%{http_code}' \
+            -H "Authorization: Bearer $(gcloud auth print-access-token)" "$ENDPOINT")"
+          if [ "$HTTP" != 200 ]; then
+            echo "::warning::Firebase domain status endpoint HTTP $HTTP; retry next hour."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          STATE="$(python3 - <<'PY'
+          import json
+          x=json.load(open('/tmp/domain-status.json'))
+          print(f"{x.get('hostState','UNKNOWN')} {x.get('ownershipState','UNKNOWN')}")
+          PY
+          )"
+          echo "Firebase domain states: $STATE"
+          echo "### Custom domain activation" >> "$GITHUB_STEP_SUMMARY"
+          echo "Firebase states: $STATE" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$STATE" != "HOST_ACTIVE OWNERSHIP_ACTIVE" ]; then
+            echo "Domain not yet confirmed by Firebase. No code changes or deployments."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          BASE="https://$DOMAIN"
+          # curl validates SNI, trusted certificate chain and expiration; redirects
+          # are intentionally NOT followed to avoid a false positive.
+          if ! curl -fsS --max-time 30 "$BASE/" -o /tmp/domain-before.html; then
+            echo "HTTPS not ready (including certificate validation). Retry next hour."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! grep -q '취재를 종합하면' /tmp/domain-before.html; then
+            echo "Expected dashboard content is not reachable yet."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! curl -fsS --max-time 30 "$BASE/health" -o /tmp/domain-health.json ||
+             ! curl -fsS --max-time 40 "$BASE/api/dashboard" -o /tmp/domain-dashboard.json ||
+             ! curl -fsS --max-time 30 "$BASE/static/app.js" -o /tmp/domain-app.js; then
+            echo "One or more dynamic Cloud Run routes have not become available."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data=json.loads(Path('/tmp/domain-dashboard.json').read_text())
+          health=json.loads(Path('/tmp/domain-health.json').read_text())
+          assert isinstance(data,dict) and 'articles' in data
+          assert isinstance(health,dict)
+          assert 'function renderTopicOverview' in Path('/tmp/domain-app.js').read_text()
+          PY
+          then
+            echo "Domain routing returned unexpected content; retry next hour."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "ready=true" >> "$GITHUB_OUTPUT"
+          echo "DNS, Firebase authorization, HTTPS certificate and application routes verified." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Verify and merge only the approved canonical migration PR
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          JSON="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
+          STATE="$(echo "$JSON" | jq -r '.state')"
+          MERGED="$(echo "$JSON" | jq -r '.merged')"
+          HEAD="$(echo "$JSON" | jq -r '.head.sha')"
+          BASE="$(echo "$JSON" | jq -r '.base.ref')"
+          BRANCH="$(echo "$JSON" | jq -r '.head.ref')"
+          if [ "$HEAD" != "$APPROVED_PR_SHA" ] || [ "$BASE" != main ] ||
+             [ "$BRANCH" != feat/custom-domain-canonical-share-url ]; then
+            echo "::error::PR #25 no longer matches the reviewed migration. Never auto-merge different code."
+            exit 1
+          fi
+          if [ "$STATE" = closed ]; then
+            if [ "$MERGED" != true ]; then
+              echo "::error::PR #25 was closed without merging."
+              exit 1
+            fi
+            echo "The approved PR was previously merged."
+            exit 0
+          fi
+          MERGEABLE="$(echo "$JSON" | jq -r '.mergeable')"
+          if [ "$MERGEABLE" != true ]; then
+            echo "::error::PR #25 is not marked mergeable yet ($MERGEABLE); retry next hour."
+            exit 1
+          fi
+          CHECKS="$(gh api "repos/$GITHUB_REPOSITORY/commits/$APPROVED_PR_SHA/check-runs")"
+          if ! echo "$CHECKS" | jq -e '[.check_runs[] | select(.name=="validate" and .conclusion=="success")] | length > 0' >/dev/null; then
+            echo "::error::Required dashboard validation has not passed at approved SHA."
+            exit 1
+          fi
+          echo "Verified reviewed PR #25 and its CI; merging the domain URL changes."
+          gh api -X PUT "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/merge" \
+            -f sha="$APPROVED_PR_SHA" -f merge_method=squash \
+            -f commit_title="Activate based-on-our-reporting.com as canonical (#25)" \
+            --jq '.merged' | grep -qx true
+
+      - name: Deploy canonical links and verify completed site
+        if: steps.ready.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          BASE="https://$DOMAIN"
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/branches/main" --jq '.commit.sha')"
+          SOURCE="$(gh api "repos/$GITHUB_REPOSITORY/contents/api/share_thumbnail.py?ref=main" --jq '.content' | base64 --decode)"
+          grep -Fq 'PUBLIC_BASE_URL = "https://based-on-our-reporting.com/"' <<< "$SOURCE"
+
+          # Check if the new canonical metadata is already live (e.g. after a
+          # completed deployment but before the previous checker could finish).
+          ALREADY_LIVE=false
+          curl -fsS --max-time 30 "$BASE/" -o /tmp/domain-current.html
+          if grep -Fq 'property="og:url" content="https://based-on-our-reporting.com/"' /tmp/domain-current.html; then
+            ALREADY_LIVE=true
+          fi
+          if [ "$ALREADY_LIVE" != true ]; then
+            echo "Starting Deploy API explicitly: merges using GITHUB_TOKEN do not trigger push workflows."
+            gh workflow run deploy-api.yml --ref main
+            RUN_ID=""
+            for i in $(seq 1 18); do
+              sleep 10
+              RUN_ID="$(gh run list --workflow deploy-api.yml --json databaseId,headSha \
+                --limit 25 | jq -r --arg sha "$MAIN_SHA" \
+                '[.[] | select(.headSha == $sha)] | first | .databaseId // empty')"
+              [ -n "$RUN_ID" ] && break
+            done
+            if [ -z "$RUN_ID" ]; then
+              echo "::error::Cloud Run deployment workflow was not created."
+              exit 1
+            fi
+            echo "Waiting for Deploy API run $RUN_ID"
+            gh run watch "$RUN_ID" --exit-status --interval 15
+          fi
+
+          # Verify the changed Open Graph and image URLs over valid HTTPS.
+          for i in $(seq 1 12); do
+            if curl -fsS --max-time 30 "$BASE/" -o /tmp/domain-final.html && \
+               grep -Fq 'property="og:url" content="https://based-on-our-reporting.com/"' /tmp/domain-final.html; then
+              break
+            fi
+            sleep 10
+          done
+          python3 - <<'PY'
+          from html.parser import HTMLParser
+          from urllib.request import urlopen, Request
+          from pathlib import Path
+          class Page(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.meta={}
+                  self.canonical=None
+              def handle_starttag(self,tag,attrs):
+                  d=dict(attrs)
+                  if tag=='meta':
+                      key=d.get('property') or d.get('name')
+                      if key:self.meta[key]=d.get('content','')
+                  elif tag=='link' and d.get('rel')=='canonical':
+                      self.canonical=d.get('href')
+          p=Page()
+          p.feed(Path('/tmp/domain-final.html').read_text())
+          root='https://based-on-our-reporting.com/'
+          assert p.canonical==root,(p.canonical,root)
+          assert p.meta.get('og:url')==root
+          assert p.meta.get('twitter:image')==p.meta.get('og:image')
+          assert p.meta.get('og:image:secure_url')==p.meta.get('og:image')
+          assert p.meta['og:image'].startswith(root+'share-images/') or p.meta['og:image']==root+'static/og-thumbnail-wide.jpg'
+          with urlopen(Request(p.meta['og:image'],headers={'User-Agent':'Domain-Promotion-Check'}),timeout=35) as response:
+              img=response.read()
+              assert 'image/jpeg' in response.headers.get('Content-Type','')
+              assert img[:3]==bytes((255,216,255))
+          with urlopen(root+'admin',timeout=35) as response:
+              assert response.status==200 and b'thumbnailMetaTitle' in response.read()
+          print("DOMAIN_PROMOTION_VERIFIED",root,p.meta['og:image'])
+          PY
+          echo "### Domain promotion succeeded" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://based-on-our-reporting.com/ — verified HTTPS, API, admin, canonical, OG and image." >> "$GITHUB_STEP_SUMMARY"
+          gh pr comment "$PR_NUMBER" --body "✅ Automatic domain cutover completed. Verified https://based-on-our-reporting.com/ (HTTPS, dashboard, API, admin, canonical URL, Open Graph and share image)."
+          # Stop recurring hourly checks once the migration is complete.
+          if gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/activate-verified-domain.yml/disable" >/dev/null; then
+            echo "Stopped hourly checks after successful migration."
+          else
+            echo "::warning::Could not disable scheduled watcher; post-success runs only reverify."
+          fi
