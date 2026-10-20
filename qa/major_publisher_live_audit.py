@@ -10,6 +10,9 @@ from collector import main as parser
 CASES = [
     ("한겨레 일반기사(대조군)", "https://www.hani.co.kr/arti/economy/economy_general/1283128.html"),
     ("한겨레 이전 제외기사", "https://www.hani.co.kr/arti/society/society_general/1282992.html"),
+    ("한겨레 실제 대상표현 포함기사", "https://www.hani.co.kr/arti/society/society_general/1282797.html"),
+    ("조선비즈 실제 대상표현 포함기사", "https://biz.chosun.com/policy/policy_sub/2026/07/06/AJELXLVC45FUBN3AQLFI3BOL54/"),
+    ("조선일보 대상표현 포함기사", "https://www.chosun.com/national/court_law/2026/10/19/QBU7C6OQXJCPLKSFGWB2FVOOMI/"),
     ("조선일보 이전 제외기사", "https://www.chosun.com/politics/politics_general/2026/10/19/T6OV5ZEJJZEETISIIXKBMMCSU4/"),
     ("뉴시스 이전 제외기사", "https://www.newsis.com/view/NISX20261019_0003831566"),
     ("조선비즈 이전 제외기사", "https://biz.chosun.com/industry/business-venture/2026/10/19/GTVLXA5DL5GNPGAH6G7A4EURKY/"),
@@ -41,6 +44,15 @@ def examine(name,url):
         record["page_title"]=(parser.meta(soup,"og:title") or (soup.title.get_text(" ",strip=True) if soup.title else ""))[:95]
         record["raw_page_text_len"]=len(soup.get_text(" ",strip=True))
         record["raw_page_phrase_counts"]=parser.target_phrase_counts(soup.get_text(" ",strip=True))
+        record["page_metadata"]={
+            "json_ld_count":len(list(parser.iter_jsonld(soup))),
+            "json_ld_article_body_length":len(parser.news_jsonld(soup).get("articleBody") or ""),
+            "html_articleBody_occurrences":response.text.count("articleBody"),
+            "html_article_content_occurrences":response.text.lower().count("articlecontent"),
+            "next_data_script":bool(soup.select_one("#__NEXT_DATA__")),
+            "json_ld_types":[str(x.get("@type"))[:65] for raw in parser.iter_jsonld(soup)
+                             for x in parser.flatten_jsonld(raw)][:8],
+        }
         candidate_rows=[]
         for selector in EXTRA_SELECTORS:
             for element in soup.select(selector)[:2]:
