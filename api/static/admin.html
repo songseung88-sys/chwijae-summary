@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>문구 편집 · 취재를 종합하면</title>
   <link rel="stylesheet" href="/static/style.css" />
-  <link rel="stylesheet" href="/static/admin.css?v=admin-thumbnail-1" />
+  <link rel="stylesheet" href="/static/admin.css?v=og-copy-2" />
 </head>
 <body>
   <main class="admin-wrap">
@@ -54,10 +54,24 @@
         <img id="thumbnailPreview" src="/static/og-thumbnail-wide.jpg" alt="현재 공유 썸네일 미리보기" width="480" height="252" />
       </div>
       <div class="thumbnail-controls">
-        <button type="button" id="thumbnailLoad" class="publisher-secondary-button">현재 이미지 불러오기</button>
+        <button type="button" id="thumbnailLoad" class="publisher-secondary-button">현재 이미지·문구 불러오기</button>
         <label class="thumbnail-file-label" for="thumbnailFile">새 이미지 (JPG·PNG·WEBP, 최대 5MB)
           <input id="thumbnailFile" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" />
         </label>
+      </div>
+      <div class="thumbnail-metadata-fields" aria-labelledby="thumbnailMetadataTitle">
+        <h3 id="thumbnailMetadataTitle">공유 미리보기 제목·설명</h3>
+        <p class="publisher-editor-help">카카오톡 등에서 링크를 공유할 때 노출되는 문구입니다. 대시보드의 실제 제목과 카드 문구는 바뀌지 않습니다. 기존 값을 확인하려면 위의 불러오기 버튼을 누르세요.</p>
+        <label for="thumbnailMetaTitle">공유 제목 (최대 100자)
+          <input id="thumbnailMetaTitle" type="text" maxlength="100" value="취재를 종합하면" />
+        </label>
+        <label for="thumbnailMetaDescription">공유 설명 (최대 300자)
+          <textarea id="thumbnailMetaDescription" rows="3" maxlength="300">한국 언론의 기사에서 '취재를 종합하면' 표현의 사용을 기록하는 대시보드</textarea>
+        </label>
+        <div class="publisher-editor-actions">
+          <button id="thumbnailMetaSave" class="save-button" type="button">공유 제목·설명 저장</button>
+          <span id="thumbnailMetaStatus" role="status" aria-live="polite">이미지와 별개로 저장할 수 있습니다.</span>
+        </div>
       </div>
       <div class="publisher-editor-actions">
         <button id="thumbnailSave" class="save-button" type="button" disabled>썸네일 업로드·적용</button>
@@ -69,6 +83,6 @@
   </main>
   <script src="/static/admin.js?v=publisher-aliases-1" defer></script>
   <script src="/static/publisher-editor.js?v=publisher-aliases-1" defer></script>
-  <script src="/static/thumbnail-editor.js?v=1" defer></script>
+  <script src="/static/thumbnail-editor.js?v=og-copy-2" defer></script>
 </body>
 </html>
