@@ -680,6 +680,47 @@ def doc_id(url):
     return hashlib.sha256(url.encode("utf-8")).hexdigest()[:32]
 
 
+def backfill_subjectless_once(db):
+    """Recalculate the previously stored corpus from private body text, without
+    re-fetching articles or invoking an AI model. Repeated runs are idempotent."""
+    marker_ref = db.collection("maintenance_runs").document(SECONDARY_TAXONOMY_VERSION)
+    if marker_ref.get().exists:
+        return
+
+    changed = 0
+    missing_body = 0
+    docs = (
+        db.collection("articles")
+        .order_by("api_pubdate", direction=firestore.Query.DESCENDING)
+        .limit(2000)
+        .stream()
+    )
+    for doc in docs:
+        data = doc.to_dict() or {}
+        if data.get("status") != "accepted" or data.get("secondary_taxonomy_version") == SECONDARY_TAXONOMY_VERSION:
+            continue
+        body = data.get("body_text_private") or ""
+        if not body:
+            missing_body += 1
+            continue
+        expressions = secondary_counts(body)
+        doc.reference.set({
+            "secondary_expressions": expressions,
+            "subjectless_type_counts": subjectless_type_counts(body, expressions),
+            "secondary_taxonomy_version": SECONDARY_TAXONOMY_VERSION,
+        }, merge=True)
+        changed += 1
+
+    marker_ref.set({
+        "finished_at": datetime.now(KST).isoformat(),
+        "version": SECONDARY_TAXONOMY_VERSION,
+        "updated_articles": changed,
+        "skipped_without_body": missing_body,
+        "limit": 2000,
+    })
+    print(f"[SUBJECTLESS BACKFILL] updated={changed}, missing_body={missing_body}")
+
+
 def main():
     project_id = os.getenv("GCP_PROJECT_ID", "").strip() or None
     client_id = os.environ.get("NAVER_API_HUB_CLIENT_ID", "").strip()
@@ -692,6 +733,7 @@ def main():
         sys.exit(2)
 
     db = firestore.Client(project=project_id)
+    backfill_subjectless_once(db)
     now = datetime.now(KST)
     target_date = now.date()
     run_ref = db.collection("collector_runs").document(now.strftime("%Y%m%dT%H%M%S%z"))
