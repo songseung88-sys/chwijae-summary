@@ -4,6 +4,7 @@ async function loadAbout(){
   const cfg=await res.json();
   const content=document.querySelector("#aboutContent");
   content.textContent=typeof cfg.about_body==="string" ? cfg.about_body : "";
+  content.hidden=!content.textContent.trim();
 }
 document.addEventListener("DOMContentLoaded",()=>{
   loadAbout().catch(()=>{
