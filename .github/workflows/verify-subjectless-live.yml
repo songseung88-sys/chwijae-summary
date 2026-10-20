@@ -1,0 +1,49 @@
+name: Verify subjectless dashboard live
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/verify-subjectless-live.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify public dashboard and about route
+        run: |
+          python3 - <<'PY'
+          import json
+          from urllib.request import urlopen
+
+          base="https://chwijae-api-ejmdmrnztq-du.a.run.app"
+          def get(path):
+              with urlopen(base+path,timeout=25) as response:
+                  return response.read()
+
+          data=json.loads(get("/api/dashboard").decode("utf-8"))
+          print("DATE",data["date"])
+          print("TODAY",data["today_count"])
+          print("LATEST_COLLECTION",json.dumps(data.get("last_successful_collection"),ensure_ascii=False))
+          print("METHODOLOGY",json.dumps(data.get("secondary_methodology"),ensure_ascii=False))
+          labels=[x["name"] for x in data.get("secondary_expressions",[])]
+          print("EXPRESSIONS",json.dumps(data.get("secondary_expressions",[]),ensure_ascii=False))
+          assert data.get("secondary_methodology",{}).get("version")=="paper-table3-v1"
+          assert not set(labels).intersection({"한 셈이다","법조계에 따르면","취재를 종합하면"}), labels
+
+          home=get("/").decode("utf-8")
+          about=get("/about").decode("utf-8")
+          js=get("/static/app.js").decode("utf-8")
+          assert 'href="/about"' in home
+          assert 'id="aboutContent"' in about
+          assert "chips.push(a.category_secondary" not in js
+          assert 'Object.entries(a.secondary_expressions' not in js
+          assert "정상 갱신" not in js and "해당 실행 신규" not in js
+          print("LIVE_DASHBOARD_VALIDATED")
+          PY
