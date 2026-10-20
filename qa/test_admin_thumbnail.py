@@ -65,7 +65,10 @@ class ThumbnailUploadTests(unittest.TestCase):
         self.assertIn('property="og:image:width" content="1200"',rendered)
         self.assertIn('property="og:image:height" content="630"',rendered)
         self.assertIn('name="twitter:card" content="summary_large_image"',rendered)
-        self.assertEqual(render_preview_html(html,image_url()),html)
+        defaults=render_preview_html(html,image_url())
+        self.assertIn('name="twitter:description" content="'+DEFAULT_OG_DESCRIPTION+'"',defaults)
+        self.assertIn('property="og:description" content="'+DEFAULT_OG_DESCRIPTION+'"',defaults)
+        self.assertEqual(render_preview_html(defaults,image_url()),defaults)
         with self.assertRaises(ValueError):
             render_preview_html(html,"https://untrusted.example.com/inject.jpg")
 
