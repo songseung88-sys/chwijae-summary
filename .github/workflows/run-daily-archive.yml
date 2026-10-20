@@ -1,0 +1,68 @@
+name: Keep Google Sheets archive in sync
+
+on:
+  # Times are UTC: minute 16 and 46 -> :16/:46 KST after :07/:37 collector.
+  schedule:
+    - cron: "16,46 * * * *"
+    # 02:13 KST, reprocess latest week after late AI classifications.
+    - cron: "13 17 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "full (article data) or logs (30-minute collector logs)"
+        required: true
+        default: "full"
+        type: choice
+        options: ["full","logs"]
+      days:
+        description: "Number of dates to reprocess (1-90)"
+        default: "7"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: chwijae-daily-archive
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: chwijae-summary
+  REGION: asia-northeast3
+  JOB_NAME: chwijae-daily-archive
+  DEPLOY_SA: github-deployer@chwijae-summary.iam.gserviceaccount.com
+  WIF_PROVIDER: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Execute the stored archive job
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          CRON_NAME: ${{ github.event.schedule }}
+          MANUAL_MODE: ${{ inputs.mode }}
+          MANUAL_DAYS: ${{ inputs.days }}
+        run: |
+          MODE="logs"
+          DAYS="2"
+          if [[ "${CRON_NAME}" == "13 17 * * *" ]]; then MODE="full"; DAYS="7"; fi
+          if [[ "${EVENT_NAME}" == "workflow_dispatch" ]]; then
+            MODE="${MANUAL_MODE:-full}"
+            DAYS="${MANUAL_DAYS:-7}"
+          fi
+          if ! [[ "${DAYS}" =~ ^[0-9]+$ ]] || (( DAYS < 1 || DAYS > 90 )); then
+            echo "Invalid days"; exit 1
+          fi
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${PROJECT_ID}" --region="${REGION}" \
+            --args="--mode,${MODE},--days,${DAYS}" --wait --quiet
