@@ -128,7 +128,7 @@ jobs:
           parser=OgParser()
           html=Path("/tmp/dashboard.html").read_text(encoding="utf-8")
           parser.feed(html)
-          root="https://chwijae-api-ejmdmrnztq-du.a.run.app/"
+          root="https://based-on-our-reporting.com/"
           image_url=parser.tags["og:image"]
           # Shared preview title/description may be customized by the admin.
           assert 0<=len(parser.tags["og:title"])<=100

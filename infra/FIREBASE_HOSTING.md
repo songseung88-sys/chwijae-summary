@@ -46,3 +46,13 @@ Then run **Deploy Firebase Hosting** > **Run workflow** in GitHub Actions on `ma
 The workflow creates the default Hosting site (if needed), deploys the all-path
 Cloud Run rewrite, and tests the HTML, API and static assets on
 `https://chwijae-summary.web.app/`. No DNS change is needed at this stage.
+
+## Custom-domain canonical publication
+
+After the domain `based-on-our-reporting.com` has passed Firebase ownership and HTTPS verification,
+the static HTML canonical, OpenGraph URL, and server-generated share-image URLs use
+`https://based-on-our-reporting.com/`. Existing Cloud Run and
+`chwijae-summary.web.app` endpoints keep serving the same dashboard, but signal
+the purchased domain as their canonical address. All dynamic images still come from
+the existing Firestore-backed Cloud Run service through Firebase Hosting.
+Cloudflare A/AAAA records for Hosting must stay **DNS only** rather than proxied.
