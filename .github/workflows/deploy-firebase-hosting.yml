@@ -187,6 +187,7 @@ jobs:
               print("DNS_RECORD",r.get("type"),r.get("domainName"),r.get("rdata"),r.get("requiredAction"))
           if not records:
               print("DNS records are not ready; see Firebase Console > Hosting > Custom domains.")
+          print("CERT_STATE",data.get("certState"),"ISSUES",data.get("issues"))
           with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
               f.write("\n### Custom domain: based-on-our-reporting.com\n")
               f.write("Domain registered in Firebase; Cloudflare DNS and TLS verification may still be pending.\n")
@@ -194,3 +195,12 @@ jobs:
               for r in records:
                   f.write("- "+str(r.get("type"))+" "+str(r.get("domainName"))+" = "+str(r.get("rdata"))+" ("+str(r.get("requiredAction"))+")\n")
           PY
+
+      - name: Check registrar DNS propagation and custom-domain HTTPS
+        run: |
+          echo "PUBLIC_DNS_A:"
+          dig +time=3 +tries=1 @8.8.8.8 based-on-our-reporting.com A +short || true
+          echo "PUBLIC_DNS_TXT:"
+          dig +time=3 +tries=1 @8.8.8.8 based-on-our-reporting.com TXT +short || true
+          echo "CUSTOM_DOMAIN_HTTPS_STATUS:"
+          curl -I -L --max-time 20 -sS -o /dev/null -w "HTTP=%{http_code} TLS_VERIFY=%{ssl_verify_result}\n" https://based-on-our-reporting.com/ || true
