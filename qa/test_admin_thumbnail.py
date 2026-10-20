@@ -138,7 +138,7 @@ class SimulatedEndpoints(unittest.TestCase):
             with self.assertRaises(HTTPError) as error:
                 ns[method](*args)
             self.assertEqual(error.exception.status_code,401)
-        png=self.make_image()
+        png=ThumbnailUploadTests().make_image()
         result=ns["upload_thumbnail"]({"image_base64":base64.b64encode(png).decode("ascii")},"protected")
         url=result["url"]
         self.assertIn("/share-images/",url)
