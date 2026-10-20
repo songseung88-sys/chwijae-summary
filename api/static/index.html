@@ -23,7 +23,7 @@
   <meta name="twitter:title" content="취재를 종합하면" />
   <meta name="twitter:description" content="한국 언론의 취재 표현 사용 현황을 기록하는 대시보드" />
   <meta name="twitter:image" content="https://chwijae-api-ejmdmrnztq-du.a.run.app/static/og-thumbnail-wide.jpg" />
-  <link rel="stylesheet" href="/static/style.css?v=editorial-blue-2" />
+  <link rel="stylesheet" href="/static/style.css?v=analysis-visual-1" />
 </head>
 <body>
   <main class="wrap">
@@ -67,19 +67,25 @@
 
     <section class="dashboard-group analysis-group" aria-labelledby="analysisGroupTitle">
       <div class="group-heading"><h2 id="analysisGroupTitle"></h2></div>
-      <div class="grid two">
-      <article class="panel">
+      <div class="analysis-stack">
+      <article class="panel category-panel">
         <div class="panel-head">
-          <div>
-            <h2 id="categoryTitle"></h2>
-            
-          </div>
+          <h2 id="categoryTitle"></h2>
           <button class="text-link rank-toggle" data-target="categoryRanking" type="button" aria-haspopup="dialog" aria-controls="categoryDialog">자세히 보기</button>
         </div>
-        <div id="categoryRanking" class="ranking"></div>
+        <div id="categoryRanking" class="topic-overview">
+          <div class="topic-overview-primary">
+            <h3 id="topicPrimaryCaption"></h3>
+            <div id="topicPrimaryPie" class="topic-overview-pie"></div>
+          </div>
+          <div class="topic-overview-secondary">
+            <h3 id="topicSecondaryCaption"></h3>
+            <div id="topicSecondaryBars" class="topic-overview-bars"></div>
+          </div>
+        </div>
       </article>
 
-      <article class="panel">
+      <article class="panel expression-panel">
         <div class="panel-head">
           <div>
             <h2 id="secondaryTitle"></h2>
@@ -87,7 +93,7 @@
           </div>
           <button class="text-link rank-toggle" data-target="secondaryRanking" type="button" aria-haspopup="dialog" aria-controls="rankingDialog"></button>
         </div>
-        <div id="secondaryRanking" class="ranking"></div>
+        <div id="secondaryRanking" class="expression-chart"></div>
       </article>
       </div>
     </section>
@@ -141,8 +147,8 @@
     </article>
   </template>
 
-  <script src="/static/app.js?v=editorial-blue-3" defer></script>
-  <script src="/static/topic-dialog.js" defer></script>
+  <script src="/static/app.js?v=analysis-visual-1" defer></script>
+  <script src="/static/topic-dialog.js?v=analysis-visual-1" defer></script>
   <script src="/static/ranking-dialog.js?v=ranking-details-1" defer></script>
 </body>
 </html>
