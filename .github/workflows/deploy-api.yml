@@ -219,6 +219,14 @@ jobs:
           echo "FEEDBACK_PUBLIC_VALIDATION_OK"
           echo "ADMIN_THUMBNAIL_UI_CHECK:"
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/admin" -o /tmp/admin.html
+          grep -q '/static/admin.js?v=per-item-save-1' /tmp/admin.html
+          grep -q '/static/publisher-editor.js?v=per-item-save-1' /tmp/admin.html
+          grep -q '/static/bigkinds-data-editor.js?v=per-item-save-1' /tmp/admin.html
+          grep -q '/static/about-layout-editor.js?v=per-item-save-1' /tmp/admin.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/admin.js?v=per-item-save-1" -o /tmp/admin-individual.js
+          grep -q 'function saveCopyField' /tmp/admin-individual.js
+          INVALID_SINGLE_STATUS="$(curl -sS -o /tmp/unauthorized-about-block.json -w '%{http_code}' -X PATCH -H 'Content-Type: application/json' --data '{"index":0,"expected_text":"x","text":"y"}' "${URL}/api/admin/about-block")"
+          test "$INVALID_SINGLE_STATUS" = 401
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/thumbnail-editor.js?v=1" -o /tmp/thumbnail-editor.js
           grep -q 'id="thumbnailFile"' /tmp/admin.html
           grep -q 'id="thumbnailSave"' /tmp/admin.html
