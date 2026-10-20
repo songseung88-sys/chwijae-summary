@@ -22,6 +22,11 @@ function renderAboutEditor(){
         '<button type="button" data-format="작은글씨" data-index="'+i+'">작은 글씨</button>'+
         '<button type="button" data-format="굵게" data-index="'+i+'">굵게</button>'+
         '<span>글자 선택 → 적용 · 같은 버튼 다시 누르면 해제</span></div>'+
+        '<div class="about-block-save-actions">'+
+        '<button type="button" class="save-button about-block-save" data-save-about="'+i+'" '+
+        (Number.isInteger(b._savedIndex)&&b._savedText!==b.text?"":"disabled")+
+        '>이 블록 저장</button>'+
+        '<span class="about-block-save-status" data-save-about-status="'+i+'" role="status" aria-live="polite"></span></div>'+
         '<div class="about-editor-preview" data-about-preview="'+i+'" aria-label="본문 미리보기"></div>')+
       '</div>';
   }).join("");
@@ -30,6 +35,9 @@ function renderAboutEditor(){
     const preview=host.querySelector('[data-about-preview="'+idx+'"]');
     function update(){
       aboutDraft[idx].text=t.value;
+      const saveButton=host.querySelector('[data-save-about="'+idx+'"]');
+      if(saveButton)saveButton.disabled=!Number.isInteger(aboutDraft[idx]._savedIndex)
+        ||aboutDraft[idx]._savedText===t.value;
       const first=aboutDraft.findIndex(block=>block.type==="text"&&block.text.trim());
       renderAboutText(preview,t.value,idx===first);
     }
@@ -56,6 +64,9 @@ function renderAboutEditor(){
     document.querySelector("#aboutLayoutStatus").textContent=
       change.applied?"선택한 글자에 서식을 적용했습니다.":"선택한 글자의 서식을 해제했습니다.";
   }));
+  host.querySelectorAll("button[data-save-about]").forEach(button=>button.addEventListener("click",()=>{
+    saveOneAboutBlock(Number(button.dataset.saveAbout));
+  }));
   host.querySelectorAll("button[data-action]").forEach(button=>button.addEventListener("click",()=>{
     const i=Number(button.dataset.index), action=button.dataset.action;
     if(action==="delete"){aboutDraft.splice(i,1);}
@@ -72,12 +83,46 @@ async function fetchAboutLayout(){
   const response=await fetch("/api/config",{cache:"no-store"});
   if(!response.ok)throw Error("소개글을 불러오지 못했습니다.");
   const cfg=await response.json();
-  aboutDraft=Array.isArray(cfg.about_layout)?cfg.about_layout.map(b=>({...b})):
+  const persisted=Array.isArray(cfg.about_layout)?cfg.about_layout:
     [...(cfg.about_body?[{type:"text",text:cfg.about_body}]:[]),
       {type:"chart",chart:"annual"},{type:"chart",chart:"publisher"}];
+  aboutDraft=persisted.map((b,i)=>({...b,_savedIndex:i,_savedText:b.text??""}));
   renderAboutEditor();
   status.textContent="현재 공개된 배치를 불러왔습니다.";
 }
+async function saveOneAboutBlock(index){
+  const block=aboutDraft[index],global=document.querySelector("#aboutLayoutStatus");
+  const status=document.querySelector('[data-save-about-status="'+index+'"]');
+  if(!block||block.type!=="text")return;
+  if(!Number.isInteger(block._savedIndex)){
+    status.textContent="새 블록은 먼저 아래의 배치 저장을 눌러주세요.";
+    return;
+  }
+  if(block._savedText===block.text)return;
+  const password=document.querySelector("#password").value;
+  if(!password){status.textContent="관리자 비밀번호를 먼저 입력해주세요.";return;}
+  const savedValue=block.text;
+  const button=document.querySelector('[data-save-about="'+index+'"]');
+  button.disabled=true;
+  status.textContent="저장 중…";
+  try{
+    const response=await fetch("/api/admin/about-block",{
+      method:"PATCH",
+      headers:{"Content-Type":"application/json","X-Admin-Password":password},
+      body:JSON.stringify({index:block._savedIndex,expected_text:block._savedText,text:savedValue})
+    });
+    const result=await response.json().catch(()=>({}));
+    if(!response.ok)throw Error(result.detail||"블록 저장에 실패했습니다.");
+    block._savedText=savedValue;
+    status.textContent="이 블록 저장 완료";
+    global.textContent="소개글 내용이 저장됐습니다. 아직 저장하지 않은 배치 변경은 그대로 유지됩니다.";
+  }catch(error){
+    status.textContent=error.message;
+  }finally{
+    button.disabled=block._savedText===block.text;
+  }
+}
+
 async function saveAboutEditor(){
   const status=document.querySelector("#aboutLayoutStatus");
   status.textContent="저장 중…";
@@ -92,6 +137,8 @@ async function saveAboutEditor(){
     });
     const result=await response.json().catch(()=>({}));
     if(!response.ok)throw Error(result.detail||"저장에 실패했습니다.");
+    aboutDraft=result.blocks.map((block,i)=>({...block,_savedIndex:i,_savedText:block.text??""}));
+    renderAboutEditor();
     status.textContent="저장 완료 · 새로 연 공개 페이지에 반영됩니다.";
   }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
 }

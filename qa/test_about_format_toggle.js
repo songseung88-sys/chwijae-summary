@@ -64,7 +64,7 @@ assert(css.includes('.feedback-section details[open] summary > span[aria-hidden=
 assert(!css.includes('.feedback-section details[open] summary span{transform:rotate(180deg)}'));
 assert(about.includes('/static/bigkinds-charts.css?v=7'));
 assert(admin.includes('/static/about-format.js?v=1'));
-assert(admin.includes('/static/about-layout-editor.js?v=3'));
+assert(admin.includes('/static/about-layout-editor.js?v=per-item-save-1'));
 assert(admin.indexOf("about-format.js")<admin.indexOf("about-layout-editor.js"));
 assert(editor.includes('toggleAboutFormatting(field.value,start,end,tag)'));
 assert(editor.includes('field.setSelectionRange(change.start,change.end)'));
