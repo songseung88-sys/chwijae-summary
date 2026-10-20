@@ -382,5 +382,23 @@
     "label": "전송 실패 기본 문구",
     "group": "자세히 보기 · 의견 보내기",
     "default": "전송에 실패했습니다. 잠시 후 다시 시도해주세요."
+  },
+  {
+    "key": "tooltip_all",
+    "label": "연간 툴팁 대상",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "전체"
+  },
+  {
+    "key": "tooltip_publishers",
+    "label": "언론사 툴팁 대상",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "언론사별"
+  },
+  {
+    "key": "year_unit",
+    "label": "연도 단위",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "년"
   }
 ]
