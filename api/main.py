@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from google.cloud import firestore
 
@@ -325,11 +325,12 @@ def public_bigkinds_history():
     snap = db.collection("site_config").document("bigkinds_history").get()
     if snap.exists:
         try:
-            return validate_history(snap.to_dict() or {})
+            data = validate_history(snap.to_dict() or {})
+            return JSONResponse(data, headers={"Cache-Control": "no-store, max-age=0"})
         except ValueError:
             # The original user-supplied dataset is a verified safe fallback.
             pass
-    return validate_history(BIGKINDS_SOURCE)
+    return JSONResponse(validate_history(BIGKINDS_SOURCE), headers={"Cache-Control": "no-store, max-age=0"})
 
 
 @app.put("/api/admin/bigkinds-history")
