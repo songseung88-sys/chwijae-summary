@@ -76,8 +76,7 @@ def validate_preview_copy(title, description):
         raise ValueError("공유 제목과 설명을 모두 입력해주세요.")
     title = " ".join(title.split())
     description = " ".join(description.split())
-    if not title or not description:
-        raise ValueError("공유 제목과 설명을 모두 입력해주세요.")
+    # Empty strings are intentional: the administrator may suppress either OG field.
     if len(title) > MAX_OG_TITLE_LENGTH:
         raise ValueError("공유 제목은 100자 이내로 입력해주세요.")
     if len(description) > MAX_OG_DESCRIPTION_LENGTH:
