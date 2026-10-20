@@ -151,7 +151,7 @@ assert.match(html,/id="historyBars"/);
 assert.match(html,/id="articleList"/);
 for(const label of ["topic_primary_caption","topic_secondary_caption"]){
   assert(py.includes('"'+label+'":'));
-  assert(fs.readFileSync("api/static/admin.js","utf8").includes(label+':'));
+  assert(fs.readFileSync("api/static/ui-copy-fields.json","utf8").includes('"key": "'+label+'"'));
 }
 assert(css.includes("@media(max-width:750px)")&&css.includes("@media(max-width:540px)"));
 assert(css.includes(".analysis-group .analysis-stack"));
