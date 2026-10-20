@@ -61,7 +61,7 @@ jobs:
           assert 'href="/about"' in html
           assert Path("api/static/about.html").exists()
           assert '@app.get("/about")' in src
-          assert "paper-table3-v1" in src
+          assert "paper-table3-v2" in src
           for key in ["category_ranking_ai", "category_classified_count", "category_unclassified_count", "category_primary", "category_secondary", "category_tertiary"]:
               assert key in src, key
           assert 'CLASSIFY_FORCE=false' in Path(".github/workflows/run-classifier.yml").read_text()
