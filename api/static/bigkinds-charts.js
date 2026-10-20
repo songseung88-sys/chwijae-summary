@@ -221,6 +221,7 @@ async function loadBigkindsCharts(){
     document.querySelector("#bigkindsSelectedCount").textContent=selected.size+" / 10"+bigkindsPublicCopy("publisher_selection_count_suffix","개 언론사 선택");
   }
   renderPublishers();
+  if(typeof window!=="undefined")window.addEventListener("about-copy-ready",renderPublishers,{once:true});
 }
 if(typeof document!=="undefined"){
   document.addEventListener("DOMContentLoaded",()=>{
