@@ -56,6 +56,15 @@ assert(colors.includes("#47785F")); // Muted green
 assert(colors.includes("#886D3F")); // Muted ochre
 assert(colors.includes("#70628D")); // Muted violet
 assert(colors.includes("#935D55")); // Muted terracotta
+// Swap exactly the two specified categories, retaining the other assigned hues.
+const swapped=vm.runInContext(
+  'topicColorMap([{name:"정치"},{name:"경제·산업"},{name:"스포츠"},{name:"국제"}])',
+  context
+);
+assert.equal(swapped.get("정치"),colors[0]);
+assert.equal(swapped.get("경제·산업"),colors[2]);
+assert.equal(swapped.get("스포츠"),colors[1]);
+assert.equal(swapped.get("국제"),colors[3]);
 const svg=node("#topicPrimaryPie").innerHTML;
 const topic=node("#topicSecondaryBars").innerHTML;
 const expression=node("#secondaryRanking").innerHTML;
@@ -81,6 +90,25 @@ const modal=node("#categoryDialog");
 assert.equal(modal.open,true);
 assert.match(node("#categoryDialogContent").innerHTML,/2차 · 3차 분류/);
 assert.match(node("#categoryDialogContent").innerHTML,/국정감사/);
+
+// The overview and the detail legend must share the swapped color mapping.
+state.categoryFilter=null;
+state.data.category_primary_ranking=[
+  {name:"정치",count:10},{name:"경제·산업",count:7},{name:"스포츠",count:5}
+];
+state.data.category_hierarchy=[
+  {primary:"정치",count:10,secondaries:[{secondary:"국회",count:10,tertiaries:[]}]},
+  {primary:"경제·산업",count:7,secondaries:[{secondary:"기업·산업",count:7,tertiaries:[]}]},
+  {primary:"스포츠",count:5,secondaries:[{secondary:"축구",count:5,tertiaries:[]}]}
+];
+vm.runInContext("renderRankings()",context);
+assert.match(node("#topicSecondaryBars").innerHTML,
+  new RegExp('data-category="기업·산업"[\\s\\S]*?background:'+colors[2]));
+assert.match(node("#topicSecondaryBars").innerHTML,
+  new RegExp('data-category="축구"[\\s\\S]*?background:'+colors[1]));
+vm.runInContext("openCategoryDialog()",context);
+assert(node("#categoryDialogContent").innerHTML.includes('background:'+colors[2]));
+assert(node("#categoryDialogContent").innerHTML.includes('background:'+colors[1]));
 
 // The charts should degrade gracefully on dates without classified articles.
 state.data.category_primary_ranking=[];
