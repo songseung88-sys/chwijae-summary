@@ -79,7 +79,7 @@ function renderTopicOverview(d){
     return;
   }
   const max=secondaries[0].count||1;
-  const byPrimary=new Map(primary.map((r,i)=>[r.name,topicColors[i%topicColors.length]]));
+  const byPrimary=topicColorMap(primary);
   bars.innerHTML=secondaries.map((r,i)=>{
     const selected=state.categoryFilter===r.secondary;
     const width=Math.min(100,Math.max(3,r.count/max*100));
