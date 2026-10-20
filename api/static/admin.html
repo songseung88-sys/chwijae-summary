@@ -47,8 +47,28 @@
         <span id="publisherEditorStatus" role="status"></span>
       </div>
     </section>
+    <section class="panel admin-panel" id="thumbnailEditor" aria-labelledby="thumbnailEditorTitle">
+      <h2 id="thumbnailEditorTitle">카카오톡 공유 썸네일</h2>
+      <p class="publisher-editor-help">관리자 비밀번호를 입력한 뒤 이미지를 선택해 저장하세요. 저장 즉시 공개 페이지의 공유 이미지 주소가 바뀝니다. 파일은 1200×630 크기의 JPG로 자동 변환되며, 비율이 다른 경우 잘라내지 않고 여백을 넣습니다.</p>
+      <div class="thumbnail-preview-wrap">
+        <img id="thumbnailPreview" src="/static/og-thumbnail-wide.jpg" alt="현재 공유 썸네일 미리보기" width="480" height="252" />
+      </div>
+      <div class="thumbnail-controls">
+        <button type="button" id="thumbnailLoad" class="publisher-secondary-button">현재 이미지 불러오기</button>
+        <label class="thumbnail-file-label" for="thumbnailFile">새 이미지 (JPG·PNG·WEBP, 최대 5MB)
+          <input id="thumbnailFile" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" />
+        </label>
+      </div>
+      <div class="publisher-editor-actions">
+        <button id="thumbnailSave" class="save-button" type="button" disabled>썸네일 업로드·적용</button>
+        <button id="thumbnailReset" class="publisher-secondary-button" type="button">기본 이미지로 되돌리기</button>
+        <span id="thumbnailStatus" role="status" aria-live="polite">기본 썸네일을 표시 중입니다.</span>
+      </div>
+      <p class="publisher-editor-help thumbnail-cache-tip">적용 후에는 대시보드에 즉시 반영됩니다. 카카오톡 대화방에 이전 이미지가 보이는 경우, 카카오 OG 캐시를 초기화해야 할 수 있습니다. <a href="https://developers.kakao.com/tool/clear/og" target="_blank" rel="noopener noreferrer">카카오 캐시 초기화 도구 ↗</a></p>
+    </section>
   </main>
   <script src="/static/admin.js?v=publisher-aliases-1" defer></script>
   <script src="/static/publisher-editor.js?v=publisher-aliases-1" defer></script>
+  <script src="/static/thumbnail-editor.js?v=1" defer></script>
 </body>
 </html>
