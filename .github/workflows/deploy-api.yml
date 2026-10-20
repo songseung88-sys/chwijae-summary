@@ -176,7 +176,7 @@ jobs:
           grep -Fq '.feedback-section summary #feedbackSummaryLabel{font-size:14px' /tmp/about-charts.css
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/admin" -o /tmp/format-admin.html
           grep -q '/static/about-format.js?v=1' /tmp/format-admin.html
-          grep -q '/static/about-layout-editor.js?v=3' /tmp/format-admin.html
+          grep -q '/static/about-layout-editor.js?v=per-item-save-1' /tmp/format-admin.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/about-format.js?v=1" -o /tmp/about-format.js
           grep -q 'function toggleAboutFormatting' /tmp/about-format.js
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/about.js?v=4" -o /tmp/about-lead.js
