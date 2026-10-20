@@ -3,6 +3,7 @@ name: Validate dashboard changes
 on:
   push:
     branches:
+      - main
       - feature/dashboard-topic-classification
       - feature/collection-reliability-display
   pull_request:
