@@ -75,9 +75,11 @@ jobs:
           python -m unittest discover -s qa -p "test_article_body_extraction.py" -v
           bash -n infra/setup_scheduler.sh
       - name: JavaScript syntax check
-        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js
+        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/bigkinds-data-editor.js
       - name: Verify BigKinds annual/publisher historical charts
         run: node qa/test_bigkinds_charts.js
+      - name: Verify editable BigKinds dataset and About blocks
+        run: python -m unittest discover -s qa -p "test_bigkinds_editor.py" -v
       - name: Verify enlarged analysis charts preserve rankings and 3rd-level detail
         run: |
           node --check qa/test_analysis_visuals.js
