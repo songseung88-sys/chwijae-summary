@@ -65,7 +65,7 @@ SUBJECTLESS_OTHER_RULES = [
     ("기타", "기타", "확인됐다", r"확인됐(?:다|고|으며|지만|는데)"),
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.4-phrase-variants"
+COLLECTOR_VERSION = "0.5.5-major-publisher-body"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -94,10 +94,11 @@ UA = (
 COMMON_BODY_SELECTORS = [
     "#dic_area",
     "#newsct_article",
-    "article",
+    '[itemprop="articleBody"]',
     "#articleBody",
     "#article_body",
     "#article-view-content-div",
+    ".article-text",
     ".article-body",
     ".article_body",
     ".articleBody",
@@ -108,7 +109,8 @@ COMMON_BODY_SELECTORS = [
     ".view_cont",
     ".view-content",
     ".article_txt",
-    ".article-text",
+    "article",
+    "main",
 ]
 
 session = requests.Session()
@@ -316,27 +318,51 @@ def breadcrumb_category(soup):
     return ""
 
 
+def valid_body_container(node):
+    """Exclude hidden search overlays and metadata/script markup from article bodies."""
+    if node is None or node.name in ("script", "style", "noscript", "template", "nav", "head"):
+        return False
+    if node.find_parent(["script", "style", "noscript", "template", "nav", "head"]):
+        return False
+    if re.search(r"(^|[\s_-])(search_layer|search-layer|popup|modal)([\s_-]|$)",
+                 " ".join(node.get("class", [])) + " " + (node.get("id") or ""),
+                 flags=re.I):
+        return False
+    return True
+
+
 def choose_body_container(soup):
-    candidates = []
+    # Specific article-body containers beat generic article/page elements,
+    # even when the article has none of our target phrases (QA / ordinary news).
+    fallback = None
     for selector in COMMON_BODY_SELECTORS:
         for node in soup.select(selector):
+            if not valid_body_container(node):
+                continue
             text = clean_text(node.get_text("\n", strip=True))
-            if contains_target_phrase(text) and len(text) >= 120:
-                candidates.append((len(text), node))
-    if candidates:
-        return max(candidates, key=lambda x: x[0])[1]
+            if not (100 <= len(text) <= 80000):
+                continue
+            if fallback is None:
+                fallback = node
+            if contains_target_phrase(text):
+                return node
 
-    phrase_nodes = soup.find_all(string=lambda s: isinstance(s, str) and contains_target_phrase(s))
+    # A rare layout might not use any of the common body wrappers.
+    # NEVER search a script or its descendants for a phrase: Chosun's
+    # fusion-metadata contains a serialized article, not visible body text.
+    phrase_nodes = soup.find_all(string=lambda x: isinstance(x, str) and contains_target_phrase(x))
     for text_node in phrase_nodes:
+        if text_node.find_parent(["script", "style", "noscript", "template", "nav", "head"]):
+            continue
         node = text_node.parent
-        for _ in range(8):
-            if node is None:
+        for _ in range(6):
+            if not valid_body_container(node) or node.name in ("html", "body"):
                 break
             text = clean_text(node.get_text("\n", strip=True))
-            if contains_target_phrase(text) and len(text) >= 300:
+            if 150 <= len(text) <= 30000 and contains_target_phrase(text):
                 return node
             node = node.parent
-    return soup.select_one("article") or soup.select_one("main")
+    return fallback
 
 
 def clean_structured_fragment(value):
@@ -817,7 +843,12 @@ def main():
         # The stored body already contains the text needed for an idempotent update.
         if (existing.exists and existing_data.get("status") == "accepted"
                 and existing_data.get("collector_version") != COLLECTOR_VERSION
-                and existing_data.get("body_text_private")):
+                and existing_data.get("body_text_private")
+                and not suspicious_body(existing_data["body_text_private"])
+                and not suspicious_context({
+                    "phrase_contexts": existing_data.get("phrase_contexts") or [],
+                })):
+
             body = existing_data["body_text_private"]
             counts = target_phrase_counts(body)
             if sum(counts.values()):
