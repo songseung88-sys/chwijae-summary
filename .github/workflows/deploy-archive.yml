@@ -1,0 +1,63 @@
+name: Deploy Google Sheets archive
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "archive/**"
+      - "collector/main.py"
+      - ".github/workflows/deploy-archive.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: chwijae-archive-deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: chwijae-summary
+  REGION: asia-northeast3
+  JOB_NAME: chwijae-daily-archive
+  IMAGE_REPO: asia-northeast3-docker.pkg.dev/chwijae-summary/chwijae
+  SPREADSHEET_ID: 1pLRILhu02VX1_KYDgEaRjOeL4WgBP_1Wmh-mm-iFcaY
+  RUNTIME_SA: collector-runtime@chwijae-summary.iam.gserviceaccount.com
+  DEPLOY_SA: github-deployer@chwijae-summary.iam.gserviceaccount.com
+  WIF_PROVIDER: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Configure container registry credentials
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+      - name: Build and push archive image
+        run: |
+          IMAGE="${IMAGE_REPO}/daily-archive:${GITHUB_SHA}"
+          docker build -f archive/Dockerfile -t "${IMAGE}" .
+          docker push "${IMAGE}"
+          echo "IMAGE=${IMAGE}" >> "${GITHUB_ENV}"
+      - name: Deploy job
+        run: |
+          gcloud run jobs deploy "${JOB_NAME}" \
+            --project="${PROJECT_ID}" --region="${REGION}" \
+            --image="${IMAGE}" --service-account="${RUNTIME_SA}" \
+            --cpu=1 --memory=1Gi --tasks=1 --max-retries=0 \
+            --task-timeout=30m \
+            --set-env-vars="GCP_PROJECT_ID=${PROJECT_ID},ARCHIVE_SPREADSHEET_ID=${SPREADSHEET_ID},MAX_ARCHIVE_BODY_FETCH=100" \
+            --quiet
+      - name: Run first full synchronization (latest 14 days)
+        run: |
+          gcloud run jobs execute "${JOB_NAME}" \
+            --project="${PROJECT_ID}" --region="${REGION}" \
+            --args="--mode,full,--days,14" --wait --quiet
