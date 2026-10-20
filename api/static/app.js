@@ -55,12 +55,11 @@ function renderRankings(){
     ["secondaryRanking",d.secondary_expressions],
   ];
   for(const [id,rows] of defs){
-    renderRanking(qs("#"+id),rows,!!state.rankingExpanded[id],id==="categoryRanking");
+    renderRanking(qs("#"+id),rows,false,id==="categoryRanking");
     const btn=document.querySelector(`.rank-toggle[data-target="${id}"]`);
     if(!btn) continue;
-    btn.style.display=id==="categoryRanking" ? ((rows?.length||0)>0?"inline":"none") : ((rows?.length||0)>5?"inline":"none");
-    btn.textContent=id==="categoryRanking" ? cfg.ranking_view_all_text
-      : (state.rankingExpanded[id]?cfg.ranking_collapse_text:cfg.ranking_view_all_text);
+    btn.style.display=(rows?.length||0)>0?"inline":"none";
+    btn.textContent=cfg.ranking_view_all_text;
   }
 }
 function renderHistory(rows){
@@ -105,12 +104,6 @@ function articleNode(a,cfg){
   node.querySelector(".news-meta").textContent = [a.publisher,(a.reporters||[]).join(", "),fmtDateTime(a.published_at)].filter(Boolean).join(" · ");
   node.querySelector("h3").textContent = a.title || "";
   highlightTargetPhrases(node.querySelector(".context"), a.context_sentence || "");
-  const chips = [];
-  if(a.is_exclusive) chips.push("[단독]");
-
-  if(a.phrase_count>1) chips.push(`표현 ${a.phrase_count}회`);
-
-  node.querySelector(".chips").innerHTML = chips.map(x=>`<span class="chip ${x==="[단독]"?"chip--exclusive":"chip--frequency"}">${esc(x)}</span>`).join("");
   const details=node.querySelector(".paragraph-details");
   if(a.context_paragraph){
     node.querySelector("summary").textContent=cfg.paragraph_toggle_text;
@@ -118,7 +111,6 @@ function articleNode(a,cfg){
   }else{details.remove();}
   const links=[];
   if(a.original_url) links.push(`<a target="_blank" rel="noopener noreferrer" href="${esc(a.original_url)}">${esc(cfg.original_link_text)}</a>`);
-  if(a.naver_url) links.push(`<a target="_blank" rel="noopener noreferrer" href="${esc(a.naver_url)}">${esc(cfg.naver_link_text)}</a>`);
   node.querySelector(".links").innerHTML=links.join("");
   return node;
 }
@@ -173,9 +165,13 @@ document.addEventListener("DOMContentLoaded",()=>{
   document.querySelectorAll(".rank-toggle").forEach(btn=>btn.addEventListener("click",()=>{
     const id=btn.dataset.target;
     if(id==="categoryRanking"){openCategoryDialog();return;}
-    state.rankingExpanded[id]=!state.rankingExpanded[id];
-    renderRankings();
+    openRankingDialog(id);
   }));
+  qs("#closeRankingDialog").addEventListener("click",()=>qs("#rankingDialog").close());
+  qs("#rankingDialog").addEventListener("click",e=>{
+    if(e.target===qs("#rankingDialog")) qs("#rankingDialog").close();
+  });
+  qs("#rankingDialogMore").addEventListener("click",showMoreRankingDialog);
   qs("#closeCategoryDialog").addEventListener("click",()=>qs("#categoryDialog").close());
   qs("#categoryDialog").addEventListener("click",e=>{
     if(e.target===qs("#categoryDialog")) qs("#categoryDialog").close();

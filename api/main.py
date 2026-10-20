@@ -46,7 +46,7 @@ DEFAULT_SITE_CONFIG = {
     "section_articles_title": "오늘의 '취재 종합' 문장들",
     "group_usage_title": "누가 사용하는가",
     "group_analysis_title": "어디에서 어떻게 쓰이는가",
-    "ranking_view_all_text": "전체 보기",
+    "ranking_view_all_text": "자세히 보기",
     "ranking_collapse_text": "접기",
     "paragraph_toggle_text": "문단 보기",
     "original_link_text": "원문 보기",
@@ -229,6 +229,10 @@ def get_site_config():
     # Preserve customized labels; migrate only the old built-in category title.
     if config.get("section_category_title") == "원문 기사 분류":
         config["section_category_title"] = "기사 주제별 사용량"
+    # Migrate the previous built-in text even if it was saved by the editor.
+    # Other administrator customizations remain untouched.
+    if config.get("ranking_view_all_text") == "전체 보기":
+        config["ranking_view_all_text"] = "자세히 보기"
     return config
 
 

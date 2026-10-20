@@ -36,7 +36,7 @@ jobs:
           python -m unittest discover -s qa -p "test_article_body_extraction.py" -v
           bash -n infra/setup_scheduler.sh
       - name: JavaScript syntax check
-        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js
+        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js
       - name: Verify pie labels and small-slice leader lines
         run: |
           node - <<'JS'
@@ -87,7 +87,7 @@ jobs:
               assert key+':' in admin,key
               assert f'id="{node_id}"' in html,node_id
               assert f'#{node_id}' in js,node_id
-          assert 'editorial-blue-1' in html
+          assert 'editorial-blue-2' in html
           assert 'class="dashboard-group usage-group"' in html
           assert 'class="dashboard-group analysis-group"' in html
           assert 'id="summaryCards"' in html
@@ -114,6 +114,88 @@ jobs:
           assert.equal(parent.children.map(x=>x.type==="text"?x.text:x.textContent).join(""),'뉴스 취재를 종합하면 <img src=x> 본지 취재결과 2건');
           assert(parent.children.some(x=>x.type==="text"&&x.text.includes("<img")));
           console.log("Safe search-expression highlighting checks passed");
+          JS
+      - name: Verify simplified article view and ranking dialogs
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          main=Path("api/main.py").read_text()
+          tree=ast.parse(main)
+          cfg=ast.literal_eval(next(n for n in tree.body if isinstance(n,ast.Assign)
+            and any(isinstance(t,ast.Name) and t.id=="DEFAULT_SITE_CONFIG" for t in n.targets)).value)
+          assert cfg["ranking_view_all_text"]=="자세히 보기"
+          assert 'if config.get("ranking_view_all_text") == "전체 보기"' in main
+          html=Path("api/static/index.html").read_text()
+          app=Path("api/static/app.js").read_text()
+          css=Path("api/static/style.css").read_text()
+          assert '<div class="chips"></div>' not in html
+          assert 'node.querySelector(".chips")' not in app
+          assert 'a.is_exclusive' not in app.split('function articleNode(a,cfg){')[1].split('function renderArticles()')[0]
+          assert 'links.push(`<a' in app
+          assert 'a.naver_url) links.push' not in app
+          for target in ("publisherRanking","reporterRanking","secondaryRanking"):
+              assert f'data-target="{target}"' in html
+          for target in ("rankingDialog","rankingDialogTitle","rankingDialogContent","rankingDialogMore","closeRankingDialog"):
+              assert f'id="{target}"' in html
+          assert 'ranking-dialog.js' in html
+          assert '.hero::before,.hero::after{display:none}' in css
+          assert "openRankingDialog(id)" in app
+          assert "showMoreRankingDialog" in app
+          assert 'data-target="categoryRanking"' in html
+          print("Simple article view and ranking dialog contract validated")
+          PY
+          node - <<'JS'
+          const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
+          const elements=new Map();
+          function element(k){
+            if(!elements.has(k))elements.set(k,{innerHTML:"",textContent:"",hidden:false,style:{},open:false,showModal(){this.open=true},close(){this.open=false}});
+            return elements.get(k);
+          }
+          const context={
+            qs:element,
+            esc:(x)=>String(x).replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;"),
+            state:{data:{site_config:{
+              section_publisher_title:"언론사",section_reporter_title:"기자",
+              section_secondary_title:"무주체형 표현",articles_more_text:"더 보기",
+            },publisher_ranking:Array.from({length:45},(_,i)=>({name:"신문"+(i+1),count:45-i})),
+              reporter_ranking_week:[
+                {name:"가",publisher:"언론사A",count:2},
+                {name:"나",publisher:"언론사B",count:10},
+                {name:"다",publisher:"언론사A",count:1},
+                {name:"라",publisher:"언론사A",count:3},
+                {name:"마",publisher:"언론사B",count:5},
+              ],
+              secondary_expressions:Array.from({length:29},(_,i)=>({name:"표현"+i,count:29-i})),
+            }},
+          };
+          vm.createContext(context);
+          vm.runInContext(fs.readFileSync("api/static/ranking-dialog.js","utf8"),context);
+          const group=vm.runInContext('groupReportersByPublisher',context);
+          const groups=group(context.state.data.reporter_ranking_week);
+          assert.equal(groups[0].publisher,"언론사A");
+          assert.equal(groups[0].members.length,3);
+          const open=vm.runInContext('openRankingDialog',context);
+          const more=vm.runInContext('showMoreRankingDialog',context);
+          open("publisherRanking");
+          assert(element("#rankingDialog").open);
+          assert.equal((element("#rankingDialogContent").innerHTML.match(/ranking-dialog-row/g)||[]).length,20);
+          assert.equal(element("#rankingDialogMore").hidden,false);
+          more();
+          assert.equal((element("#rankingDialogContent").innerHTML.match(/ranking-dialog-row/g)||[]).length,40);
+          more();
+          assert.equal((element("#rankingDialogContent").innerHTML.match(/ranking-dialog-row/g)||[]).length,45);
+          assert.equal(element("#rankingDialogMore").hidden,true);
+          open("secondaryRanking");
+          assert.equal((element("#rankingDialogContent").innerHTML.match(/ranking-dialog-row/g)||[]).length,20);
+          more();
+          assert.equal((element("#rankingDialogContent").innerHTML.match(/ranking-dialog-row/g)||[]).length,29);
+          open("reporterRanking");
+          const grouped=element("#rankingDialogContent").innerHTML;
+          assert(grouped.indexOf("언론사A")<grouped.indexOf("언론사B"));
+          assert.equal((grouped.match(/ranking-dialog-row/g)||[]).length,5);
+          assert.equal(element("#rankingDialogMore").hidden,true);
+          console.log("Ranking pagination 20/40/45, 20/29 and grouping validated");
           JS
       - name: Markup and API contract checks
         run: |
