@@ -1,17 +1,33 @@
 // Restrained editorial palette: distinct hues with similar visual weight.
 const topicColors=["#285B91","#337180","#47785F","#886D3F","#70628D","#935D55","#4A6D8A","#4C7771","#775F76","#806B52"];
 
-// Keep the current ranked palette, swapping only economy/industry and sports hues.
-function topicColorMap(rows){
-  const colors=new Map((rows||[]).map((row,i)=>[row.name,topicColors[i%topicColors.length]]));
-  const economy=(rows||[]).find(row=>String(row.name).replace(/[\s·ㆍ]/g,"")==="경제산업");
-  const sports=(rows||[]).find(row=>row.name==="스포츠");
-  if(economy && sports){
-    const economyColor=colors.get(economy.name);
-    colors.set(economy.name,colors.get(sports.name));
-    colors.set(sports.name,economyColor);
+// Stable first-level category colors. These may not depend on rank, date or whether
+// other categories (especially sports) appear in the selected day.
+const topicCategoryColors={
+  "사회":"#285B91",          // blue
+  "경제산업":"#935D55",      // muted terracotta; formerly changed with sports/rank
+  "경제":"#935D55",
+  "정치":"#47785F",          // green
+  "문화생활":"#886D3F",      // ochre
+  "문화":"#886D3F",
+  "국제":"#70628D",          // violet
+  "스포츠":"#337180",        // teal
+  "과학it":"#4A6D8A",
+  "과학기술":"#4A6D8A",
+  "기타":"#4C7771"
+};
+function topicColorForCategory(name){
+  const key=String(name||"").replace(/[\s·ㆍ_-]/g,"").toLowerCase();
+  if(Object.prototype.hasOwnProperty.call(topicCategoryColors,key)){
+    return topicCategoryColors[key];
   }
-  return colors;
+  // Preserve a deterministic fallback for new labels, independent of sort order.
+  let hash=0;
+  for(const ch of key) hash=(hash*31+ch.codePointAt(0))>>>0;
+  return topicColors[hash%topicColors.length];
+}
+function topicColorMap(rows){
+  return new Map((rows||[]).map(row=>[row.name,topicColorForCategory(row.name)]));
 }
 
 function piePoint(cx,cy,r,angle){
