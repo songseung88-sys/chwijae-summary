@@ -5,12 +5,17 @@ Keeping each asset under Firestore's per-document limit lets the existing
 Cloud Run service account persist it without new cloud infrastructure.
 """
 import hashlib
+from html import escape
 from io import BytesIO
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 PUBLIC_BASE_URL = "https://chwijae-api-ejmdmrnztq-du.a.run.app/"
 STATIC_FALLBACK_URL = PUBLIC_BASE_URL + "static/og-thumbnail-wide.jpg"
+DEFAULT_OG_TITLE = "취재를 종합하면"
+DEFAULT_OG_DESCRIPTION = "한국 언론의 기사에서 '취재를 종합하면' 표현의 사용을 기록하는 대시보드"
+MAX_OG_TITLE_LENGTH = 100
+MAX_OG_DESCRIPTION_LENGTH = 300
 THUMBNAIL_SIZE = (1200, 630)
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_IMAGE_PIXELS = 12_000_000
@@ -65,23 +70,49 @@ def image_url(version=None):
     return (PUBLIC_BASE_URL + "share-images/" + version + ".jpg") if version else STATIC_FALLBACK_URL
 
 
-def render_preview_html(html, url):
-    """Homepage OG tags are replaced in HTML served to robots; no JS needed."""
+def validate_preview_copy(title, description):
+    """Validate human-authored OG fields before persisting them."""
+    if not isinstance(title, str) or not isinstance(description, str):
+        raise ValueError("공유 제목과 설명을 모두 입력해주세요.")
+    title = " ".join(title.split())
+    description = " ".join(description.split())
+    if not title or not description:
+        raise ValueError("공유 제목과 설명을 모두 입력해주세요.")
+    if len(title) > MAX_OG_TITLE_LENGTH:
+        raise ValueError("공유 제목은 100자 이내로 입력해주세요.")
+    if len(description) > MAX_OG_DESCRIPTION_LENGTH:
+        raise ValueError("공유 설명은 300자 이내로 입력해주세요.")
+    return title, description
+
+
+def render_preview_html(html, url, title=DEFAULT_OG_TITLE,
+                        description=DEFAULT_OG_DESCRIPTION):
+    """Update preview fields in server-rendered HTML, including for JS-free crawlers.
+
+    The visible dashboard heading and browser tab title remain unchanged.
+    """
     if not url.startswith(PUBLIC_BASE_URL):
         raise ValueError("Invalid share image URL")
-    # Only change URL values for the existing OG/Twitter image tags.
-    targets = (
-        '<meta property="og:image" content="',
-        '<meta property="og:image:secure_url" content="',
-        '<meta name="twitter:image" content="',
-    )
-    for prefix in targets:
-        start = html.find(prefix)
-        if start == -1:
-            raise ValueError("Missing Open Graph image tag: " + prefix)
-        begin = start + len(prefix)
-        end = html.find('"', begin)
-        if end == -1:
-            raise ValueError("Unterminated OG image tag")
-        html = html[:begin] + url + html[end:]
+    title, description = validate_preview_copy(title, description)
+    values = {
+        'property="og:image"': url,
+        'property="og:image:secure_url"': url,
+        'name="twitter:image"': url,
+        'property="og:title"': title,
+        'name="twitter:title"': title,
+        'property="og:description"': description,
+        'name="twitter:description"': description,
+        'name="description"': description,
+    }
+    # Each trusted tag attribute must exist exactly once.
+    # Escape user text to prevent attribute injection and script markup.
+    for identifier, raw in values.items():
+        prefix = "<meta " + identifier + ' content="'
+        if html.count(prefix) != 1:
+            raise ValueError("Missing or repeated preview tag: " + identifier)
+        start = html.index(prefix) + len(prefix)
+        end = html.find('"', start)
+        if end < 0:
+            raise ValueError("Unterminated preview tag: " + identifier)
+        html = html[:start] + escape(raw, quote=True) + html[end:]
     return html
