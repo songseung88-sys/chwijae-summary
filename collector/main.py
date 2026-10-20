@@ -21,16 +21,29 @@ from google.cloud import firestore
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
 NAVER_API_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
-SECONDARY_EXPRESSIONS = [
-    "알려졌다",
-    "전해졌다",
-    "해석된다",
-    "지적이 나온다",
-    "법조계에 따르면",
-    "한 셈이다",
+# Song & Ihm (2026), Table 3: two broad types and six subtypes.
+# These are lexical candidate matches, not contextual judgments about whether
+# a sentence actually suppresses its source. Keep precise versioned metadata.
+SECONDARY_TAXONOMY_VERSION = "paper-table3-v1"
+SUBJECTLESS_RULES = [
+    # (major type, subtype, displayed canonical expression, lexical pattern)
+    ("출처소거형", "피동형", "알려졌다", r"알려졌(?:다|고|으며|지만|는데)"),
+    ("출처소거형", "피동형", "전해졌다", r"전해졌(?:다|고|으며|지만|는데)"),
+    ("출처소거형", "전언형", "했다고 한다", r"(?:했|하였)다고\s+한다"),
+    ("출처소거형", "자생발생형", "지적이 나온다", r"지적(?:이|도)\s+나(?:온다|왔다|오고|오면서)"),
+    ("출처소거형", "자생발생형", "해석이 나온다", r"해석(?:이|도)\s+나(?:온다|왔다|오고|오면서)"),
+    ("출처소거형", "자생발생형", "분석이 나온다", r"분석(?:이|도)\s+나(?:온다|왔다|오고|오면서)"),
+    ("출처소거형", "자생발생형", "우려가 제기된다", r"우려(?:가|도)\s+제기(?:된다|됐다|되고|되면서)"),
+    ("기자귀속형", "해석형", "풀이된다", r"풀이(?:된다|됐다|되고|되면서)"),
+    ("기자귀속형", "해석형", "해석된다", r"해석(?:된다|됐다|되고|되면서)"),
+    ("기자귀속형", "해석형", "보인다", r"보인다(?![가-힣])"),
+    ("기자귀속형", "해석형", "거론된다", r"거론(?:된다|됐다|되고|되면서)"),
+    ("기자귀속형", "명사형", "셈이다", r"셈이다(?![가-힣])"),
+    ("기자귀속형", "명사형", "대목이다", r"대목이다(?![가-힣])"),
+    ("기자귀속형", "명사형", "관측이다", r"관측이다(?![가-힣])"),
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.1-full-title"
+COLLECTOR_VERSION = "0.5.2-paper-table3"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -362,11 +375,28 @@ def phrase_contexts(paragraphs):
 
 
 def secondary_counts(body):
-    return {
-        exp: body.count(exp)
-        for exp in SECONDARY_EXPRESSIONS
-        if body.count(exp) > 0
-    }
+    """Paper Table 3 expressions, excluding the mandatory seed phrase itself."""
+    result = {}
+    for _major, _subtype, label, pattern in SUBJECTLESS_RULES:
+        count = len(re.findall(pattern, body))
+        if count:
+            result[label] = count
+    return result
+
+
+def subjectless_type_counts(body, expressions=None):
+    """Versioned grouping; 종합형 is tracked through PHRASE separately."""
+    expressions = expressions if expressions is not None else secondary_counts(body)
+    groups = {}
+    for major, subtype, label, _pattern in SUBJECTLESS_RULES:
+        count = expressions.get(label, 0)
+        if count:
+            key = f"{major} / {subtype}"
+            groups[key] = groups.get(key, 0) + count
+    seed = body.count(PHRASE)
+    if seed:
+        groups["기자귀속형 / 종합형"] = seed
+    return groups
 
 
 def strict_exclusive(title):
@@ -816,6 +846,10 @@ def main():
             "phrase_count": final.get("phrase_count", 0),
             "phrase_contexts": final.get("phrase_contexts", []),
             "secondary_expressions": final.get("secondary", {}),
+            "secondary_taxonomy_version": SECONDARY_TAXONOMY_VERSION,
+            "subjectless_type_counts": subjectless_type_counts(
+                final.get("body", ""), final.get("secondary", {})
+            ),
             "body_text_private": final.get("body", ""),
             "original_parse_error": original.get("error", ""),
             "naver_parse_error": naver.get("error", ""),
