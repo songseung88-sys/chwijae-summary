@@ -65,6 +65,15 @@ class SubjectlessTable3(unittest.TestCase):
         self.assertEqual(data, {})
         self.assertEqual(group_counts("취재를 종합하면").get("기자귀속형 / 종합형"), 1)
 
+    def test_public_api_labels_match_collector_table3(self):
+        api = ast.parse(Path("api/main.py").read_text(encoding="utf-8"))
+        assignment = next(node for node in api.body if isinstance(node, ast.Assign)
+                          and any(isinstance(t, ast.Name) and t.id == "PAPER_SUBJECTLESS_LABELS"
+                                  for t in node.targets))
+        labels = ast.literal_eval(assignment.value)
+        expected = {label for _major, _subtype, label, _pattern in ns["SUBJECTLESS_RULES"]}
+        self.assertEqual(labels, expected)
+
     def test_six_subtypes_present(self):
         kinds = {(major, subtype) for major, subtype, _label, _pat in ns["SUBJECTLESS_RULES"]}
         self.assertEqual(kinds, {
