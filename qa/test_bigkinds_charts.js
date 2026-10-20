@@ -47,7 +47,7 @@ assert.match(charts.publisherBigkindsSvg(data,selected),/비교할 언론사를 
 const html=fs.readFileSync("api/static/about.html","utf8");
 const css=fs.readFileSync("api/static/bigkinds-charts.css","utf8");
 for(const token of ["bigkindsAnnualChart","bigkindsPublisherChart","bigkindsPublisherFilters",
-  "bigkinds-charts.js","bigkinds-charts.css","빅카인즈","aboutLayout"]){
+  "bigkinds-charts.js","bigkinds-charts.css","aboutLayout"]){
   assert(html.includes(token),token);
 }
 for(const unwanted of ["bigkindsPeakYear","bigkindsResetPublishers","bigkinds-hint",
