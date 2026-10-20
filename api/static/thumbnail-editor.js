@@ -6,6 +6,15 @@ let localPreviewUrl=null;
 function setThumbnailStatus(message){
   document.querySelector("#thumbnailStatus").textContent=message;
 }
+function setThumbnailMetaStatus(message){
+  document.querySelector("#thumbnailMetaStatus").textContent=message;
+}
+function thumbnailMetaFields(){
+  return {
+    title:document.querySelector("#thumbnailMetaTitle").value.trim(),
+    description:document.querySelector("#thumbnailMetaDescription").value.trim()
+  };
+}
 function thumbnailPassword(){
   const password=document.querySelector("#password").value;
   if(!password){
@@ -45,12 +54,48 @@ async function loadCurrentThumbnail(){
     if(!result)return;
     releaseLocalPreview();
     setPreview(result.url);
+    document.querySelector("#thumbnailMetaTitle").value=result.title||"취재를 종합하면";
+    document.querySelector("#thumbnailMetaDescription").value=result.description||"";
+    setThumbnailMetaStatus("현재 공유 제목과 설명을 불러왔습니다.");
     setThumbnailStatus(result.version
       ?"현재 적용 중인 썸네일을 불러왔습니다."
       :"기본 썸네일을 사용 중입니다.");
     document.querySelector("#thumbnailFile").value="";
     document.querySelector("#thumbnailSave").disabled=true;
   }catch(error){setThumbnailStatus(error.message);}
+  finally{button.disabled=false;}
+}
+async function thumbnailRequestMetadata(payload){
+  const password=thumbnailPassword();
+  if(password===null)return null;
+  const res=await fetch("/api/admin/thumbnail/metadata",{
+    method:"PUT",cache:"no-store",
+    headers:{"X-Admin-Password":password,"Content-Type":"application/json"},
+    body:JSON.stringify(payload)
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw Error(data.detail||"공유 문구 저장에 실패했습니다.");
+  return data;
+}
+async function saveThumbnailMetadata(){
+  if(!thumbnailPassword())return;
+  const payload=thumbnailMetaFields();
+  if(!payload.title||!payload.description){
+    setThumbnailMetaStatus("공유 제목과 설명을 모두 입력해주세요.");
+    return;
+  }
+  if(payload.title.length>100||payload.description.length>300){
+    setThumbnailMetaStatus("제목은 100자, 설명은 300자를 넘을 수 없습니다.");
+    return;
+  }
+  const button=document.querySelector("#thumbnailMetaSave");
+  button.disabled=true;
+  setThumbnailMetaStatus("공유 제목·설명을 저장하는 중…");
+  try{
+    const result=await thumbnailRequestMetadata(payload);
+    if(!result)return;
+    setThumbnailMetaStatus("공유 제목과 설명이 적용됐습니다. 카카오톡에서 캐시 갱신이 필요할 수 있습니다.");
+  }catch(error){setThumbnailMetaStatus(error.message);}
   finally{button.disabled=false;}
 }
 function encodeImage(file){
@@ -109,6 +154,7 @@ async function resetThumbnail(){
 }
 document.addEventListener("DOMContentLoaded",()=>{
   document.querySelector("#thumbnailLoad").addEventListener("click",loadCurrentThumbnail);
+  document.querySelector("#thumbnailMetaSave").addEventListener("click",saveThumbnailMetadata);
   document.querySelector("#thumbnailSave").addEventListener("click",saveThumbnail);
   document.querySelector("#thumbnailReset").addEventListener("click",resetThumbnail);
   document.querySelector("#thumbnailFile").addEventListener("change",event=>{
