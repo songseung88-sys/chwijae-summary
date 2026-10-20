@@ -6,11 +6,11 @@
   <title>자세히 보기 | 취재를 종합하면</title>
   <meta name="description" content="취재를 종합하면 대시보드 소개" />
   <link rel="stylesheet" href="/static/style.css" />
-  <link rel="stylesheet" href="/static/bigkinds-charts.css?v=4" />
+  <link rel="stylesheet" href="/static/bigkinds-charts.css?v=5" />
 </head>
 <body>
   <main class="wrap about-page" aria-label="취재를 종합하면 소개와 데이터">
-    <a class="about-back" href="/">← 대시보드로 돌아가기</a>
+    <a class="about-back" href="/" id="aboutBackLabel">← 대시보드로 돌아가기</a>
     <section class="bigkinds-history" aria-label="연도별 기사 수 및 소개글">
       <div id="aboutLayout">
         <section id="aboutContent" class="about-text-block" aria-label="서비스 소개 본문" hidden></section>
@@ -18,7 +18,7 @@
           <div class="bigkinds-panel-header">
             <div>
               <h3 id="bigkindsAnnualTitle">‘취재를 종합하면’ 연간 기사 수</h3>
-              <p>10개 언론사 합계 · 연도별 검색 기사 수</p>
+              <p id="annualChartCaption">10개 언론사 합계 · 연도별 검색 기사 수</p>
             </div>
           </div>
           <div class="bigkinds-chart-shell" id="bigkindsAnnualChart" aria-label="연간 기사 수 그래프"></div>
@@ -36,9 +36,9 @@
     </section>
     <section class="feedback-section" aria-label="의견 보내기">
       <details id="feedbackDisclosure">
-        <summary>의견 보내기 <span aria-hidden="true">⌄</span></summary>
+        <summary><span id="feedbackSummaryLabel">의견 보내기</span> <span aria-hidden="true">⌄</span></summary>
         <form id="feedbackForm">
-          <label for="feedbackMessage">서비스에 대한 의견이나 제안을 남겨주세요.</label>
+          <label for="feedbackMessage" id="feedbackPromptLabel">의견이나 제안을 남겨주세요.</label>
           <textarea id="feedbackMessage" name="message" rows="6" maxlength="3000"
             minlength="2" required placeholder="의견을 자유롭게 작성해주세요."></textarea>
           <div class="feedback-honeypot" aria-hidden="true">
@@ -53,8 +53,8 @@
       </details>
     </section>
   </main>
-  <script src="/static/about.js?v=3" defer></script>
+  <script src="/static/about.js?v=4" defer></script>
   <script src="/static/bigkinds-charts.js?v=2" defer></script>
-  <script src="/static/feedback.js?v=1" defer></script>
+  <script src="/static/feedback.js?v=2" defer></script>
 </body>
 </html>
