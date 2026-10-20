@@ -28,9 +28,9 @@ function renderAboutEditor(){
   host.querySelectorAll("textarea[data-about-text]").forEach(t=>{
     const idx=Number(t.dataset.aboutText);
     const preview=host.querySelector('[data-about-preview="'+idx+'"]');
-    const first=aboutDraft.findIndex(block=>block.type==="text"&&block.text.trim());
     function update(){
       aboutDraft[idx].text=t.value;
+      const first=aboutDraft.findIndex(block=>block.type==="text"&&block.text.trim());
       renderAboutText(preview,t.value,idx===first);
     }
     t.addEventListener("input",update);
