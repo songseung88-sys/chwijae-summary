@@ -53,6 +53,68 @@ jobs:
           assert.match(graph,/#[0-9A-Fa-f]{6}/);
           console.log("Colorful labeled SVG chart and leader-line checks passed");
           JS
+      - name: Verify editorial hierarchy and admin-editable copy
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from html.parser import HTMLParser
+          import ast
+          main = Path("api/main.py").read_text()
+          tree = ast.parse(main)
+          config_node = next(n for n in tree.body if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id=="DEFAULT_SITE_CONFIG" for t in n.targets))
+          cfg=ast.literal_eval(config_node.value)
+          admin=Path("api/static/admin.js").read_text()
+          html=Path("api/static/index.html").read_text()
+          css=Path("api/static/style.css").read_text()
+          js=Path("api/static/app.js").read_text()
+          # All existing titles are preserved byte-for-byte in the source defaults.
+          expected={
+              "card_today_label":"오늘의 '취재 종합'",
+              "card_publisher_label":"오늘의 최다 '취재 종합' 언론사",
+              "card_reporter_label":"이번 주 가장 많이 '취재 종합'한 기자",
+              "card_exclusive_label":"[단독] 동반 비율",
+              "section_publisher_title":"오늘의 최다 '취재 종합' 언론사",
+              "section_reporter_title":"이번 주 가장 많이 '취재 종합'한 기자",
+              "section_category_title":"원문 기사 분류",
+              "section_secondary_title":"함께 쓰인 무주체형 표현",
+              "section_history_title":"최근 14일",
+              "section_articles_title":"오늘의 '취재 종합' 문장들",
+          }
+          for name,title in expected.items():
+              assert cfg[name]==title,(name,cfg[name])
+          for key,node_id in (("group_usage_title","usageGroupTitle"),("group_analysis_title","analysisGroupTitle")):
+              assert cfg.get(key),key
+              assert key+':' in admin,key
+              assert f'id="{node_id}"' in html,node_id
+              assert f'#{node_id}' in js,node_id
+          assert 'editorial-blue-1' in html
+          assert 'class="dashboard-group usage-group"' in html
+          assert 'class="dashboard-group analysis-group"' in html
+          assert 'id="summaryCards"' in html
+          for token in ['.card:first-child','.group-heading','.phrase-highlight','.day:last-child .vbar','@media(max-width:540px)']:
+              assert token in css,token
+          class Validator(HTMLParser):
+              pass
+          Validator().feed(html)
+          print("Editorial copy, layout and responsive styling checks passed")
+          PY
+          node - <<'JS'
+          const fs=require("node:fs"),vm=require("node:vm"),assert=require("node:assert/strict");
+          const document={
+            addEventListener(){},
+            createTextNode(text){return {type:"text",text}},
+            createElement(tag){return {type:tag,textContent:"",className:""}},
+          };
+          const ctx={document};
+          vm.createContext(ctx);
+          vm.runInContext(fs.readFileSync("api/static/app.js","utf8"),ctx);
+          const parent={children:[],appendChild(x){this.children.push(x)}};
+          vm.runInContext('highlightTargetPhrases',ctx)(parent,'뉴스 취재를 종합하면 <img src=x> 본지 취재결과 2건');
+          assert.equal(parent.children.filter(x=>x.type==="mark").length,2);
+          assert.equal(parent.children.map(x=>x.type==="text"?x.text:x.textContent).join(""),'뉴스 취재를 종합하면 <img src=x> 본지 취재결과 2건');
+          assert(parent.children.some(x=>x.type==="text"&&x.text.includes("<img")));
+          console.log("Safe search-expression highlighting checks passed");
+          JS
       - name: Markup and API contract checks
         run: |
           python - <<'PY'
