@@ -1,5 +1,25 @@
 const qs = (s) => document.querySelector(s);
 const state = { data:null, articleVisible:10, rankingExpanded:{}, categoryFilter:null };
+function uiCopy(key,fallback=""){
+  const values=state.data?.site_config?.ui_copy;
+  return values&&Object.prototype.hasOwnProperty.call(values,key)?values[key]:fallback;
+}
+function paintUiCopy(){
+  const entries={
+    "#dashboardTitle":"dashboard_title","#aboutLinkLabel":"about_link",
+    "#dateLabel":"date_label","#categoryCriteria":"category_criteria",
+    "#clearTopicFilter":"clear_category","#categoryDialogTitle":"category_dialog_title"
+  };
+  for(const [selector,key] of Object.entries(entries)){
+    const el=qs(selector);if(el)el.textContent=uiCopy(key,el.textContent);
+  }
+  const heading=qs("#dashboardTitle");
+  if(heading)document.title=heading.textContent||"취재를 종합하면";
+  for(const selector of ["#closeCategoryDialog","#closeRankingDialog"]){
+    const el=qs(selector);if(el)el.setAttribute("aria-label",uiCopy("dialog_close","팝업 닫기"));
+  }
+}
+
 
 function esc(v=""){
   return String(v).replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
@@ -13,24 +33,24 @@ function renderCollectionHealth(collection){
   const el=qs("#collectionHealth");
   const stamp=collection?.finished_at;
   if(!stamp){
-    el.textContent="마지막 수집 시각: 확인되지 않음";
+    el.textContent=uiCopy("collection_unknown","마지막 수집 시각: 확인되지 않음");
     return;
   }
   const dt=new Date(stamp);
   if(Number.isNaN(dt.getTime())){
-    el.textContent="마지막 수집 시각: 확인되지 않음";
+    el.textContent=uiCopy("collection_unknown","마지막 수집 시각: 확인되지 않음");
     return;
   }
   const time=new Intl.DateTimeFormat("ko-KR",{
     timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false
   }).format(dt);
-  el.textContent=`마지막 수집 완료: ${time}`;
+  el.textContent=`${uiCopy("collection_done","마지막 수집 완료: ")}${time}`;
 }
 function rowLabel(r){
   return r.publisher ? `${esc(r.name)} <span class="rank-affiliation">${esc(r.publisher)}</span>` : esc(r.name);
 }
 function renderRanking(el, rows, expanded=false, filterable=false){
-  if(!rows?.length){el.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';return;}
+  if(!rows?.length){el.innerHTML=`<div class="empty">${esc(uiCopy("empty_data","표시할 데이터가 없습니다."))}</div>`;return;}
   const visible = expanded ? rows : rows.slice(0,5);
   const max = rows[0].count || 1;
   el.innerHTML = visible.map((r,i)=>{
@@ -40,7 +60,7 @@ function renderRanking(el, rows, expanded=false, filterable=false){
     return `<${tag} ${attrs}>
       <span class="rank-num">${String(i+1).padStart(2,"0")}</span>
       <span class="rank-name">${rowLabel(r)}</span>
-      <span class="rank-count">${r.count}건</span>
+      <span class="rank-count">${r.count}${esc(uiCopy("count_unit","건"))}</span>
       <span class="bar-track"><span class="bar" style="width:${Math.max(3,r.count/max*100)}%"></span></span>
     </${tag}>`;
   }).join("");
@@ -67,15 +87,15 @@ function renderTopicOverview(d){
   const primary=d.category_primary_ranking||[];
   const total=primary.reduce((n,r)=>n+(Number(r.count)||0),0);
   if(!total){
-    pieHost.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';
-    bars.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';
+    pieHost.innerHTML=`<div class="empty">${esc(uiCopy("empty_data","표시할 데이터가 없습니다."))}</div>`;
+    bars.innerHTML=`<div class="empty">${esc(uiCopy("empty_data","표시할 데이터가 없습니다."))}</div>`;
     return;
   }
   // Color palette matches the restrained editorial-blue theme, also used by the detail dialog.
   pieHost.innerHTML=labeledPieSvg(primary,total,true);
   const secondaries=topicSecondLevelRows(d.category_hierarchy).slice(0,5);
   if(!secondaries.length){
-    bars.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';
+    bars.innerHTML=`<div class="empty">${esc(uiCopy("empty_data","표시할 데이터가 없습니다."))}</div>`;
     return;
   }
   const max=secondaries[0].count||1;
@@ -90,7 +110,7 @@ function renderTopicOverview(d){
       <span class="topic-bar-rank">${i+1}</span>
       <span class="topic-bar-name">${esc(r.primary)} &rsaquo; ${esc(r.secondary)}</span>
       <span class="topic-bar-track"><span class="topic-bar-fill" style="width:${width}%;background:${fill}"></span></span>
-      <strong class="topic-bar-count">${r.count}건</strong>
+      <strong class="topic-bar-count">${r.count}${esc(uiCopy("count_unit","건"))}</strong>
       <span class="topic-bar-percent">${pct}%</span>
     </button>`;
   }).join("");
@@ -100,7 +120,7 @@ function renderExpressionChart(rows){
   const host=qs("#secondaryRanking");
   const top=(rows||[]).slice(0,5);
   if(!top.length){
-    host.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';
+    host.innerHTML=`<div class="empty">${esc(uiCopy("empty_data","표시할 데이터가 없습니다."))}</div>`;
     return;
   }
   const max=Number(top[0].count)||1;
@@ -111,7 +131,7 @@ function renderExpressionChart(rows){
       <span class="expression-rank">${i+1}</span>
       <span class="expression-name">${esc(r.name)}</span>
       <span class="expression-track"><span class="expression-fill" style="width:${width}%"></span></span>
-      <strong class="expression-count">${count}회</strong>
+      <strong class="expression-count">${count}${esc(uiCopy("expression_unit","회"))}</strong>
     </div>`;
   }).join("");
 }
@@ -153,15 +173,15 @@ function renderHistory(rows){
 }
 function renderCards(d){
   const cfg=d.site_config;
-  const pub = d.top_publisher ? `${esc(d.top_publisher.name)} <small>${d.top_publisher.count}건</small>` : "—";
+  const pub = d.top_publisher ? `${esc(d.top_publisher.name)} <small>${d.top_publisher.count}${esc(uiCopy("count_unit","건"))}</small>` : "—";
   const rep = d.top_reporter_week
-    ? `${esc(d.top_reporter_week.name)} <small>${esc(d.top_reporter_week.publisher)} · ${d.top_reporter_week.count}건</small>`
+    ? `${esc(d.top_reporter_week.name)} <small>${esc(d.top_reporter_week.publisher)} · ${d.top_reporter_week.count}${esc(uiCopy("count_unit","건"))}</small>`
     : "—";
   qs("#summaryCards").innerHTML = `
-    <div class="card"><div class="label">${esc(cfg.card_today_label)}</div><div class="value">${d.today_count}건</div><div class="sub">${d.date} 현재</div><div class="sub">('본지 취재 결과' ${d.additional_phrase_article_count||0}건 포함)</div></div>
-    <div class="card"><div class="label">${esc(cfg.card_publisher_label)}</div><div class="value compact">${pub}</div><div class="sub">오늘 기준</div></div>
-    <div class="card"><div class="label">${esc(cfg.card_reporter_label)}</div><div class="value compact">${rep}</div><div class="sub">${d.week_start} 이후</div></div>
-    <div class="card"><div class="label">${esc(cfg.card_exclusive_label)}</div><div class="value">${(d.exclusive_ratio*100).toFixed(1)}%</div><div class="sub">${d.exclusive_count} / ${d.today_count}건</div></div>`;
+    <div class="card"><div class="label">${esc(cfg.card_today_label)}</div><div class="value">${d.today_count}${esc(uiCopy("count_unit","건"))}</div><div class="sub">${d.date}${esc(uiCopy("card_today_asof"," 현재"))}</div><div class="sub">${esc(uiCopy("card_additional_prefix","(\'본지 취재 결과\' "))}${d.additional_phrase_article_count||0}${esc(uiCopy("card_additional_suffix","건 포함)"))}</div></div>
+    <div class="card"><div class="label">${esc(cfg.card_publisher_label)}</div><div class="value compact">${pub}</div><div class="sub">${esc(uiCopy("card_publisher_asof","오늘 기준"))}</div></div>
+    <div class="card"><div class="label">${esc(cfg.card_reporter_label)}</div><div class="value compact">${rep}</div><div class="sub">${d.week_start}${esc(uiCopy("card_reporter_since"," 이후"))}</div></div>
+    <div class="card"><div class="label">${esc(cfg.card_exclusive_label)}</div><div class="value">${(d.exclusive_ratio*100).toFixed(1)}%</div><div class="sub">${d.exclusive_count} / ${d.today_count}${esc(uiCopy("count_unit","건"))}</div></div>`;
 }
 function highlightTargetPhrases(element, value){
   // Use text nodes rather than injecting HTML from published article content.
@@ -198,11 +218,11 @@ function articleNode(a,cfg){
 function renderArticles(){
   const d=state.data, cfg=d.site_config;
   const rows=state.categoryFilter?d.articles.filter(a=>a.category_secondary===state.categoryFilter):d.articles;
-  qs("#articleCount").textContent = state.categoryFilter?`${rows.length}건 / 전체 ${d.articles.length}건`:`${rows.length}건`;
+  qs("#articleCount").textContent = state.categoryFilter?`${rows.length}${uiCopy("count_unit","건")} / ${uiCopy("article_count_total","전체 ")}${d.articles.length}${uiCopy("count_unit","건")}`:`${rows.length}${uiCopy("count_unit","건")}`;
   qs("#clearTopicFilter").hidden=!state.categoryFilter;
   const host = qs("#articleList");
   if(!rows.length){
-    host.innerHTML='<div class="empty">'+(state.categoryFilter?"이 주제에 해당하는 기사가 없습니다.":"해당 날짜에 수집된 문장이 없습니다.")+'</div>';
+    host.innerHTML='<div class="empty">'+esc(state.categoryFilter?uiCopy("empty_topic","이 주제에 해당하는 기사가 없습니다."):uiCopy("empty_articles","해당 날짜에 수집된 문장이 없습니다."))+'</div>';
     qs("#loadMore").style.display="none";
     return;
   }
@@ -214,21 +234,22 @@ function renderArticles(){
 }
 function applyCopy(d){
   const c=d.site_config;
+  paintUiCopy();
   qs("#heroDescription").textContent=c.hero_description;
   qs("#usageGroupTitle").textContent=c.group_usage_title||"";
   qs("#analysisGroupTitle").textContent=c.group_analysis_title||"";
   qs("#publisherTitle").textContent=c.section_publisher_title;
   qs("#reporterTitle").textContent=c.section_reporter_title;
   qs("#categoryTitle").textContent=c.section_category_title;
-  qs("#topicPrimaryCaption").textContent=c.topic_primary_caption||"1차 분류";
-  qs("#topicSecondaryCaption").textContent=c.topic_secondary_caption||"2차 분류별 비중";
+  qs("#topicPrimaryCaption").textContent=c.topic_primary_caption??"";
+  qs("#topicSecondaryCaption").textContent=c.topic_secondary_caption??"";
   qs("#secondaryTitle").textContent=c.section_secondary_title;
   qs("#historyTitle").textContent=c.section_history_title;
   qs("#articlesTitle").textContent=c.section_articles_title;
 }
 async function load(date){
   const res = await fetch(`/api/dashboard?date=${encodeURIComponent(date)}`);
-  if(!res.ok) throw new Error("데이터를 불러오지 못했습니다.");
+  if(!res.ok) throw new Error(uiCopy("dashboard_load_error","데이터를 불러오지 못했습니다."));
   const d = await res.json();
   state.data=d; state.articleVisible=10; state.rankingExpanded={}; state.categoryFilter=null;
   applyCopy(d);

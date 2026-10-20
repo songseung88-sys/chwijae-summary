@@ -1,0 +1,404 @@
+[
+  {
+    "key": "dashboard_title",
+    "label": "대시보드 큰 제목",
+    "group": "첫 화면 · 제목·안내",
+    "default": "취재를 종합하면"
+  },
+  {
+    "key": "hero_description",
+    "label": "첫 화면 소개",
+    "group": "첫 화면 · 제목·안내",
+    "default": "한국 언론의 기사에서 “취재를 종합하면”이 어떻게 쓰이는지 기록합니다."
+  },
+  {
+    "key": "about_link",
+    "label": "자세히 보기 링크",
+    "group": "첫 화면 · 제목·안내",
+    "default": "자세히 보기"
+  },
+  {
+    "key": "date_label",
+    "label": "날짜 선택 제목",
+    "group": "첫 화면 · 제목·안내",
+    "default": "기준일"
+  },
+  {
+    "key": "collection_loading",
+    "label": "수집 확인 대기",
+    "group": "첫 화면 · 제목·안내",
+    "default": "최근 수집 상태 확인 중…"
+  },
+  {
+    "key": "collection_unknown",
+    "label": "수집 시각 미확인",
+    "group": "첫 화면 · 제목·안내",
+    "default": "마지막 수집 시각: 확인되지 않음"
+  },
+  {
+    "key": "collection_done",
+    "label": "수집 완료 시각 앞말",
+    "group": "첫 화면 · 제목·안내",
+    "default": "마지막 수집 완료: "
+  },
+  {
+    "key": "empty_data",
+    "label": "공통 데이터 없음",
+    "group": "첫 화면 · 제목·안내",
+    "default": "표시할 데이터가 없습니다."
+  },
+  {
+    "key": "dashboard_load_error",
+    "label": "데이터 로드 오류",
+    "group": "첫 화면 · 제목·안내",
+    "default": "데이터를 불러오지 못했습니다."
+  },
+  {
+    "key": "card_today_label",
+    "label": "오늘 건수 카드",
+    "group": "첫 화면 · 요약 카드",
+    "default": "오늘의 '취재 종합'"
+  },
+  {
+    "key": "card_publisher_label",
+    "label": "최다 언론사 카드",
+    "group": "첫 화면 · 요약 카드",
+    "default": "오늘의 최다 '취재 종합' 언론사"
+  },
+  {
+    "key": "card_reporter_label",
+    "label": "최다 기자 카드",
+    "group": "첫 화면 · 요약 카드",
+    "default": "이번 주 가장 많이 '취재 종합'한 기자"
+  },
+  {
+    "key": "card_exclusive_label",
+    "label": "[단독] 카드",
+    "group": "첫 화면 · 요약 카드",
+    "default": "[단독] 동반 비율"
+  },
+  {
+    "key": "card_today_asof",
+    "label": "오늘 카드 기준",
+    "group": "첫 화면 · 요약 카드",
+    "default": " 현재"
+  },
+  {
+    "key": "card_publisher_asof",
+    "label": "최다 언론사 기준",
+    "group": "첫 화면 · 요약 카드",
+    "default": "오늘 기준"
+  },
+  {
+    "key": "card_reporter_since",
+    "label": "최다 기자 기준",
+    "group": "첫 화면 · 요약 카드",
+    "default": " 이후"
+  },
+  {
+    "key": "card_additional_prefix",
+    "label": "추가 표현 건수 앞말",
+    "group": "첫 화면 · 요약 카드",
+    "default": "('본지 취재 결과' "
+  },
+  {
+    "key": "card_additional_suffix",
+    "label": "추가 표현 건수 뒷말",
+    "group": "첫 화면 · 요약 카드",
+    "default": "건 포함)"
+  },
+  {
+    "key": "count_unit",
+    "label": "기사 수 단위",
+    "group": "첫 화면 · 요약 카드",
+    "default": "건"
+  },
+  {
+    "key": "expression_unit",
+    "label": "표현 수 단위",
+    "group": "첫 화면 · 요약 카드",
+    "default": "회"
+  },
+  {
+    "key": "person_unit",
+    "label": "기자 수 단위",
+    "group": "첫 화면 · 요약 카드",
+    "default": "명"
+  },
+  {
+    "key": "section_publisher_title",
+    "label": "언론사 제목",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "오늘의 최다 '취재 종합' 언론사"
+  },
+  {
+    "key": "section_reporter_title",
+    "label": "기자 제목",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "이번 주 가장 많이 '취재 종합'한 기자"
+  },
+  {
+    "key": "section_category_title",
+    "label": "분류 제목",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "기사 주제별 사용량"
+  },
+  {
+    "key": "section_secondary_title",
+    "label": "무주체형 표현 제목",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "함께 쓰인 무주체형 표현"
+  },
+  {
+    "key": "topic_primary_caption",
+    "label": "1차 분류 소제목",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "1차 분류"
+  },
+  {
+    "key": "topic_secondary_caption",
+    "label": "2차 분류 소제목",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "2차 분류별 비중"
+  },
+  {
+    "key": "section_history_title",
+    "label": "최근 14일 제목",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "최근 14일"
+  },
+  {
+    "key": "section_articles_title",
+    "label": "기사 문장 목록 제목",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "오늘의 '취재 종합' 문장들"
+  },
+  {
+    "key": "group_usage_title",
+    "label": "언론사·기자 그룹",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "누가 사용하는가"
+  },
+  {
+    "key": "group_analysis_title",
+    "label": "분류·표현 그룹",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "어디에서 어떻게 쓰이는가"
+  },
+  {
+    "key": "ranking_view_all_text",
+    "label": "순위 상세보기 버튼",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "자세히 보기"
+  },
+  {
+    "key": "ranking_collapse_text",
+    "label": "순위 접기 버튼",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "접기"
+  },
+  {
+    "key": "paragraph_toggle_text",
+    "label": "기사 문단 펼치기",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "문단 보기"
+  },
+  {
+    "key": "original_link_text",
+    "label": "기사 원문 링크",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "원문 보기"
+  },
+  {
+    "key": "naver_link_text",
+    "label": "네이버 뉴스 링크",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "네이버 뉴스에서 보기"
+  },
+  {
+    "key": "articles_more_text",
+    "label": "목록 더 보기 버튼",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "더 보기"
+  },
+  {
+    "key": "category_criteria",
+    "label": "분류 패널 기준",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "해당 기사 본문 기준"
+  },
+  {
+    "key": "clear_category",
+    "label": "분류 필터 해제",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "주제 필터 해제"
+  },
+  {
+    "key": "empty_topic",
+    "label": "선택 분야 기사 없음",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "이 주제에 해당하는 기사가 없습니다."
+  },
+  {
+    "key": "empty_articles",
+    "label": "해당 날짜 문장 없음",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "해당 날짜에 수집된 문장이 없습니다."
+  },
+  {
+    "key": "article_count_total",
+    "label": "기사 수 전체 앞말",
+    "group": "첫 화면 · 구역·버튼",
+    "default": "전체 "
+  },
+  {
+    "key": "category_dialog_title",
+    "label": "분류 팝업 제목",
+    "group": "첫 화면 · 팝업",
+    "default": "기사 분류별 비중"
+  },
+  {
+    "key": "category_dialog_empty",
+    "label": "분류 결과 없음",
+    "group": "첫 화면 · 팝업",
+    "default": "분류된 기사가 없습니다."
+  },
+  {
+    "key": "category_dialog_hierarchy",
+    "label": "분류 팝업 상세 소제목",
+    "group": "첫 화면 · 팝업",
+    "default": "2차 · 3차 분류"
+  },
+  {
+    "key": "category_dialog_tip",
+    "label": "분류 팝업 도움말",
+    "group": "첫 화면 · 팝업",
+    "default": "3차 분류가 없는 경우 2차 분류까지만 표시합니다."
+  },
+  {
+    "key": "dialog_close",
+    "label": "팝업 닫기 접근성 이름",
+    "group": "첫 화면 · 팝업",
+    "default": "팝업 닫기"
+  },
+  {
+    "key": "reporter_unknown",
+    "label": "기자 소속 미확인",
+    "group": "첫 화면 · 팝업",
+    "default": "미확인"
+  },
+  {
+    "key": "about_back",
+    "label": "대시보드로 돌아가기",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "← 대시보드로 돌아가기"
+  },
+  {
+    "key": "annual_chart_title",
+    "label": "연간 기사 수 그래프 제목",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "‘취재를 종합하면’ 연간 기사 수"
+  },
+  {
+    "key": "annual_chart_caption",
+    "label": "연간 그래프 보조 설명",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "10개 언론사 합계 · 연도별 검색 기사 수"
+  },
+  {
+    "key": "publisher_chart_title",
+    "label": "언론사별 그래프 제목",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "언론사별 ‘취재를 종합하면’ 사용 추이"
+  },
+  {
+    "key": "publisher_selection_count_suffix",
+    "label": "언론사 선택 수 안내",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "개 언론사 선택"
+  },
+  {
+    "key": "publisher_chart_empty",
+    "label": "선택 언론사 없음",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "비교할 언론사를 선택해 주세요"
+  },
+  {
+    "key": "about_load_error",
+    "label": "소개글 불러오기 실패",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "소개글을 불러오지 못했습니다."
+  },
+  {
+    "key": "feedback_disclosure",
+    "label": "의견 접기·펼치기",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "의견 보내기"
+  },
+  {
+    "key": "feedback_label",
+    "label": "의견 안내 문구",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "의견이나 제안을 남겨주세요."
+  },
+  {
+    "key": "feedback_placeholder",
+    "label": "의견 입력창 예시",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "의견을 자유롭게 작성해주세요."
+  },
+  {
+    "key": "feedback_submit",
+    "label": "의견 전송 버튼",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "전송하기"
+  },
+  {
+    "key": "feedback_sent_button",
+    "label": "전송 후 버튼",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "전송 완료"
+  },
+  {
+    "key": "feedback_sending",
+    "label": "전송 대기 상태",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "전송 중…"
+  },
+  {
+    "key": "feedback_success",
+    "label": "전송 성공",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "의견이 전송됐습니다. 감사합니다."
+  },
+  {
+    "key": "feedback_length_error",
+    "label": "의견 길이 오류",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "의견을 2자 이상 3,000자 이하로 입력해주세요."
+  },
+  {
+    "key": "feedback_error",
+    "label": "전송 실패 기본 문구",
+    "group": "자세히 보기 · 의견 보내기",
+    "default": "전송에 실패했습니다. 잠시 후 다시 시도해주세요."
+  },
+  {
+    "key": "tooltip_all",
+    "label": "연간 툴팁 대상",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "전체"
+  },
+  {
+    "key": "tooltip_publishers",
+    "label": "언론사 툴팁 대상",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "언론사별"
+  },
+  {
+    "key": "year_unit",
+    "label": "연도 단위",
+    "group": "자세히 보기 · 본문·그래프",
+    "default": "년"
+  }
+]

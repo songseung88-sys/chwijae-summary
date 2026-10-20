@@ -1,10 +1,11 @@
+function rankingCopy(key,fallback){return typeof uiCopy==="function"?uiCopy(key,fallback):fallback;}
 /* Detail views reuse the existing dashboard ranking data: no extra API requests. */
 const rankingDialogState={id:null, rows:[], visible:20};
 
 function groupReportersByPublisher(rows){
   const byPublisher=new Map();
   for(const row of rows||[]){
-    const publisher=String(row.publisher||"미확인");
+    const publisher=String(row.publisher||rankingCopy("reporter_unknown","미확인"));
     if(!byPublisher.has(publisher)) byPublisher.set(publisher,[]);
     byPublisher.get(publisher).push(row);
   }
@@ -24,7 +25,7 @@ function rankingDialogRows(rows,first=0,overallMax=null){
     return '<div class="rank-row ranking-dialog-row">'+
       '<span class="rank-num">'+String(first+i+1).padStart(2,"0")+'</span>'+
       '<span class="rank-name">'+esc(r.name)+'</span>'+
-      '<strong class="rank-count">'+count+'건</strong>'+
+      '<strong class="rank-count">'+count+esc(rankingCopy('count_unit','건'))+'</strong>'+
       '<span class="bar-track"><span class="bar" style="width:'+width+'%"></span></span>'+
       '</div>';
   }).join("");
@@ -39,7 +40,7 @@ function renderRankingDialog(){
     const groups=groupReportersByPublisher(view.rows);
     root.innerHTML=groups.map(group=>
       '<section class="ranking-dialog-group"><div class="ranking-dialog-group-head">'+
-      '<h3>'+esc(group.publisher)+'</h3><span>'+group.members.length+'명</span></div>'+
+      '<h3>'+esc(group.publisher)+'</h3><span>'+group.members.length+esc(rankingCopy('person_unit','명'))+'</span></div>'+
       '<div class="ranking ranking-dialog-list">'+rankingDialogRows(group.members,0)+
       '</div></section>'
     ).join("");

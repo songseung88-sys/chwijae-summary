@@ -78,6 +78,8 @@ jobs:
         run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/bigkinds-data-editor.js && node --check api/static/feedback.js
       - name: Verify BigKinds annual/publisher historical charts
         run: node qa/test_bigkinds_charts.js
+      - name: Validate unified public copy controls and safe formatting
+        run: python -m unittest discover -s qa -p "test_public_copy_editor.py" -v
       - name: Verify prominent inline About lead and accessible semantics
         run: node qa/test_about_lead.js
       - name: Verify editable BigKinds dataset and About blocks
@@ -135,7 +137,7 @@ jobs:
               assert cfg[name]==title,(name,cfg[name])
           for key,node_id in (("group_usage_title","usageGroupTitle"),("group_analysis_title","analysisGroupTitle")):
               assert cfg.get(key),key
-              assert key+':' in admin,key
+              assert '"key": "'+key+'"' in Path("api/static/ui-copy-fields.json").read_text(),key
               assert f'id="{node_id}"' in html,node_id
               assert f'#{node_id}' in js,node_id
           assert 'analysis-visual-1' in html
@@ -272,7 +274,7 @@ jobs:
           assert "publisherEditor.visible+=50" in adminjs
           assert 'if(a.naver_url) links.push' in app
           assert "esc(cfg.naver_link_text)" in app
-          assert "/static/app.js?v=analysis-visual-3" in index
+          assert "/static/app.js?v=ui-copy-1" in index
           print("Publisher alias admin and Naver link contract passed")
           PY
           node - <<'JS'

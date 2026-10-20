@@ -5,6 +5,7 @@ import ast
 import base64
 import binascii
 import hmac
+import json
 import os
 import re
 from collections import Counter, defaultdict
@@ -84,6 +85,14 @@ app.add_middleware(
 
 STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Fixed on-screen wording is a separate, editable content layer. It never edits
+# published articles, category assignments or calculated statistics.
+with open(os.path.join(STATIC_DIR, "ui-copy-fields.json"), encoding="utf-8") as _f:
+    UI_COPY_FIELDS = json.load(_f)
+DEFAULT_UI_COPY = {item["key"]: item["default"] for item in UI_COPY_FIELDS}
+LEGACY_UI_COPY_KEYS = set(DEFAULT_SITE_CONFIG) & set(DEFAULT_UI_COPY)
+
 
 
 def serialize_value(value):
@@ -264,9 +273,22 @@ def get_site_config():
         config["about_layout"] = validate_about_layout(stored_layout)
     except ValueError:
         config["about_layout"] = default_about_layout(config["about_body"])
+    legacy = {key: config[key] for key in LEGACY_UI_COPY_KEYS}
+    # Honor the preexisting administrator overrides before the unified editor
+    # has saved any new values. Empty strings are intentional hide requests.
+    copy = {**DEFAULT_UI_COPY, **legacy}
+    overrides = (snap.to_dict() or {}).get("ui_copy") if snap.exists else None
+    if isinstance(overrides, dict):
+        for key, value in overrides.items():
+            if key in DEFAULT_UI_COPY and isinstance(value, str) and len(value) <= 800:
+                copy[key] = value
+    config["ui_copy"] = copy
+    for key in LEGACY_UI_COPY_KEYS:
+        config[key] = copy[key]
     # Preserve customized labels; migrate only the old built-in category title.
-    if config.get("section_category_title") == "원문 기사 분류":
+    if config.get("section_category_title") == "원문 기사 분류" and not (isinstance(overrides, dict) and "section_category_title" in overrides):
         config["section_category_title"] = "기사 주제별 사용량"
+        config["ui_copy"]["section_category_title"] = "기사 주제별 사용량"
     # Migrate the previous built-in text even if it was saved by the editor.
     # Other administrator customizations remain untouched.
     if config.get("ranking_view_all_text") == "전체 보기":
@@ -306,6 +328,29 @@ def update_site_config(payload: dict, x_admin_password: str | None = Header(defa
     updates["updated_at"] = firestore.SERVER_TIMESTAMP
     db.collection("site_config").document("public").set(updates, merge=True)
     return {"ok": True, "config": get_site_config()}
+
+
+@app.put("/api/admin/ui-copy")
+def update_public_ui_copy(payload: dict, x_admin_password: str | None = Header(default=None)):
+    require_admin(x_admin_password)
+    incoming = payload.get("texts")
+    if not isinstance(incoming, dict) or not incoming:
+        raise HTTPException(status_code=400, detail="수정할 문구를 입력해주세요.")
+    if len(incoming) > len(DEFAULT_UI_COPY):
+        raise HTTPException(status_code=400, detail="저장할 문구 수가 올바르지 않습니다.")
+    cleaned = {}
+    for key, value in incoming.items():
+        if key not in DEFAULT_UI_COPY or not isinstance(value, str) or len(value) > 800:
+            raise HTTPException(status_code=400, detail="문구는 항목별 800자 이하로 입력해주세요.")
+        cleaned[key] = value
+    ref = db.collection("site_config").document("public")
+    current = ref.get()
+    stored = (current.to_dict() or {}).get("ui_copy") if current.exists else None
+    existing = {key: val for key, val in (stored or {}).items()
+                if key in DEFAULT_UI_COPY and isinstance(val, str)} if isinstance(stored, dict) else {}
+    existing.update(cleaned)
+    ref.set({"ui_copy": existing, "updated_at": firestore.SERVER_TIMESTAMP}, merge=True)
+    return {"ok": True, "texts": get_site_config()["ui_copy"]}
 
 
 @app.put("/api/admin/about-layout")

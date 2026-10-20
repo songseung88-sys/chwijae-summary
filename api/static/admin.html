@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>문구 편집 · 취재를 종합하면</title>
   <link rel="stylesheet" href="/static/style.css" />
-  <link rel="stylesheet" href="/static/admin.css?v=about-editor-1" />
+  <link rel="stylesheet" href="/static/admin.css?v=copy-editor-2" />
 </head>
 <body>
   <main class="admin-wrap">
@@ -17,6 +17,13 @@
       <label class="admin-password">관리자 비밀번호
         <input id="password" type="password" autocomplete="current-password" placeholder="비밀번호" />
       </label>
+      <h2 class="copy-editor-title">공개 페이지 문구 전체 편집</h2>
+      <p class="publisher-editor-help">대시보드와 ‘자세히 보기’ 화면의 고정 제목·설명·버튼·안내 문구를 수정할 수 있습니다. 빈칸으로 저장하면 해당 문구는 사라집니다. 수집된 기사 원문과 통계 수치는 변경되지 않습니다.</p>
+      <div class="copy-editor-search">
+        <label for="copyFilter">문구 찾기</label>
+        <input id="copyFilter" type="search" placeholder="예: 의견, 그래프, 버튼, 수집" />
+        <button id="copyReload" class="publisher-secondary-button" type="button">현재 문구 다시 불러오기</button>
+      </div>
       <form id="configForm"></form>
       <div class="admin-actions">
         <button id="saveButton" class="save-button" type="button">저장</button>
@@ -27,7 +34,7 @@
     </section>
     <section class="panel admin-panel" id="aboutLayoutEditor" aria-labelledby="aboutLayoutEditorTitle">
       <h2 id="aboutLayoutEditorTitle">‘자세히 보기’ 소개글 배치</h2>
-      <p class="publisher-editor-help">소개글을 여러 블록으로 나눠 입력할 수 있습니다. 각 블록의 ↑ ↓ 버튼으로 순서를 바꾸면 두 그래프 앞·사이·뒤 원하는 위치에 글을 놓을 수 있습니다. 기존 소개글도 자동으로 불러옵니다. 글은 서식 없는 안전한 텍스트로 표시됩니다.</p>
+      <p class="publisher-editor-help">소개글을 여러 블록으로 나눠 입력할 수 있습니다. 각 블록의 ↑ ↓ 버튼으로 순서를 바꾸면 두 그래프 앞·사이·뒤 원하는 위치에 글을 놓을 수 있습니다. 기존 소개글도 자동으로 불러옵니다. 글을 선택한 다음 ‘큰 글씨·작은 글씨·굵게’ 버튼으로 원하는 부분만 강조할 수 있습니다. 저장 전 미리보기에서 결과를 확인하세요.</p>
       <div class="about-editor-tools">
         <button type="button" class="publisher-secondary-button" id="loadAboutLayout">현재 배치 불러오기</button>
         <button type="button" class="publisher-secondary-button" id="addAboutBlock">소개글 블록 추가</button>
@@ -114,10 +121,11 @@
       <p class="publisher-editor-help thumbnail-cache-tip">적용 후에는 대시보드에 즉시 반영됩니다. 카카오톡 대화방에 이전 이미지가 보이는 경우, 카카오 OG 캐시를 초기화해야 할 수 있습니다. <a href="https://developers.kakao.com/tool/clear/og" target="_blank" rel="noopener noreferrer">카카오 캐시 초기화 도구 ↗</a></p>
     </section>
   </main>
-  <script src="/static/admin.js?v=publisher-aliases-1" defer></script>
+  <script src="/static/admin.js?v=copy-editor-2" defer></script>
   <script src="/static/publisher-editor.js?v=publisher-aliases-1" defer></script>
   <script src="/static/thumbnail-editor.js?v=og-copy-3" defer></script>
-  <script src="/static/about-layout-editor.js?v=1" defer></script>
+  <script src="/static/about.js?v=4" defer></script>
+  <script src="/static/about-layout-editor.js?v=2" defer></script>
   <script src="/static/bigkinds-data-editor.js?v=1" defer></script>
 </body>
 </html>

@@ -1,6 +1,10 @@
 // BigKinds annual survey visualizations, 2016–2025. No external chart library.
 "use strict";
 
+function bigkindsPublicCopy(key,fallback){
+  const copy=typeof window!=="undefined"?window.aboutPublicUiCopy:null;
+  return copy&&Object.prototype.hasOwnProperty.call(copy,key)?copy[key]:fallback;
+}
 const BIGKINDS_DEFAULT_PUBLISHERS=["한겨레","경향신문","조선일보","한국일보"];
 const BIGKINDS_COLORS={
   "한겨레":"#285B91",
@@ -119,7 +123,7 @@ function publisherBigkindsSvg(data,selected){
   const axis=bigkindsAxis(data,ymax,5);
   if(!names.length){
     return '<svg class="bigkinds-svg" viewBox="0 0 940 380" role="img" aria-label="선택된 언론사가 없습니다.">'+
-      axis+'<text x="470" y="165" class="bigkinds-empty" text-anchor="middle">비교할 언론사를 선택해 주세요</text></svg>';
+      axis+'<text x="470" y="165" class="bigkinds-empty" text-anchor="middle">'+bigkindsEscape(bigkindsPublicCopy("publisher_chart_empty","비교할 언론사를 선택해 주세요"))+'</text></svg>';
   }
   const lines=names.map(name=>{
     const values=data.publishers[name];
@@ -137,11 +141,11 @@ function publisherBigkindsSvg(data,selected){
 function bigkindsTipMarkup(data,type,index,selected){
   const year=data.years[index];
   if(type==="annual"){
-    return '<div class="bigkinds-tip-year">'+year+'년 · 전체</div>'+
+    return '<div class="bigkinds-tip-year">'+year+bigkindsPublicCopy('year_unit','년')+' · '+bigkindsEscape(bigkindsPublicCopy('tooltip_all','전체'))+'</div>'+
       '<strong class="bigkinds-tip-total">'+bigkindsNumber(data.totals[index])+'건</strong>';
   }
   const rows=orderedBigkindsPublishers(data).filter(n=>selected.has(n));
-  return '<div class="bigkinds-tip-year">'+year+'년 · 언론사별</div>'+
+  return '<div class="bigkinds-tip-year">'+year+bigkindsPublicCopy('year_unit','년')+' · '+bigkindsEscape(bigkindsPublicCopy('tooltip_publishers','언론사별'))+'</div>'+
     '<ul class="bigkinds-tip-list">'+rows.map(name=>'<li><span><i style="background:'+
       (BIGKINDS_COLORS[name]||"#344E6B")+'"></i>'+bigkindsEscape(name)+'</span>'+
       '<strong>'+bigkindsNumber(data.publishers[name][index])+'건</strong></li>').join("")+'</ul>';
@@ -214,9 +218,10 @@ async function loadBigkindsCharts(){
     publisherHost.innerHTML=publisherBigkindsSvg(data,selected)+'<div class="bigkinds-tooltip" hidden></div>';
     wireBigkindsTooltip(publisherHost,data,"publisher",selected);
     renderBigkindsLegend(data,selected,renderPublishers);
-    document.querySelector("#bigkindsSelectedCount").textContent=selected.size+" / 10개 언론사 선택";
+    document.querySelector("#bigkindsSelectedCount").textContent=selected.size+" / 10"+bigkindsPublicCopy("publisher_selection_count_suffix","개 언론사 선택");
   }
   renderPublishers();
+  if(typeof window!=="undefined")window.addEventListener("about-copy-ready",renderPublishers,{once:true});
 }
 if(typeof document!=="undefined"){
   document.addEventListener("DOMContentLoaded",()=>{
