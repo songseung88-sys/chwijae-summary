@@ -163,6 +163,24 @@ jobs:
           grep -q 'function renderExpressionChart' /tmp/analysis-app.js
           grep -q 'function labeledPieSvg' /tmp/analysis-pie.js
           echo "ANALYSIS_CHARTS_ASSETS_VALIDATED"
+          echo "BIGKINDS_ABOUT_CHARTS_CHECK:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/about" -o /tmp/about.html
+          grep -q 'id="bigkindsAnnualChart"' /tmp/about.html
+          grep -q 'id="bigkindsPublisherChart"' /tmp/about.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-annual-2016-2025.json" -o /tmp/bigkinds.json
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.js?v=1" -o /tmp/bigkinds-charts.js
+          grep -q 'function annualBigkindsSvg' /tmp/bigkinds-charts.js
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          d=json.loads(Path('/tmp/bigkinds.json').read_text())
+          assert d['years']==list(range(2016,2026))
+          assert d['totals'][-1]==4391
+          assert len(d['publishers'])==10
+          assert all(sum(v[i] for v in d['publishers'].values())==d['totals'][i] for i in range(10))
+          print('BIGKINDS_HISTORICAL_DATA_AND_CHARTS_OK')
+          PY
+
           echo "ADMIN_THUMBNAIL_UI_CHECK:"
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/admin" -o /tmp/admin.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/thumbnail-editor.js?v=1" -o /tmp/thumbnail-editor.js
