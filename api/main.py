@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from google.cloud import firestore
+from feedback_store import clean_feedback, new_timestamp, save_feedback_to_sheet
 
 from bigkinds_content import (SOURCE as BIGKINDS_SOURCE, default_about_layout,
                               validate_about_layout, validate_history)
@@ -344,6 +345,59 @@ def admin_update_bigkinds_history(payload: dict, x_admin_password: str | None = 
         **dataset, "updated_at": firestore.SERVER_TIMESTAMP,
     })
     return {"ok": True, "data": dataset}
+
+
+@app.post("/api/feedback")
+def submit_visitor_feedback(payload: dict):
+    # No user account or contact details are collected.
+    # The unobtrusive honeypot absorbs basic form-filling bots.
+    try:
+        ident, message, honeypot = clean_feedback(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if honeypot:
+        return {"ok": True}
+
+    document = db.collection("visitor_feedback").document(ident)
+    today = datetime.now(KST).strftime("%Y-%m-%d")
+    quota_ref = db.collection("feedback_limits").document(today)
+
+    @firestore.transactional
+    def reserve(transaction):
+        existing = document.get(transaction=transaction)
+        if existing.exists:
+            record = existing.to_dict() or {}
+            if record.get("message") != message:
+                raise HTTPException(status_code=409, detail="이미 사용된 전송 식별자입니다.")
+            return record
+        quota = quota_ref.get(transaction=transaction)
+        count = int((quota.to_dict() or {}).get("count", 0)) if quota.exists else 0
+        if count >= 150:
+            raise HTTPException(status_code=429, detail="오늘은 의견 접수가 많습니다. 내일 다시 시도해주세요.")
+        submitted = new_timestamp()
+        record = {"message": message, "submitted_at": submitted, "status": "pending"}
+        transaction.create(document, record)
+        transaction.set(quota_ref, {"count": count + 1}, merge=True)
+        return record
+
+    try:
+        record = reserve(db.transaction())
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="잠시 후 다시 전송해주세요.") from exc
+
+    if record.get("status") == "saved":
+        return {"ok": True}
+    try:
+        save_feedback_to_sheet(ident, record["submitted_at"], message)
+        document.update({"status": "saved", "sheet_saved_at": new_timestamp()})
+    except Exception as exc:
+        # Keep pending submissions in private Firestore for archive-job recovery.
+        raise HTTPException(
+            status_code=503, detail="의견 전송 확인이 지연되고 있습니다. 잠시 후 다시 눌러주세요."
+        ) from exc
+    return {"ok": True}
 
 
 @app.get("/api/admin/publishers")
