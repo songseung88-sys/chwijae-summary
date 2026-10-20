@@ -58,7 +58,7 @@ jobs:
       - name: Validate API image
         run: |
           docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py
-          docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css && test -f /app/static/admin.html && test -f /app/static/admin.js'
+          docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css && test -f /app/static/admin.html && test -f /app/static/admin.js && test -s /app/static/og-thumbnail-square.jpg'
 
       - name: Detect optional admin editor secret
         run: |
@@ -107,5 +107,35 @@ jobs:
           echo "DASHBOARD_HTML_STATUS:"
           curl --retry 5 --retry-delay 2 --fail --silent --show-error -o /tmp/dashboard.html -w "%{http_code}\n" "${URL}/"
           grep -q "취재를 종합하면" /tmp/dashboard.html
+          echo "SOCIAL_SHARE_IMAGE_CHECK:"
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error \
+            -D /tmp/og-image.headers \
+            -o /tmp/og-image.jpg \
+            "${URL}/static/og-thumbnail-square.jpg"
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class OgParser(HTMLParser):
+              tags={}
+              def handle_starttag(self, tag, attrs):
+                  attrs=dict(attrs)
+                  if tag == "meta":
+                      k=attrs.get("property") or attrs.get("name")
+                      if k:
+                          self.tags[k]=attrs.get("content","")
+          parser=OgParser()
+          parser.feed(Path("/tmp/dashboard.html").read_text(encoding="utf-8"))
+          img=Path("/tmp/og-image.jpg").read_bytes()
+          headers=Path("/tmp/og-image.headers").read_text().lower()
+          root="https://chwijae-api-ejmdmrnztq-du.a.run.app/"
+          assert parser.tags["og:title"]=="취재를 종합하면"
+          assert parser.tags["og:url"]==root
+          assert parser.tags["og:image"]==root+"static/og-thumbnail-square.jpg"
+          assert parser.tags["og:image:width"]=="1254" and parser.tags["og:image:height"]=="1254"
+          assert parser.tags["twitter:card"]=="summary"
+          assert "content-type: image/jpeg" in headers
+          assert len(img)>100000 and img[:3]==b"\\xff\\xd8\\xff"
+          print("SOCIAL_SHARE_PREVIEW_VALIDATED",len(img))
+          PY
           echo "### Dashboard" >> "${GITHUB_STEP_SUMMARY}"
           echo "${URL}" >> "${GITHUB_STEP_SUMMARY}"
