@@ -27,14 +27,37 @@ gcloud run jobs update chwijae-classifier-test \
   --update-env-vars="CLASSIFY_FORCE=false,CLASSIFY_LIMIT=100" \
   --quiet
 
+# IAM is eventually consistent: a new service account can take 60s or more
+# to become usable in Cloud Run IAM bindings. Retry without recreating it.
+grant_job_invoker() {
+  local job="$1" attempt
+  local error_file
+  error_file="$(mktemp)"
+  for attempt in 1 2 3 4 5 6 7 8 9 10; do
+    if gcloud run jobs add-iam-policy-binding "${job}" \
+      --project="${PROJECT_ID}" \
+      --region="${REGION}" \
+      --member="serviceAccount:${INVOKER_SA}" \
+      --role="roles/run.invoker" \
+      --quiet > /dev/null 2>"${error_file}"; then
+      echo "Cloud Run Invoker granted on ${job}."
+      rm -f "${error_file}"
+      return 0
+    fi
+    if (( attempt == 10 )); then
+      echo "Unable to grant Cloud Run Invoker on ${job} after 10 attempts." >&2
+      cat "${error_file}" >&2
+      rm -f "${error_file}"
+      return 1
+    fi
+    echo "IAM binding not ready (attempt ${attempt}/10). Retrying in 15 seconds..."
+    sleep 15
+  done
+}
+
 for JOB in chwijae-collector chwijae-classifier-test; do
   echo "Granting limited Cloud Run invoker role on ${JOB}"
-  gcloud run jobs add-iam-policy-binding "${JOB}" \
-    --project="${PROJECT_ID}" \
-    --region="${REGION}" \
-    --member="serviceAccount:${INVOKER_SA}" \
-    --role="roles/run.invoker" \
-    --quiet >/dev/null
+  grant_job_invoker "${JOB}"
 done
 
 upsert_schedule() {

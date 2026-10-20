@@ -25,6 +25,27 @@ grants the necessary job-level invoker role, creates or updates both schedules a
 
 If you have already cloned the repo, run `git pull --ff-only` in it instead of cloning again.
 
+### Service account propagation during first setup
+
+Immediately after creating the scheduler invoker service account, IAM may temporarily
+report that it does not exist when granting Cloud Run job permissions.
+The setup script retries each binding up to ten times at 15-second intervals.
+Re-running it is safe, and the account does not need to be recreated manually.
+
+```bash
+cd ~/chwijae-summary
+git pull --ff-only
+bash infra/setup_scheduler.sh
+```
+
+If retries fail again, capture the full error and verify that the account exists:
+
+```bash
+gcloud iam service-accounts describe chwijae-scheduler-invoker@chwijae-summary.iam.gserviceaccount.com --project=chwijae-summary
+```
+
+Do not disable the existing GitHub cron jobs before the paused scheduler jobs are verified.
+
 ## Verify the setup
 In Google Cloud Console > Cloud Scheduler, confirm both rows:
 - `chwijae-collector-half-hourly` (schedule `7,37 * * * *`, Asia/Seoul)
