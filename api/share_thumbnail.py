@@ -114,5 +114,5 @@ def render_preview_html(html, url, title=DEFAULT_OG_TITLE,
         end = html.find('"', start)
         if end < 0:
             raise ValueError("Unterminated preview tag: " + identifier)
-        html = html[:start] + escape(raw, quote=True) + html[end:]
+        html = html[:start] + escape(raw, quote=False).replace('"', "&quot;") + html[end:]
     return html
