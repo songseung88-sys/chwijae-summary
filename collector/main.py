@@ -695,6 +695,21 @@ def fetch_candidates(client_id, client_secret, target_date, query, max_pages=10)
     return candidates
 
 
+def collect_target_candidates(client_id, client_secret, target_date, max_articles):
+    queries = [f'"{phrase}"' for phrase in TARGET_PHRASES]
+    by_url = {}
+    for query in queries:
+        for item in fetch_candidates(client_id, client_secret, target_date, query=query):
+            # Same published URL may appear in both search responses.
+            key = item.get("original_url") or item.get("naver_url")
+            if key:
+                by_url.setdefault(key, item)
+    candidates = sorted(
+        by_url.values(), key=lambda row: row["api_pubdate"], reverse=True
+    )
+    return candidates[:max_articles], queries
+
+
 def doc_id(url):
     return hashlib.sha256(url.encode("utf-8")).hexdigest()[:32]
 
@@ -761,15 +776,9 @@ def main():
     target_date = now.date()
     run_ref = db.collection("collector_runs").document(now.strftime("%Y%m%dT%H%M%S%z"))
 
-    queries = [f'"{phrase}"' for phrase in TARGET_PHRASES]
-    by_url = {}
-    for quoted_query in queries:
-        for item in fetch_candidates(client_id, client_secret, target_date, query=quoted_query):
-            by_url.setdefault(item["original_url"], item)
-    # Explicit de-duplication prevents overlap being counted as two articles.
-    candidates = sorted(
-        by_url.values(), key=lambda row: row["api_pubdate"], reverse=True
-    )[:max_articles]
+    candidates, queries = collect_target_candidates(
+        client_id, client_secret, target_date, max_articles
+    )
 
     summary = {
         "target_date": str(target_date),
