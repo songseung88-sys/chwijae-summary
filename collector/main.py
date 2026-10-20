@@ -831,10 +831,18 @@ def main():
         "wire_reprint_suspected": 0,
         "errors": {},
         "rejected_examples": [],
+        "domain_diagnostics": {},
     }
 
     for idx, item in enumerate(candidates, start=1):
         original_url = item["original_url"]
+        host = (urlparse(original_url).hostname or "미확인").lower()
+        domain_stats = summary["domain_diagnostics"].setdefault(host, {
+            "seen": 0, "accepted": 0, "rejected": 0,
+            "original_errors": 0, "naver_errors": 0,
+            "errors": {}, "examples": [],
+        })
+        domain_stats["seen"] += 1
         article_ref = db.collection("articles").document(doc_id(original_url))
 
         existing = article_ref.get()
@@ -865,6 +873,7 @@ def main():
                 }, merge=True)
                 summary["accepted"] += 1
                 summary["existing_accepted"] += 1
+                domain_stats["accepted"] += 1
                 summary["exclusive"] += int(bool(existing_data.get("is_exclusive_strict")))
                 continue
         if (
@@ -874,6 +883,7 @@ def main():
         ):
             summary["accepted"] += 1
             summary["existing_accepted"] += 1
+            domain_stats["accepted"] += 1
             summary["exclusive"] += int(bool(existing_data.get("is_exclusive_strict")))
             summary["wire_reprint_suspected"] += int(
                 bool(existing_data.get("is_wire_reprint_suspected"))
@@ -952,6 +962,23 @@ def main():
         for err in (original.get("error"), naver.get("error")):
             if err and err not in ("NO_NAVER_PAGE", "PHRASE_NOT_FOUND"):
                 summary["errors"][err] = summary["errors"].get(err, 0) + 1
+
+        # Per-source diagnostics are complete for this run, unlike the capped
+        # rejected_examples list. Absent phrases are recorded separately and
+        # must not automatically be interpreted as an extraction bug.
+        if source == "REJECTED":
+            domain_stats["rejected"] += 1
+            if len(domain_stats["examples"]) < 3:
+                domain_stats["examples"].append(item["api_title"][:100])
+        else:
+            domain_stats["accepted"] += 1
+        for result, kind in ((original, "original"), (naver, "naver")):
+            err = result.get("error") or ""
+            if not err or err == "NO_NAVER_PAGE":
+                continue
+            domain_stats[kind + "_errors"] += 1
+            tag = kind + ":" + err
+            domain_stats["errors"][tag] = domain_stats["errors"].get(tag, 0) + 1
 
         reporters_original = original.get("reporters", "")
         reporters_naver = naver.get("reporters", "")
