@@ -16,12 +16,9 @@ function renderBigkindsEditor(){
     'aria-label="'+year+'년 '+n+' 기사 수" data-year-index="'+i+'" data-publisher="'+n+
     '" value="'+bigkindsDraft.publishers[n][i]+'"></td>').join("")+
     '<td class="bigkinds-editor-total" data-total-index="'+i+'">'+bigkindsNumberFormatter.format(totals[i])+'</td></tr>').join("");
-  body.addEventListener("input",onBigkindsCellInput,{once:true});
-  // Re-register handler after each redraw without accumulating old listeners.
+  body.oninput=onBigkindsCellInput;
 }
 function onBigkindsCellInput(event){
-  const body=document.querySelector("#bigkindsEditorBody");
-  body.addEventListener("input",onBigkindsCellInput,{once:true});
   const el=event.target;
   if(!el.matches("input[data-publisher]"))return;
   const value=Number(el.value), i=Number(el.dataset.yearIndex), name=el.dataset.publisher;
