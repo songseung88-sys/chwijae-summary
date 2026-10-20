@@ -57,7 +57,7 @@ jobs:
 
       - name: Validate API image
         run: |
-          docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py
+          docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py /app/feedback_store.py
           # Catch ASGI route-registration and import errors before Cloud Run revision rollout.
           docker run --rm --entrypoint python "${IMAGE}" -c 'import google.cloud.firestore as f; f.Client=lambda **kwargs: object(); import main; print("APP_IMPORT_AND_ROUTES_OK")'
           docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css && test -f /app/static/admin.html && test -f /app/static/admin.js && test -s /app/static/og-thumbnail-wide.jpg'
@@ -186,6 +186,18 @@ jobs:
           print('BIGKINDS_HISTORICAL_DATA_AND_CHARTS_OK')
           PY
 
+          echo "FEEDBACK_UI_AND_API_CHECK:"
+          grep -q 'id="feedbackDisclosure"' /tmp/about.html
+          grep -q 'id="feedbackForm"' /tmp/about.html
+          grep -q 'id="feedbackSubmit"' /tmp/about.html
+          if grep -q '‘취재를 종합하면’ 10년의 기록' /tmp/about.html; then
+            echo "Old history heading still present"; exit 1
+          fi
+          curl --retry 4 --retry-delay 2 --fail --silent --show-error "${URL}/static/feedback.js?v=1" -o /tmp/feedback.js
+          grep -q 'function submitFeedback' /tmp/feedback.js
+          INVALID_STATUS="$(curl --silent --show-error -o /tmp/invalid-feedback.json -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"message":"x","submission_id":"00000000-0000-4000-8000-000000000000"}' "${URL}/api/feedback")"
+          test "$INVALID_STATUS" = 400
+          echo "FEEDBACK_PUBLIC_VALIDATION_OK"
           echo "ADMIN_THUMBNAIL_UI_CHECK:"
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/admin" -o /tmp/admin.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/thumbnail-editor.js?v=1" -o /tmp/thumbnail-editor.js
