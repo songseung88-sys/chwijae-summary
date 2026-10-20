@@ -112,6 +112,7 @@ jobs:
         if: steps.ready.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           JSON="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER")"
@@ -153,6 +154,7 @@ jobs:
         if: steps.ready.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           BASE="https://$DOMAIN"
