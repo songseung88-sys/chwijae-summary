@@ -134,7 +134,7 @@ jobs:
           assert parser.tags["og:image:width"]=="1254" and parser.tags["og:image:height"]=="1254"
           assert parser.tags["twitter:card"]=="summary"
           assert "content-type: image/jpeg" in headers
-          assert len(img)>100000 and img[:3]==b"\\xff\\xd8\\xff"
+          assert len(img)>100000 and img[:3]==bytes((255,216,255))
           print("SOCIAL_SHARE_PREVIEW_VALIDATED",len(img))
           PY
           echo "### Dashboard" >> "${GITHUB_STEP_SUMMARY}"
