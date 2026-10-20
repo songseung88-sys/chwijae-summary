@@ -1,0 +1,2 @@
+# Firebase Hosting uses this directory only to hold rewrite configuration.
+# Requests are forwarded to the existing Cloud Run service, not served from here.

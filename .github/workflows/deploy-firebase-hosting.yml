@@ -1,0 +1,132 @@
+name: Deploy Firebase Hosting
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "firebase.json"
+      - "firebase-public/**"
+      - ".github/workflows/deploy-firebase-hosting.yml"
+  pull_request:
+    paths:
+      - "firebase.json"
+      - "firebase-public/**"
+      - ".github/workflows/deploy-firebase-hosting.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PROJECT_ID: chwijae-summary
+  HOSTING_SITE: chwijae-summary
+  DEPLOY_SA: github-deployer@chwijae-summary.iam.gserviceaccount.com
+  WIF_PROVIDER: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+
+jobs:
+  validate:
+    name: Check Hosting configuration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Cloud Run rewrite and deployment boundary
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path("firebase.json")
+          obj=json.loads(p.read_text())
+          h=obj["hosting"]
+          assert h["public"] == "firebase-public"
+          assert Path(h["public"]).is_dir()
+          assert h["rewrites"] == [{
+            "source":"**",
+            "run":{"serviceId":"chwijae-api","region":"asia-northeast3"}
+          }]
+          assert "pinTag" not in h["rewrites"][0]["run"]
+          assert not (Path("firebase-public")/"index.html").exists(), "Static index would mask Cloud Run"
+          print("Firebase rewrite targets the existing Seoul Cloud Run service.")
+          PY
+
+  deploy:
+    name: Register and deploy Hosting
+    if: github.event_name != 'pull_request'
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: chwijae-firebase-hosting-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Authenticate using the existing keyless GitHub deployment identity
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: chwijae-summary
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.DEPLOY_SA }}
+
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Install Firebase CLI
+        run: |
+          npm install -g firebase-tools
+          firebase --version
+
+      - name: Check and register Firebase in the existing Google Cloud project
+        run: |
+          set -euo pipefail
+          echo "Checking whether Firebase is already enabled for $PROJECT_ID."
+          TOKEN="$(gcloud auth print-access-token)"
+          STATUS="$(curl --silent --show-error --output /tmp/firebase-project-status.json --write-out '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" \
+            "https://firebase.googleapis.com/v1beta1/projects/$PROJECT_ID")"
+          unset TOKEN
+          if [ "$STATUS" = 200 ]; then
+            echo "Firebase is already registered for $PROJECT_ID."
+          else
+            echo "Firebase project lookup returned HTTP $STATUS; attempting initial setup."
+            echo "This step may require the project owner to accept Firebase Terms or grant additional IAM roles."
+            firebase projects:addfirebase --project "$PROJECT_ID" --non-interactive
+          fi
+
+      - name: Create the default Hosting site if missing
+        run: |
+          set -euo pipefail
+          if firebase hosting:sites:get "$HOSTING_SITE" --project "$PROJECT_ID" --non-interactive > /tmp/hosting-site-get.log 2>&1; then
+            echo "Default Hosting site $HOSTING_SITE is ready."
+          else
+            echo "The default Hosting site was not found or could not be read."
+            echo "Attempting creation (requires Firebase Hosting management permission)."
+            firebase hosting:sites:create "$HOSTING_SITE" --project "$PROJECT_ID" --non-interactive
+          fi
+
+      - name: Deploy Firebase Hosting rewrite configuration
+        run: |
+          firebase deploy --only hosting --project "$PROJECT_ID" --non-interactive
+
+      - name: Verify the public Firebase proxy
+        run: |
+          set -euo pipefail
+          BASE="https://$HOSTING_SITE.web.app"
+          curl --retry 6 --retry-delay 3 --retry-all-errors --max-time 55 --fail --silent --show-error "$BASE/health" -o /tmp/firebase-health.json
+          curl --retry 6 --retry-delay 3 --retry-all-errors --max-time 55 --fail --silent --show-error "$BASE/" -o /tmp/firebase-dashboard.html
+          grep -q '취재를 종합하면' /tmp/firebase-dashboard.html
+          curl --retry 6 --retry-delay 3 --retry-all-errors --max-time 55 --fail --silent --show-error "$BASE/static/app.js" -o /tmp/firebase-app.js
+          grep -q 'function renderTopicOverview' /tmp/firebase-app.js
+          curl --retry 6 --retry-delay 3 --retry-all-errors --max-time 55 --fail --silent --show-error "$BASE/api/dashboard" -o /tmp/firebase-dashboard.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          health=json.loads(Path('/tmp/firebase-health.json').read_text())
+          data=json.loads(Path('/tmp/firebase-dashboard.json').read_text())
+          assert isinstance(health,dict)
+          assert isinstance(data,dict) and 'articles' in data
+          print('FIREBASE_HOSTING_PROXY_OK; API and HTML reachable.')
+          PY
+          echo "### Firebase Hosting" >> "$GITHUB_STEP_SUMMARY"
+          echo "$BASE/" >> "$GITHUB_STEP_SUMMARY"
