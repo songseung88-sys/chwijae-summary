@@ -12,7 +12,7 @@ function renderAboutText(node,text,highlightLead){
     node.appendChild(title);
     // If the editor placed a newline right after the lead, join only the displayed
     // first line to keep the smaller continuation visually inline.
-    const suffix=text.slice(lead[0].length).replace(/^[ \\t]*(?:\\r?\\n)[ \\t]*/, " ");
+    const suffix=text.slice(lead[0].length).replace(/^[ \t]*(?:\r?\n)[ \t]*/, " ");
     node.appendChild(document.createTextNode(suffix));
   }else{
     node.textContent=text;
