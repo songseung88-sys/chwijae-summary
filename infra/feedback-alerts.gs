@@ -26,7 +26,7 @@ function installOpinionEmailAlerts() {
       ScriptApp.deleteTrigger(trigger);
     }
   }
-  ScriptApp.newTrigger('checkOpinionMessages').timeBased().everyMinutes(5).create();
+  ScriptApp.newTrigger('checkOpinionMessages').timeBased().everyHours(1).create();
   console.log('새 의견 이메일 알림 설정됨: ' + address);
 }
 
