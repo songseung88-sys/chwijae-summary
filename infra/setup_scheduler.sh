@@ -51,7 +51,11 @@ upsert_schedule() {
     gcloud scheduler jobs create http "${name}" "${common[@]}"
   fi
   # Hold until GitHub recurring schedule is disabled, to avoid two schedulers.
-  gcloud scheduler jobs pause "${name}" --project="${PROJECT_ID}" --location="${REGION}" --quiet
+  local state
+  state="$(gcloud scheduler jobs describe "${name}" --project="${PROJECT_ID}" --location="${REGION}" --format="value(state)")"
+  if [[ "${state}" != "PAUSED" ]]; then
+    gcloud scheduler jobs pause "${name}" --project="${PROJECT_ID}" --location="${REGION}" --quiet
+  fi
   gcloud scheduler jobs describe "${name}" \
     --project="${PROJECT_ID}" --location="${REGION}" \
     --format="table(name,schedule,timeZone,state)"
