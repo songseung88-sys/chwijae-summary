@@ -186,8 +186,11 @@ function wireBigkindsTooltip(shell,data,type,selected){
     tip.style.left=Math.max(5,Math.min(x,rect.width-tip.offsetWidth-5))+"px";
     tip.style.top=Math.max(5,Math.min(y,rect.height-tip.offsetHeight-5))+"px";
   }
-  svg.addEventListener("pointermove",event=>show(event.target.closest(".bigkinds-hit"),event));
-  svg.addEventListener("pointerleave",hide);
+  svg.addEventListener("pointermove",event=>{
+    if(event.pointerType==="mouse")show(event.target.closest(".bigkinds-hit"),event);
+  });
+  // Keep touch-selected year values visible after the finger is lifted.
+  svg.addEventListener("pointerleave",event=>{if(event.pointerType==="mouse")hide();});
   svg.addEventListener("focusin",event=>show(event.target.closest(".bigkinds-hit"),null));
   svg.addEventListener("focusout",hide);
   svg.addEventListener("click",event=>show(event.target.closest(".bigkinds-hit"),event));
@@ -217,18 +220,31 @@ async function loadBigkindsCharts(){
   const data=await response.json();
   validateBigkinds(data);
   const selected=new Set(BIGKINDS_DEFAULT_PUBLISHERS);
+  let compact=bigkindsMobileView();
   const annualHost=document.querySelector("#bigkindsAnnualChart");
   const publisherHost=document.querySelector("#bigkindsPublisherChart");
-  annualHost.innerHTML=annualBigkindsSvg(data)+'<div class="bigkinds-tooltip" hidden></div>';
-  wireBigkindsTooltip(annualHost,data,"annual",selected);
+  function renderAnnual(){
+    annualHost.innerHTML=annualBigkindsSvg(data,compact)+'<div class="bigkinds-tooltip" hidden></div>';
+    wireBigkindsTooltip(annualHost,data,"annual",selected);
+  }
   function renderPublishers(){
-    publisherHost.innerHTML=publisherBigkindsSvg(data,selected)+'<div class="bigkinds-tooltip" hidden></div>';
+    publisherHost.innerHTML=publisherBigkindsSvg(data,selected,compact)+'<div class="bigkinds-tooltip" hidden></div>';
     wireBigkindsTooltip(publisherHost,data,"publisher",selected);
     renderBigkindsLegend(data,selected,renderPublishers);
     document.querySelector("#bigkindsSelectedCount").textContent=selected.size+" / 10"+bigkindsPublicCopy("publisher_selection_count_suffix","개 언론사 선택");
   }
+  renderAnnual();
   renderPublishers();
-  if(typeof window!=="undefined")window.addEventListener("about-copy-ready",renderPublishers,{once:true});
+  if(typeof window!=="undefined"){
+    window.addEventListener("about-copy-ready",renderPublishers,{once:true});
+    window.addEventListener("resize",()=>{
+      const next=bigkindsMobileView();
+      if(next===compact)return;
+      compact=next;
+      renderAnnual();
+      renderPublishers();
+    },{passive:true});
+  }
 }
 if(typeof document!=="undefined"){
   document.addEventListener("DOMContentLoaded",()=>{
