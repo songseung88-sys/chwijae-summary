@@ -53,7 +53,14 @@
   .bigkinds-panel-header{flex-direction:column;align-items:flex-start;gap:8px}
   .bigkinds-panel-header h3{font-size:17px}
   .bigkinds-reset-button{align-self:flex-start}
-  .bigkinds-svg{min-width:630px}
+  /* 2016–2025 now fits the phone viewport; scrolling is no longer needed. */
+  .bigkinds-chart-shell{overflow-x:visible;overflow-y:visible}
+  .bigkinds-svg{min-width:0;width:100%;max-width:100%}
+  .bigkinds-svg-compact .bigkinds-axis-label{font-size:11px}
+  .bigkinds-svg-compact .bigkinds-axis-year{font-size:10.5px}
+  .bigkinds-svg-compact .bigkinds-hit{touch-action:pan-y}
+  .bigkinds-publisher-filters{gap:6px}
+  .bigkinds-publisher-toggle{padding:6px 9px;font-size:11px}
   .bigkinds-tooltip{padding:10px 11px}
 }
 @media(prefers-reduced-motion:reduce){.bigkinds-annual-bar,.bigkinds-publisher-toggle{transition:none}}
@@ -72,7 +79,7 @@
 .feedback-section details{margin:0}
 .feedback-section summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;padding:20px 4px;color:#1c507d;font-size:15px;font-weight:700;letter-spacing:-.015em}
 .feedback-section summary::-webkit-details-marker{display:none}
-.feedback-section summary > span[aria-hidden="true"]{font-size:21px;font-weight:400;color:#5988ae;transition:transform .15s}
+.feedback-section summary > span[aria-hidden="true"]{font-size:14px;line-height:1;font-weight:700;color:#5988ae;transition:transform .15s}
 .feedback-section details[open] summary > span[aria-hidden="true"]{transform:rotate(180deg)}
 .feedback-section summary:focus-visible{outline:2px solid #2a79ad;outline-offset:3px;border-radius:6px}
 #feedbackForm{padding:2px 3px 20px}
