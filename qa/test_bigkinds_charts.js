@@ -59,7 +59,8 @@ assert(chartCode.includes('fetch("/api/bigkinds-history"'));
 assert(!chartCode.includes("bigkindsPeakYear"));
 const aboutCode=fs.readFileSync("api/static/about.js","utf8");
 assert(aboutCode.includes("renderAboutLayout"));
-assert(aboutCode.includes("textContent=block.text")); // Never render admin-provided text as HTML.
+assert(aboutCode.includes("renderAboutText(node,block.text,!leadSeen)")); // First section is safely rendered with text nodes.
+assert(aboutCode.includes("node.textContent=text")); // Remaining content never treated as HTML.
 assert(css.includes("bigkinds-tooltip"));
 assert(css.includes("bigkinds-hit:focus-visible"));
 assert(html.includes('id="aboutContent"'),"Keep legacy About content migration");
