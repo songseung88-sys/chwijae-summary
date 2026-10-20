@@ -9,6 +9,28 @@ function fmtDateTime(v){
   const d = new Date(v);
   return new Intl.DateTimeFormat("ko-KR",{hour:"2-digit",minute:"2-digit",hour12:false}).format(d);
 }
+function renderCollectionHealth(collection){
+  const el=qs("#collectionHealth");
+  const stamp=collection?.finished_at;
+  if(!stamp){
+    el.textContent="최근 수집 성공 기록을 확인할 수 없습니다.";
+    el.className="collection-health collection-health-warning";
+    return;
+  }
+  const dt=new Date(stamp);
+  if(Number.isNaN(dt.getTime())){
+    el.textContent="최근 수집 시각을 확인할 수 없습니다.";
+    el.className="collection-health collection-health-warning";
+    return;
+  }
+  const time=new Intl.DateTimeFormat("ko-KR",{
+    timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false
+  }).format(dt);
+  const ageMinutes=Math.max(0,Math.floor((Date.now()-dt.getTime())/60000));
+  const delayed=ageMinutes>90;
+  el.className="collection-health"+(delayed?" collection-health-warning":"");
+  el.textContent=`마지막 수집 완료: ${time} · ${delayed?"수집 지연 가능":"정상 갱신"} · 해당 실행 신규 ${collection.new_accepted||0}건`;
+}
 function rowLabel(r){
   return r.publisher ? `${esc(r.name)} <span class="rank-affiliation">${esc(r.publisher)}</span>` : esc(r.name);
 }
@@ -131,6 +153,7 @@ async function load(date){
   state.data=d; state.articleVisible=10; state.rankingExpanded={}; state.categoryFilter=null;
   applyCopy(d);
   renderCards(d);
+  renderCollectionHealth(d.last_successful_collection);
   qs("#categoryCoverage").textContent=`AI 공통분류 · ${d.category_classified_count||0}/${d.today_count}건 분류됨`;
   renderRankings();
   renderHistory(d.daily_counts_14d);
