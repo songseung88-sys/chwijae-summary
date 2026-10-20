@@ -84,7 +84,12 @@ class ThumbnailUploadTests(unittest.TestCase):
         self.assertIn('name="description" content="설명 &quot;인용&quot; &amp; 검증"',content)
         self.assertIn('<title>취재를 종합하면</title>',content)
         self.assertEqual(validate_preview_copy("  새  제목 "," 상세   설명 "),("새 제목","상세 설명"))
-        for title,description in (("","설명"),("제목",""),("a"*101,"설명"),("제목","b"*301),
+        for title,description in (("",""),("","설명"),("제목","")):
+            self.assertEqual(validate_preview_copy(title,description),(title,description))
+            blank_html=render_preview_html(html,STATIC_FALLBACK_URL,title,description)
+            self.assertIn('property="og:title" content="'+title+'"',blank_html)
+            self.assertIn('property="og:description" content="'+description+'"',blank_html)
+        for title,description in (("a"*101,"설명"),("제목","b"*301),
                                   (None,"설명"),(1,"설명")):
             with self.subTest(title=title,description=description),self.assertRaises(ValueError):
                 validate_preview_copy(title,description)
@@ -181,7 +186,20 @@ class SimulatedEndpoints(unittest.TestCase):
         self.assertEqual(ns["current_thumbnail"]()["url"],url)
         self.assertEqual(ns["current_thumbnail"]()["title"],"연구를 위한 뉴스")
         self.assertEqual(ns["current_thumbnail"]()["description"],"언론 표현의 시계열")
-        for invalid in ({"title":"","description":"ok"},
+        for empty in ({"title":"","description":"설명"},
+                      {"title":"제목","description":""},
+                      {"title":"","description":""}):
+            ns["update_thumbnail_metadata"](empty,"protected")
+            self.assertEqual(ns["current_thumbnail"]()["title"],empty["title"])
+            self.assertEqual(ns["current_thumbnail"]()["description"],empty["description"])
+            generated=ns["dashboard_page"]()["content"]
+            self.assertIn('property="og:title" content="'+empty["title"]+'"',generated)
+            self.assertIn('property="og:description" content="'+empty["description"]+'"',generated)
+        # Restore the edited copy for the image replacement/reset regression.
+        ns["update_thumbnail_metadata"](
+            {"title":"연구를 위한 뉴스","description":"언론 표현의 시계열"},"protected"
+        )
+        for invalid in ({"title":None,"description":"ok"},
                         {"title":"제목","description":"x"*301}):
             with self.assertRaises(HTTPError) as bad:
                 ns["update_thumbnail_metadata"](invalid,"protected")
