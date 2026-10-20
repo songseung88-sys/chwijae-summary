@@ -27,6 +27,8 @@ function renderPublisherNames(){
       '<td class="publisher-source">'+escapePublisherHtml(row.source)+
         (row.is_custom?'<span class="publisher-custom-label">수정됨</span>':"")+'</td>'+
       '<td><input type="text" data-publisher-index="'+i+'" maxlength="80" aria-label="'+escapePublisherHtml(row.source)+'의 표시 이름" value="'+escapePublisherHtml(row.draft)+'"/></td>'+
+      '<td><button class="publisher-row-save" data-save-publisher="'+i+'" type="button" '+(!changed?'disabled':'')+
+        ' aria-label="'+escapePublisherHtml(row.source)+' 이름만 저장">이 항목 저장</button></td>'+
       '<td class="publisher-count">'+row.article_count+'건</td>'+
       '<td><button class="publisher-reset" data-reset-index="'+i+'" type="button" aria-label="'+escapePublisherHtml(row.source)+' 기본 이름으로 초기화">초기화</button></td>'+
       '</tr>';
@@ -36,6 +38,36 @@ function renderPublisherNames(){
   document.querySelector("#savePublishers").disabled=!publisherEditor.loaded||!pending;
   document.querySelector("#publisherEditorSummary").textContent=
     publisherEditor.items.length+'개 언론사 · 검색 결과 '+filtered.length+'개 · 수정 대기 '+pending+'개';
+}
+
+async function savePublisherRow(index){
+  const row=publisherEditor.items[index];
+  const status=document.querySelector("#publisherEditorStatus");
+  if(!row||row.draft.trim()===row.display_name)return;
+  const pass=document.querySelector("#password").value;
+  if(!pass){status.textContent="관리자 비밀번호를 먼저 입력해주세요.";return;}
+  const value=row.draft.trim();
+  const rowButton=document.querySelector('[data-save-publisher="'+index+'"]');
+  if(rowButton)rowButton.disabled=true;
+  status.textContent=row.source+" · 개별 저장 중…";
+  try{
+    const res=await fetch("/api/admin/publishers",{
+      method:"PUT",
+      headers:{"Content-Type":"application/json","X-Admin-Password":pass},
+      body:JSON.stringify({updates:[{source:row.source,display_name:value}]})
+    });
+    const result=await res.json().catch(()=>({}));
+    if(!res.ok)throw Error(result.detail||"해당 언론사 저장에 실패했습니다.");
+    // Only this one canonical value is updated. Other unfinished names remain
+    // in their text fields and the local draft array.
+    row.display_name=value||row.default_name;
+    row.is_custom=!!value&&value!==row.default_name;
+    status.textContent=row.source+" · 저장 완료 (다른 변경사항은 그대로 유지)";
+  }catch(error){
+    status.textContent=row.source+" · "+error.message;
+  }finally{
+    renderPublisherNames();
+  }
 }
 
 async function loadPublisherNames(){
@@ -116,12 +148,19 @@ document.addEventListener("DOMContentLoaded",()=>{
     const row=event.target.closest("tr");
     if(row)row.classList.toggle("publisher-row-changed",
       event.target.value.trim()!==publisherEditor.items[Number(index)].display_name);
+    const rowSave=row?.querySelector("[data-save-publisher]");
+    if(rowSave)rowSave.disabled=event.target.value.trim()===publisherEditor.items[Number(index)].display_name;
     const count=changedPublisherItems().length;
     document.querySelector("#savePublishers").disabled=!count;
     const q=document.querySelector("#publisherEditorSummary");
     q.textContent=publisherEditor.items.length+"개 언론사 · 수정 대기 "+count+"개";
   });
   document.querySelector("#publisherRows").addEventListener("click",event=>{
+    const saveButton=event.target.closest("[data-save-publisher]");
+    if(saveButton){
+      savePublisherRow(Number(saveButton.dataset.savePublisher));
+      return;
+    }
     const button=event.target.closest("[data-reset-index]");
     if(!button)return;
     const row=publisherEditor.items[Number(button.dataset.resetIndex)];
