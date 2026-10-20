@@ -8,7 +8,7 @@ const script=fs.readFileSync("api/static/about.js","utf8");
 assert(!html.includes("<h1>자세히 보기</h1>"),"Remove redundant visible title");
 assert(!html.includes('id="bigkindsHistoryTitle"'));
 assert(html.includes('src="/static/about.js?v=4"'),"Bust cached JS");
-assert(html.includes('bigkinds-charts.css?v=5'),"Bust cached CSS");
+assert(html.includes('bigkinds-charts.css?v=6'),"Bust cached CSS");
 assert(css.includes(".about-page .about-text-block .about-lead-phrase"));
 assert(css.includes("font-size:30px"),"Match original About h1 size");
 assert(css.includes("display:inline"),"Keep normal text on the same line");

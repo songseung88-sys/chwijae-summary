@@ -72,8 +72,8 @@
 .feedback-section details{margin:0}
 .feedback-section summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;list-style:none;padding:20px 4px;color:#1c507d;font-size:15px;font-weight:700;letter-spacing:-.015em}
 .feedback-section summary::-webkit-details-marker{display:none}
-.feedback-section summary span{font-size:21px;font-weight:400;color:#5988ae;transition:transform .15s}
-.feedback-section details[open] summary span{transform:rotate(180deg)}
+.feedback-section summary > span[aria-hidden="true"]{font-size:21px;font-weight:400;color:#5988ae;transition:transform .15s}
+.feedback-section details[open] summary > span[aria-hidden="true"]{transform:rotate(180deg)}
 .feedback-section summary:focus-visible{outline:2px solid #2a79ad;outline-offset:3px;border-radius:6px}
 #feedbackForm{padding:2px 3px 20px}
 #feedbackForm>label{display:block;margin:0 0 10px;font-size:13px;color:#617589}
@@ -107,3 +107,6 @@
 .about-page #feedbackPromptLabel:empty,
 .about-page #aboutBackLabel:empty,
 .about-page #feedbackSummaryLabel:empty{display:none}
+
+/* Keep the editor-controlled label upright and at the original modest size. */
+.feedback-section summary #feedbackSummaryLabel{font-size:14px;font-weight:700;line-height:1.5;color:inherit;transform:none}
