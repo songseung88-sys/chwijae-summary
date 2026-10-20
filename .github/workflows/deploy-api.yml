@@ -166,6 +166,13 @@ jobs:
           echo "BIGKINDS_ABOUT_CHARTS_CHECK:"
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/about" -o /tmp/about.html
           grep -q 'id="bigkindsAnnualChart"' /tmp/about.html
+          if grep -q '<h1>자세히 보기</h1>' /tmp/about.html; then
+            echo "Redundant About page heading must be removed"; exit 1
+          fi
+          grep -q '/static/about.js?v=3' /tmp/about.html
+          grep -q '/static/bigkinds-charts.css?v=4' /tmp/about.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/about.js?v=3" -o /tmp/about-lead.js
+          grep -q 'about-lead-phrase' /tmp/about-lead.js
           grep -q 'id="bigkindsPublisherChart"' /tmp/about.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-annual-2016-2025.json" -o /tmp/bigkinds.json
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.js?v=2" -o /tmp/bigkinds-charts.js
