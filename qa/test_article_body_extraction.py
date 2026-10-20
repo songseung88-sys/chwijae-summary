@@ -14,7 +14,7 @@ def literal_assignment(key):
                 any(isinstance(t, ast.Name) and t.id == key for t in n.targets))
     return ast.literal_eval(node.value)
 names={"clean_text", "target_phrase_counts", "contains_target_phrase",
-       "choose_body_container", "extract_paragraphs", "clean_structured_fragment"}
+       "valid_body_container", "choose_body_container", "extract_paragraphs", "clean_structured_fragment"}
 funcs=[n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
 reg=next(n for n in tree.body if isinstance(n, ast.Assign) and
     any(isinstance(t, ast.Name) and t.id=="ADDITIONAL_PHRASE_PATTERN" for t in n.targets))
@@ -37,6 +37,34 @@ class SiteBodySelection(unittest.TestCase):
         self.assertIsNotNone(container)
         extracted=ns["extract_paragraphs"](container)
         self.assertTrue(any("본지 취재 결과" in x for x in extracted))
+
+    def test_hankyoreh_general_article_without_target_phrase(self):
+        sample="이 대통령이 경제정책에 대한 입장을 설명하고 금융시장 안정 방안을 발표했다. "
+        html_doc="<html><article><div class='article-text'><p>"+sample*5+"</p></div></article></html>"
+        soup=BeautifulSoup(html_doc,"html.parser")
+        element=ns["choose_body_container"](soup)
+        self.assertIn("article-text",element.get("class",[]))
+        extracted=ns["extract_paragraphs"](element)
+        self.assertGreater(len(" ".join(extracted)),100)
+        self.assertFalse(ns["contains_target_phrase"](" ".join(extracted)))
+
+    def test_etoday_article_body_not_hidden_search_overlay(self):
+        content="영천 폐기물 문제와 관련해 추가 확인을 거쳐 관계기관들이 조치를 결정했다. "*6
+        html_doc="<html><article class='search_layer'><div itemprop='articleBody'>"+content+"</div></article></html>"
+        soup=BeautifulSoup(html_doc,"html.parser")
+        element=ns["choose_body_container"](soup)
+        self.assertIsNotNone(element)
+        self.assertEqual(element.get("itemprop"),"articleBody")
+        self.assertFalse(ns["valid_body_container"](soup.select_one("article.search_layer")))
+        extracted=ns["extract_paragraphs"](element)
+        self.assertGreater(len(" ".join(extracted)),150)
+
+    def test_chosun_script_metadata_must_never_be_article_text(self):
+        script='{"data":{"body":"'+'본지 취재를 종합하면 허위 본문입니다. '*15+'"}}'
+        soup=BeautifulSoup('<html><head><script id="fusion-metadata" type="application/json">'+script+
+                           '</script></head><body><div id="app"></div></body></html>',"html.parser")
+        self.assertIsNone(ns["choose_body_container"](soup))
+        self.assertFalse(ns["valid_body_container"](soup.select_one("#fusion-metadata")))
 
     def test_kado_spaceless_variant_in_article(self):
         body="19일 본지 취재결과 춘천시의 행정절차에 변경이 있었으며 추후 관리체계 개편이 논의됐다."
