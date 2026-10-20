@@ -198,9 +198,13 @@ jobs:
 
       - name: Check registrar DNS propagation and custom-domain HTTPS
         run: |
+          echo "PUBLIC_DNS_NS:"
+          dig +time=3 +tries=1 @8.8.8.8 based-on-our-reporting.com NS +noall +answer +comments || true
           echo "PUBLIC_DNS_A:"
-          dig +time=3 +tries=1 @8.8.8.8 based-on-our-reporting.com A +short || true
+          dig +time=3 +tries=1 @8.8.8.8 based-on-our-reporting.com A +noall +answer +comments || true
           echo "PUBLIC_DNS_TXT:"
-          dig +time=3 +tries=1 @8.8.8.8 based-on-our-reporting.com TXT +short || true
+          dig +time=3 +tries=1 @8.8.8.8 based-on-our-reporting.com TXT +noall +answer +comments || true
+          echo "CLOUDFLARE_RESOLVER_CHECK:"
+          dig +time=3 +tries=1 @1.1.1.1 based-on-our-reporting.com A +noall +answer +comments || true
           echo "CUSTOM_DOMAIN_HTTPS_STATUS:"
           curl -I -L --max-time 20 -sS -o /dev/null -w "HTTP=%{http_code} TLS_VERIFY=%{ssl_verify_result}\n" https://based-on-our-reporting.com/ || true
