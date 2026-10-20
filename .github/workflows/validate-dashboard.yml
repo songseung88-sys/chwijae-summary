@@ -87,7 +87,7 @@ jobs:
               assert key+':' in admin,key
               assert f'id="{node_id}"' in html,node_id
               assert f'#{node_id}' in js,node_id
-          assert 'editorial-blue-1' in html
+          assert 'editorial-blue-2' in html
           assert 'class="dashboard-group usage-group"' in html
           assert 'class="dashboard-group analysis-group"' in html
           assert 'id="summaryCards"' in html
