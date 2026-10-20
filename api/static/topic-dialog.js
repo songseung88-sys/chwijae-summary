@@ -1,6 +1,19 @@
 // Restrained editorial palette: distinct hues with similar visual weight.
 const topicColors=["#285B91","#337180","#47785F","#886D3F","#70628D","#935D55","#4A6D8A","#4C7771","#775F76","#806B52"];
 
+// Keep the current ranked palette, swapping only economy/industry and sports hues.
+function topicColorMap(rows){
+  const colors=new Map((rows||[]).map((row,i)=>[row.name,topicColors[i%topicColors.length]]));
+  const economy=(rows||[]).find(row=>String(row.name).replace(/[\s·ㆍ]/g,"")==="경제산업");
+  const sports=(rows||[]).find(row=>row.name==="스포츠");
+  if(economy && sports){
+    const economyColor=colors.get(economy.name);
+    colors.set(economy.name,colors.get(sports.name));
+    colors.set(sports.name,economyColor);
+  }
+  return colors;
+}
+
 function piePoint(cx,cy,r,angle){
   return [cx+r*Math.cos(angle), cy+r*Math.sin(angle)];
 }
@@ -13,11 +26,12 @@ function labeledPieSvg(rows,total,withPercent=false){
   let start=-Math.PI/2;
   const segments=[];
   const outer=[];
+  const colors=topicColorMap(rows);
   rows.forEach((row,i)=>{
     const fraction=row.count/total;
     const end=start+Math.PI*2*fraction;
     const mid=(start+end)/2;
-    const hue=topicColors[i%topicColors.length];
+    const hue=colors.get(row.name)||topicColors[i%topicColors.length];
     const startPt=piePoint(cx,cy,radius,start),endPt=piePoint(cx,cy,radius,end);
     const path=(fraction>=.999999)
       ? '<circle cx="'+cx+'" cy="'+cy+'" r="'+radius+'" fill="'+hue+'"/>'
@@ -90,7 +104,8 @@ function openCategoryDialog(){
     return;
   }
   const pie=labeledPieSvg(rows,total);
-  const legend=rows.map((r,i)=>'<li><span class="topic-legend-dot" style="background:'+topicColors[i%topicColors.length]+'"></span>'+
+  const colors=topicColorMap(rows);
+  const legend=rows.map((r,i)=>'<li><span class="topic-legend-dot" style="background:'+(colors.get(r.name)||topicColors[i%topicColors.length])+'"></span>'+
     '<span class="topic-legend-name">'+esc(r.name)+'</span><strong>'+r.count+'건</strong><small>'+(r.count/total*100).toFixed(1)+'%</small></li>').join("");
   const sections=hierarchy.map(group=>{
     const children=(group.secondaries||[]).map(node=>{
