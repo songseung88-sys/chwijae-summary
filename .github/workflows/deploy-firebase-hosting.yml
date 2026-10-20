@@ -140,3 +140,57 @@ jobs:
           PY
           echo "### Firebase Hosting" >> "$GITHUB_STEP_SUMMARY"
           echo "$BASE/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Register purchased custom domain and print Cloudflare DNS records
+        env:
+          CUSTOM_DOMAIN: based-on-our-reporting.com
+        run: |
+          set -euo pipefail
+          API="https://firebasehosting.googleapis.com/v1beta1/projects/$PROJECT_ID/sites/$HOSTING_SITE/customDomains"
+          TOKEN="$(gcloud auth print-access-token)"
+          STATUS="$(curl --silent --show-error --output /tmp/custom-domain.json --write-out '%{http_code}' \
+            -H "Authorization: Bearer $TOKEN" "$API/$CUSTOM_DOMAIN")"
+          if [ "$STATUS" = 404 ]; then
+            echo "Creating Firebase Hosting custom-domain mapping for $CUSTOM_DOMAIN"
+            STATUS="$(curl --silent --show-error --output /tmp/custom-domain-operation.json --write-out '%{http_code}' \
+              -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+              --data '{}' "$API?customDomainId=$CUSTOM_DOMAIN")"
+            if [ "$STATUS" != 200 ] && [ "$STATUS" != 201 ]; then
+              echo "::error::Custom-domain creation failed (HTTP $STATUS)"
+              cat /tmp/custom-domain-operation.json
+              exit 1
+            fi
+            for i in 1 2 3 4 5 6; do
+              sleep 5
+              STATUS="$(curl --silent --show-error --output /tmp/custom-domain.json --write-out '%{http_code}' \
+                -H "Authorization: Bearer $TOKEN" "$API/$CUSTOM_DOMAIN")"
+              [ "$STATUS" = 200 ] && break
+            done
+          fi
+          unset TOKEN
+          if [ "$STATUS" != 200 ]; then
+            echo "::error::Cannot read custom-domain status (HTTP $STATUS)"
+            cat /tmp/custom-domain.json
+            exit 1
+          fi
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          data=json.loads(Path("/tmp/custom-domain.json").read_text())
+          print("FIREBASE_CUSTOM_DOMAIN",data.get("name"))
+          print("HOST_STATE",data.get("hostState"),"OWNERSHIP_STATE",data.get("ownershipState"))
+          print("Cloudflare DNS: add or update the DESIRED records below (DNS only for A/AAAA).")
+          records=[]
+          for entry in data.get("requiredDnsUpdates",{}).get("desired",[]):
+              records.extend(entry.get("records",[]))
+          for r in records:
+              print("DNS_RECORD",r.get("type"),r.get("domainName"),r.get("rdata"),r.get("requiredAction"))
+          if not records:
+              print("DNS records are not ready; see Firebase Console > Hosting > Custom domains.")
+          with open(os.environ["GITHUB_STEP_SUMMARY"],"a") as f:
+              f.write("\n### Custom domain: based-on-our-reporting.com\n")
+              f.write("Domain registered in Firebase; Cloudflare DNS and TLS verification may still be pending.\n")
+              f.write("Host state: "+str(data.get("hostState"))+"; Ownership: "+str(data.get("ownershipState"))+"\n")
+              for r in records:
+                  f.write("- "+str(r.get("type"))+" "+str(r.get("domainName"))+" = "+str(r.get("rdata"))+" ("+str(r.get("requiredAction"))+")\n")
+          PY
