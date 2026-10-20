@@ -42,7 +42,7 @@ jobs:
           assert '16,46 * * * *' in workflow
           assert 'MAX_ARCHIVE_BODY_FETCH' in archive
           assert 'def archive_body(' in archive
-          assert 'source=basename' in archive
+          assert 'src=basename' in archive
           print("Archive scheduling and per-domain diagnostics contract passed")
           PY
       - name: Publisher and scheduler regression checks
