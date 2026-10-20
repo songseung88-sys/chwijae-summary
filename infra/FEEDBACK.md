@@ -34,5 +34,8 @@ once an hour and sends one digest email for any new rows; it marks the
    the public page and confirm the new row and a notification email.
 
 The Assistant cannot approve personal email-sending scopes on the owner's behalf.
-If you already installed the five-minute version, replace Code.gs with the new script\nand run **installOpinionEmailAlerts** again. It deletes the existing opinion\ntrigger and creates an hourly one. The previously granted OAuth scopes can be reused.\nThe site works without notifications.
+If you already installed the five-minute version, replace Code.gs with the new script
+and run **installOpinionEmailAlerts** again. It deletes the existing opinion
+trigger and creates an hourly one. The previously granted OAuth scopes can be reused.
+The site works without notifications.
 To stop emails, delete that time-driven trigger in Apps Script.
