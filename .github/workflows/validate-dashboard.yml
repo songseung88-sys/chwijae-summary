@@ -27,6 +27,24 @@ jobs:
       - uses: actions/checkout@v4
       - name: Python compile
         run: python -m py_compile api/main.py classifier/main.py collector/main.py
+      - name: Archive exporter syntax and idempotency regression
+        run: |
+          python -m py_compile archive/main.py collector/main.py
+          python -m unittest discover -s qa -p "test_daily_archive.py" -v
+          python - <<'PY'
+          from pathlib import Path
+          archive=Path("archive/main.py").read_text()
+          workflow=Path(".github/workflows/run-daily-archive.yml").read_text()
+          collector=Path("collector/main.py").read_text()
+          assert '"domain_diagnostics": {}' in collector
+          assert 'domain_stats["rejected"]' in collector
+          assert '13 17 * * *' in workflow
+          assert '16,46 * * * *' in workflow
+          assert 'MAX_ARCHIVE_BODY_FETCH' in archive
+          assert 'def archive_body(' in archive
+          assert 'source=basename' in archive
+          print("Archive scheduling and per-domain diagnostics contract passed")
+          PY
       - name: Publisher and scheduler regression checks
         run: |
           python -m pip install --quiet beautifulsoup4
