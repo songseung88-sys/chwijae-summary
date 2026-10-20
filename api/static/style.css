@@ -311,3 +311,58 @@ body{background:linear-gradient(180deg,#edf5fd 0,#f5f8fc 240px,#f5f8fc 100%);col
   .news-item h3{font-size:17px}
 }
 @media(prefers-reduced-motion:reduce){.news-item{transition:none}}
+
+/* Minimal masthead and simple article listing */
+.hero::before,.hero::after{display:none}
+.news-item .chips{display:none}
+
+/* Full ranking details: 20 entries per page, grouped reporters */
+.ranking-dialog{
+  position:fixed;
+  box-sizing:border-box;
+  width:min(780px,calc(100vw - 28px));
+  max-width:780px;
+  max-height:min(88dvh,900px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  margin:auto;
+  padding:24px;
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:var(--panel);
+  color:var(--text);
+  box-shadow:0 22px 70px rgba(15,49,82,.21);
+}
+.ranking-dialog::backdrop{background:rgba(18,34,52,.45)}
+.ranking-dialog .topic-dialog-head h2{overflow-wrap:anywhere;word-break:keep-all}
+.ranking-dialog .topic-dialog-head button{
+  flex-shrink:0;width:36px;height:36px;
+  border:1px solid var(--line);border-radius:10px;
+  background:#f5f9fe;color:var(--text);cursor:pointer;
+}
+.ranking-dialog .rank-row{grid-template-columns:36px minmax(0,1fr) auto}
+.ranking-dialog .rank-name{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;word-break:keep-all}
+.ranking-dialog .bar-track{grid-column:2/4}
+.ranking-dialog .ranking{gap:14px}
+.ranking-dialog-more-wrap{padding:24px 0 4px}
+.ranking-dialog-more-wrap .more-button{display:inline-flex}
+.ranking-dialog-more-wrap [hidden]{display:none!important}
+.ranking-dialog-group{
+  border:1px solid #dce7f2;
+  background:#fff;
+  border-radius:12px;
+  padding:17px 18px;
+  margin:0 0 14px;
+}
+.ranking-dialog-group-head{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:10px;
+  border-bottom:1px solid var(--line);padding-bottom:11px;margin-bottom:14px;
+}
+.ranking-dialog-group h3{margin:0;color:var(--accent-strong);font-size:16px;line-height:1.45}
+.ranking-dialog-group-head>span{color:var(--muted);font-size:12px;font-weight:650}
+@media(max-width:520px){
+  .ranking-dialog{width:calc(100vw - 18px);max-height:calc(100dvh - 22px);padding:15px;border-radius:12px}
+  .ranking-dialog-group{padding:14px 12px}
+  .ranking-dialog .rank-row{grid-template-columns:27px minmax(0,1fr) auto;gap:8px}
+}
