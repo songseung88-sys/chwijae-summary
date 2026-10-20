@@ -3,7 +3,7 @@ import unittest
 from html.parser import HTMLParser
 from pathlib import Path
 
-BASE="https://chwijae-api-ejmdmrnztq-du.a.run.app/"
+BASE="https://based-on-our-reporting.com/"
 ROOT=Path(__file__).resolve().parents[1]
 JPEG=ROOT/"api/static/og-thumbnail-wide.jpg"
 HTML=ROOT/"api/static/index.html"
