@@ -45,17 +45,97 @@ function renderRanking(el, rows, expanded=false, filterable=false){
     </${tag}>`;
   }).join("");
 }
+function topicSecondLevelRows(hierarchy){
+  const rows=[];
+  for(const group of hierarchy||[]){
+    for(const node of group.secondaries||[]){
+      rows.push({
+        primary:group.primary,
+        secondary:node.secondary,
+        count:Number(node.count)||0,
+      });
+    }
+  }
+  return rows.sort((a,b)=>b.count-a.count||
+    String(a.primary).localeCompare(String(b.primary),"ko")||
+    String(a.secondary).localeCompare(String(b.secondary),"ko"));
+}
+
+function renderTopicOverview(d){
+  const pieHost=qs("#topicPrimaryPie");
+  const bars=qs("#topicSecondaryBars");
+  const primary=d.category_primary_ranking||[];
+  const total=primary.reduce((n,r)=>n+(Number(r.count)||0),0);
+  if(!total){
+    pieHost.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';
+    bars.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';
+    return;
+  }
+  // Color palette matches the restrained editorial-blue theme, also used by the detail dialog.
+  pieHost.innerHTML=labeledPieSvg(primary,total,true);
+  const secondaries=topicSecondLevelRows(d.category_hierarchy).slice(0,5);
+  if(!secondaries.length){
+    bars.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';
+    return;
+  }
+  const max=secondaries[0].count||1;
+  const byPrimary=new Map(primary.map((r,i)=>[r.name,topicColors[i%topicColors.length]]));
+  bars.innerHTML=secondaries.map((r,i)=>{
+    const selected=state.categoryFilter===r.secondary;
+    const width=Math.min(100,Math.max(3,r.count/max*100));
+    const pct=(r.count/total*100).toFixed(1);
+    const fill=byPrimary.get(r.primary)||topicColors[0];
+    return `<button type="button" class="topic-bar-row rank-filter${selected?" selected":""}"
+      data-category="${esc(r.secondary)}" aria-pressed="${selected}">
+      <span class="topic-bar-rank">${i+1}</span>
+      <span class="topic-bar-name">${esc(r.primary)} &rsaquo; ${esc(r.secondary)}</span>
+      <span class="topic-bar-track"><span class="topic-bar-fill" style="width:${width}%;background:${fill}"></span></span>
+      <strong class="topic-bar-count">${r.count}건</strong>
+      <span class="topic-bar-percent">${pct}%</span>
+    </button>`;
+  }).join("");
+}
+
+function renderExpressionChart(rows){
+  const host=qs("#secondaryRanking");
+  const top=(rows||[]).slice(0,5);
+  if(!top.length){
+    host.innerHTML='<div class="empty">표시할 데이터가 없습니다.</div>';
+    return;
+  }
+  const max=Number(top[0].count)||1;
+  host.innerHTML=top.map((r,i)=>{
+    const count=Number(r.count)||0;
+    const width=Math.min(100,Math.max(3,count/max*100));
+    return `<div class="expression-row">
+      <span class="expression-rank">${i+1}</span>
+      <span class="expression-name">${esc(r.name)}</span>
+      <span class="expression-track"><span class="expression-fill" style="width:${width}%"></span></span>
+      <strong class="expression-count">${count}회</strong>
+    </div>`;
+  }).join("");
+}
+
 function renderRankings(){
   const d=state.data;
   const cfg=d.site_config;
   const defs=[
     ["publisherRanking",d.publisher_ranking],
     ["reporterRanking",d.reporter_ranking_week],
-    ["categoryRanking",d.category_ranking_ai],
-    ["secondaryRanking",d.secondary_expressions],
   ];
   for(const [id,rows] of defs){
-    renderRanking(qs("#"+id),rows,false,id==="categoryRanking");
+    renderRanking(qs("#"+id),rows,false,false);
+    const btn=document.querySelector(`.rank-toggle[data-target="${id}"]`);
+    if(!btn) continue;
+    btn.style.display=(rows?.length||0)>0?"inline":"none";
+    btn.textContent=cfg.ranking_view_all_text;
+  }
+  renderTopicOverview(d);
+  renderExpressionChart(d.secondary_expressions);
+  for(const [id,rows] of [
+    ["categoryRanking",d.category_primary_ranking],
+    ["secondaryRanking",d.secondary_expressions]
+  ]){
     const btn=document.querySelector(`.rank-toggle[data-target="${id}"]`);
     if(!btn) continue;
     btn.style.display=(rows?.length||0)>0?"inline":"none";
@@ -140,6 +220,8 @@ function applyCopy(d){
   qs("#publisherTitle").textContent=c.section_publisher_title;
   qs("#reporterTitle").textContent=c.section_reporter_title;
   qs("#categoryTitle").textContent=c.section_category_title;
+  qs("#topicPrimaryCaption").textContent=c.topic_primary_caption||"1차 분류";
+  qs("#topicSecondaryCaption").textContent=c.topic_secondary_caption||"2차 분류별 비중";
   qs("#secondaryTitle").textContent=c.section_secondary_title;
   qs("#historyTitle").textContent=c.section_history_title;
   qs("#articlesTitle").textContent=c.section_articles_title;

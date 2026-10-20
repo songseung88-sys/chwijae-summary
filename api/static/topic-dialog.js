@@ -1,4 +1,4 @@
-const topicColors=["#377CF6","#F46B55","#16AFA2","#F7BB39","#8A5CF6","#EC4899","#84BF41","#14A9D4","#6366F1","#E98A45"];
+const topicColors=["#245C9E","#4481B8","#517C9F","#6486AD","#526D9A","#4A8A9D","#6F88AF","#4B7399","#718FAB","#587B9E"];
 
 function piePoint(cx,cy,r,angle){
   return [cx+r*Math.cos(angle), cy+r*Math.sin(angle)];
@@ -6,7 +6,7 @@ function piePoint(cx,cy,r,angle){
 function svgCoord(number){
   return Number(number.toFixed(2));
 }
-function labeledPieSvg(rows,total){
+function labeledPieSvg(rows,total,withPercent=false){
   const cx=230, cy=198, radius=123;
   const size=[460,396];
   let start=-Math.PI/2;
@@ -28,14 +28,19 @@ function labeledPieSvg(rows,total){
     // Wide slices can carry a readable label directly; small slices use leader lines.
     if(fraction>=.13 && name.length<=7){
       const p=piePoint(cx,cy,radius*.64,mid);
-      const color=(i===3||i===6)?"#283044":"#fff";
+      const color="#fff";
+      const label=withPercent
+        ? '<tspan x="'+svgCoord(p[0])+'" dy="-7">'+esc(name)+'</tspan>'+
+          '<tspan x="'+svgCoord(p[0])+'" dy="18">'+Math.round(fraction*100)+'%</tspan>'
+        : esc(name);
       segments.push('<text x="'+svgCoord(p[0])+'" y="'+svgCoord(p[1])+
         '" text-anchor="middle" dominant-baseline="middle" fill="'+color+
-        '" font-size="15" font-weight="700">'+esc(name)+'</text>');
+        '" font-size="15" font-weight="700">'+label+'</text>');
     }else{
       const sign=Math.cos(mid)>=0?1:-1;
       const anchor=piePoint(cx,cy,radius+9,mid);
       outer.push({name,sign,anchor,
+        percent:Math.round(fraction*100),
         bend:piePoint(cx,cy,radius+27,mid),
         y:cy+(radius+33)*Math.sin(mid)});
     }
@@ -63,7 +68,7 @@ function labeledPieSvg(rows,total){
         '" fill="none" stroke="#667085" stroke-width="1.35" stroke-linejoin="round"/>');
       leaderLines.push('<text x="'+textX+'" y="'+svgCoord(entry.y)+
         '" text-anchor="'+anchor+'" dominant-baseline="middle" font-size="13" font-weight="650" fill="#344054">'+
-        esc(entry.name)+'</text>');
+        esc(entry.name)+(withPercent?" "+entry.percent+"%":"")+'</text>');
     });
   }
   const description=esc(rows.map(r=>r.name+" "+r.count+"건").join(", "));

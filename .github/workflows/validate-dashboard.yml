@@ -72,6 +72,10 @@ jobs:
           bash -n infra/setup_scheduler.sh
       - name: JavaScript syntax check
         run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js
+      - name: Verify enlarged analysis charts preserve rankings and 3rd-level detail
+        run: |
+          node --check qa/test_analysis_visuals.js
+          node qa/test_analysis_visuals.js
       - name: Verify pie labels and small-slice leader lines
         run: |
           node - <<'JS'
@@ -122,7 +126,7 @@ jobs:
               assert key+':' in admin,key
               assert f'id="{node_id}"' in html,node_id
               assert f'#{node_id}' in js,node_id
-          assert 'editorial-blue-2' in html
+          assert 'analysis-visual-1' in html
           assert 'class="dashboard-group usage-group"' in html
           assert 'class="dashboard-group analysis-group"' in html
           assert 'id="summaryCards"' in html
@@ -256,7 +260,7 @@ jobs:
           assert "publisherEditor.visible+=50" in adminjs
           assert 'if(a.naver_url) links.push' in app
           assert "esc(cfg.naver_link_text)" in app
-          assert "/static/app.js?v=editorial-blue-3" in index
+          assert "/static/app.js?v=analysis-visual-1" in index
           print("Publisher alias admin and Naver link contract passed")
           PY
           node - <<'JS'
