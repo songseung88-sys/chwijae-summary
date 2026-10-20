@@ -67,6 +67,7 @@ function renderAboutLayout(cfg){
   const input=document.querySelector("#feedbackMessage");
   if(input)input.placeholder=t.feedback_placeholder??"";
   window.aboutPublicUiCopy=t;
+  window.dispatchEvent(new Event("about-copy-ready"));
   const saved=Array.isArray(cfg.about_layout)?cfg.about_layout:[
     ...(cfg.about_body?[{type:"text",text:cfg.about_body}]:[]),
     {type:"chart",chart:"annual"},{type:"chart",chart:"publisher"}
