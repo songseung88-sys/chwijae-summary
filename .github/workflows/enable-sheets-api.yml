@@ -1,0 +1,27 @@
+name: Enable Sheets API for archive
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/enable-sheets-api.yml"]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: chwijae-summary
+          workload_identity_provider: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+          service_account: github-deployer@chwijae-summary.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Enable Google Sheets API on project
+        run: |
+          gcloud services enable sheets.googleapis.com --project=chwijae-summary
+          gcloud services list --enabled --project=chwijae-summary --filter='config.name:sheets.googleapis.com' --format='table(config.name)'
