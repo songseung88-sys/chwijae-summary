@@ -416,8 +416,11 @@ def record_run_status(mode,status,detail):
 
 if __name__=="__main__":
     import sys
-    mode="logs" if "--mode" in sys.argv and sys.argv.index("--mode")+1<len(sys.argv)
-                 and sys.argv[sys.argv.index("--mode")+1]=="logs" else "full"
+    mode="logs" if (
+        "--mode" in sys.argv
+        and sys.argv.index("--mode")+1<len(sys.argv)
+        and sys.argv[sys.argv.index("--mode")+1]=="logs"
+    ) else "full"
     try:
         main()
         record_run_status(mode,"success","Completed")
