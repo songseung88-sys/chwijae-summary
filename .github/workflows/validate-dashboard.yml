@@ -78,6 +78,8 @@ jobs:
         run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/bigkinds-data-editor.js && node --check api/static/feedback.js
       - name: Verify BigKinds annual/publisher historical charts
         run: node qa/test_bigkinds_charts.js
+      - name: Verify prominent inline About lead and accessible semantics
+        run: node qa/test_about_lead.js
       - name: Verify editable BigKinds dataset and About blocks
         run: python -m unittest discover -s qa -p "test_bigkinds_editor.py" -v
       - name: Verify feedback Sheets write and recovery protections

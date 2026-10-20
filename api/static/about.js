@@ -1,3 +1,24 @@
+// Render a title-sized lead phrase inside the original first paragraph; never change stored admin text.
+function renderAboutText(node,text,highlightLead){
+  node.replaceChildren();
+  const lead=/^(\s*)([“"‘']취재를 종합하면[”"’']은)/.exec(text);
+  if(highlightLead&&lead){
+    if(lead[1])node.appendChild(document.createTextNode(lead[1]));
+    const title=document.createElement("span");
+    title.className="about-lead-phrase";
+    title.setAttribute("role","heading");
+    title.setAttribute("aria-level","1");
+    title.textContent=lead[2];
+    node.appendChild(title);
+    // If the editor placed a newline right after the lead, join only the displayed
+    // first line to keep the smaller continuation visually inline.
+    const suffix=text.slice(lead[0].length).replace(/^[ \t]*(?:\r?\n)[ \t]*/, " ");
+    node.appendChild(document.createTextNode(suffix));
+  }else{
+    node.textContent=text;
+  }
+}
+
 function renderAboutLayout(cfg){
   const host=document.querySelector("#aboutLayout");
   const legacy=document.querySelector("#aboutContent");
@@ -11,6 +32,7 @@ function renderAboutLayout(cfg){
   ];
   const fragment=document.createDocumentFragment();
   let legacyUsed=false;
+  let leadSeen=false;
   for(const block of saved){
     if(block.type==="chart"&&charts[block.chart]){
       fragment.appendChild(charts[block.chart]);
@@ -18,7 +40,8 @@ function renderAboutLayout(cfg){
       const node=!legacyUsed?legacy:document.createElement("section");
       legacyUsed=true;
       node.className="about-text-block";
-      node.textContent=block.text;
+      renderAboutText(node,block.text,!leadSeen);
+      leadSeen=true;
       node.hidden=false;
       fragment.appendChild(node);
     }

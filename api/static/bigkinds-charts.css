@@ -85,3 +85,14 @@
 #feedbackSubmit:hover:not(:disabled){background:#153e6d}
 #feedbackSubmit:disabled{opacity:.58;cursor:not-allowed}
 #feedbackStatus{font-size:12px;line-height:1.6;color:#426583}
+
+/* The former 30px page title is now the first phrase of the editor's prose.
+   Keep it inline so smaller text continues on the same baseline without a break. */
+.about-page .about-text-block .about-lead-phrase{
+  display:inline;
+  font-size:30px;
+  font-weight:750;
+  letter-spacing:-.04em;
+  line-height:1.35;
+  color:#163e6d;
+}
