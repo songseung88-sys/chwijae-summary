@@ -130,7 +130,12 @@ jobs:
           parser.feed(html)
           root="https://chwijae-api-ejmdmrnztq-du.a.run.app/"
           image_url=parser.tags["og:image"]
-          assert parser.tags["og:title"]=="취재를 종합하면"
+          # Shared preview title/description may be customized by the admin.
+          assert 1<=len(parser.tags["og:title"])<=100
+          assert 1<=len(parser.tags["og:description"])<=300
+          assert parser.tags["twitter:title"]==parser.tags["og:title"]
+          assert parser.tags["twitter:description"]==parser.tags["og:description"]
+          assert parser.tags["description"]==parser.tags["og:description"]
           assert parser.tags["og:url"]==root
           # The thumbnail is editable in /admin. Allow the bundled image or
           # a Firestore-backed immutable version; do not demand a fixed URL.
@@ -163,9 +168,16 @@ jobs:
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/thumbnail-editor.js?v=1" -o /tmp/thumbnail-editor.js
           grep -q 'id="thumbnailFile"' /tmp/admin.html
           grep -q 'id="thumbnailSave"' /tmp/admin.html
+          grep -q 'id="thumbnailMetaTitle"' /tmp/admin.html
+          grep -q 'id="thumbnailMetaDescription"' /tmp/admin.html
+          grep -q 'id="thumbnailMetaSave"' /tmp/admin.html
+          grep -q '/api/admin/thumbnail/metadata' /tmp/thumbnail-editor.js
           grep -q '/api/admin/thumbnail' /tmp/thumbnail-editor.js
           CODE="$(curl --silent --show-error -o /tmp/unauthorized.json -w '%{http_code}' "${URL}/api/admin/thumbnail")"
           test "${CODE}" = "401"
+          META_CODE="$(curl --silent --show-error -o /tmp/metadata-unauthorized.json -w '%{http_code}' -X PUT -H 'Content-Type: application/json' \
+            --data '{"title":"unauthorized","description":"unauthorized"}' "${URL}/api/admin/thumbnail/metadata")"
+          test "${META_CODE}" = "401"
           echo "ADMIN_THUMBNAIL_AUTH_REQUIRED"
           echo "### Dashboard" >> "${GITHUB_STEP_SUMMARY}"
           echo "${URL}" >> "${GITHUB_STEP_SUMMARY}"

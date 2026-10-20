@@ -10,7 +10,8 @@ sys.path.insert(0,str(ROOT/"api"))
 from share_thumbnail import (
     InvalidThumbnail, MAX_STORED_BYTES, image_url,
     image_version, process_thumbnail, render_preview_html,
-    THUMBNAIL_SIZE, STATIC_FALLBACK_URL,
+    THUMBNAIL_SIZE, STATIC_FALLBACK_URL, DEFAULT_OG_TITLE,
+    DEFAULT_OG_DESCRIPTION, validate_preview_copy,
 )
 
 class ThumbnailUploadTests(unittest.TestCase):
@@ -64,13 +65,34 @@ class ThumbnailUploadTests(unittest.TestCase):
         self.assertIn('property="og:image:width" content="1200"',rendered)
         self.assertIn('property="og:image:height" content="630"',rendered)
         self.assertIn('name="twitter:card" content="summary_large_image"',rendered)
-        self.assertEqual(render_preview_html(html,image_url()),html)
+        defaults=render_preview_html(html,image_url())
+        self.assertIn('name="twitter:description" content="'+DEFAULT_OG_DESCRIPTION+'"',defaults)
+        self.assertIn('property="og:description" content="'+DEFAULT_OG_DESCRIPTION+'"',defaults)
+        self.assertEqual(render_preview_html(defaults,image_url()),defaults)
         with self.assertRaises(ValueError):
             render_preview_html(html,"https://untrusted.example.com/inject.jpg")
 
+    def test_editable_og_title_description_are_escaped_and_length_checked(self):
+        html=(ROOT/"api/static/index.html").read_text(encoding="utf-8")
+        content=render_preview_html(
+            html,STATIC_FALLBACK_URL,"뉴스 <img onerror=bad> & 분석", '설명 "인용" & 검증'
+        )
+        self.assertIn('property="og:title" content="뉴스 &lt;img onerror=bad&gt; &amp; 분석"',content)
+        self.assertIn('name="twitter:title" content="뉴스 &lt;img onerror=bad&gt; &amp; 분석"',content)
+        self.assertIn('property="og:description" content="설명 &quot;인용&quot; &amp; 검증"',content)
+        self.assertIn('name="twitter:description" content="설명 &quot;인용&quot; &amp; 검증"',content)
+        self.assertIn('name="description" content="설명 &quot;인용&quot; &amp; 검증"',content)
+        self.assertIn('<title>취재를 종합하면</title>',content)
+        self.assertEqual(validate_preview_copy("  새  제목 "," 상세   설명 "),("새 제목","상세 설명"))
+        for title,description in (("","설명"),("제목",""),("a"*101,"설명"),("제목","b"*301),
+                                  (None,"설명"),(1,"설명")):
+            with self.subTest(title=title,description=description),self.assertRaises(ValueError):
+                validate_preview_copy(title,description)
+
     def test_route_is_password_protected_and_persistent(self):
         main=(ROOT/"api/main.py").read_text(encoding="utf-8")
-        for route in ('@app.put("/api/admin/thumbnail")',
+        for route in ('@app.put("/api/admin/thumbnail/metadata")',
+                      '@app.put("/api/admin/thumbnail")',
                       '@app.delete("/api/admin/thumbnail")',
                       '@app.get("/api/admin/thumbnail")'):
             self.assertIn(route,main)
@@ -99,7 +121,11 @@ class SimulatedEndpoints(unittest.TestCase):
             def __init__(self,data,key):
                 self.data=data;self.key=key
             def get(self):return Snapshot(self.data.get(self.key))
-            def set(self,info):self.data[self.key]=info
+            def set(self,info,merge=False):
+                if merge and self.key in self.data:
+                    self.data[self.key].update(info)
+                else:
+                    self.data[self.key]=info
             def delete(self):self.data.pop(self.key,None)
         class Collection:
             def __init__(self,data):self.data=data
@@ -109,7 +135,8 @@ class SimulatedEndpoints(unittest.TestCase):
             def collection(self,key):return Collection(self.data.setdefault(key,{}))
         source=(ROOT/"api/main.py").read_text(encoding="utf-8")
         methods={"require_admin","current_thumbnail","admin_thumbnail",
-                 "upload_thumbnail","reset_thumbnail","public_thumbnail","dashboard_page"}
+                 "upload_thumbnail","update_thumbnail_metadata",
+                 "reset_thumbnail","public_thumbnail","dashboard_page"}
         functions=[]
         for node in ast.parse(source).body:
             if isinstance(node,ast.FunctionDef) and node.name in methods:
@@ -123,6 +150,9 @@ class SimulatedEndpoints(unittest.TestCase):
             InvalidThumbnail=InvalidThumbnail,image_url=image_url,
             image_version=image_version,process_thumbnail=process_thumbnail,
             render_preview_html=render_preview_html,
+            DEFAULT_OG_TITLE=DEFAULT_OG_TITLE,
+            DEFAULT_OG_DESCRIPTION=DEFAULT_OG_DESCRIPTION,
+            validate_preview_copy=validate_preview_copy,
             STATIC_DIR=str(ROOT/"api/static"),
             firestore=type("F",(),{"SERVER_TIMESTAMP":"timestamp"})(),
             Response=lambda content,media_type,headers:dict(content=content,media_type=media_type,headers=headers),
@@ -134,6 +164,7 @@ class SimulatedEndpoints(unittest.TestCase):
             ("admin_thumbnail",("bad",)),
             ("upload_thumbnail",({"image_base64":"abcd"},"bad")),
             ("reset_thumbnail",("bad",)),
+            ("update_thumbnail_metadata",({"title":"비공개","description":"설명"},"bad")),
         ):
             with self.assertRaises(HTTPError) as error:
                 ns[method](*args)
@@ -142,9 +173,24 @@ class SimulatedEndpoints(unittest.TestCase):
         result=ns["upload_thumbnail"]({"image_base64":base64.b64encode(png).decode("ascii")},"protected")
         url=result["url"]
         self.assertIn("/share-images/",url)
+        self.assertEqual(ns["admin_thumbnail"]("protected")["title"],DEFAULT_OG_TITLE)
+        # Updating text does not replace or invalidate the current image.
+        ns["update_thumbnail_metadata"](
+            {"title":"연구를 위한 뉴스", "description":"언론  표현의   시계열"}, "protected"
+        )
+        self.assertEqual(ns["current_thumbnail"]()["url"],url)
+        self.assertEqual(ns["current_thumbnail"]()["title"],"연구를 위한 뉴스")
+        self.assertEqual(ns["current_thumbnail"]()["description"],"언론 표현의 시계열")
+        for invalid in ({"title":"","description":"ok"},
+                        {"title":"제목","description":"x"*301}):
+            with self.assertRaises(HTTPError) as bad:
+                ns["update_thumbnail_metadata"](invalid,"protected")
+            self.assertEqual(bad.exception.status_code,400)
         self.assertEqual(ns["current_thumbnail"]()["url"],url)
         page=ns["dashboard_page"]()
         self.assertEqual(page["content"].count(url),3)
+        self.assertIn('property="og:title" content="연구를 위한 뉴스"',page["content"])
+        self.assertIn('name="twitter:description" content="언론 표현의 시계열"',page["content"])
         self.assertEqual(page["headers"]["Cache-Control"],"no-cache, max-age=0")
         image=ns["public_thumbnail"](result["version"])
         self.assertEqual(image["media_type"],"image/jpeg")
@@ -153,8 +199,12 @@ class SimulatedEndpoints(unittest.TestCase):
         with self.assertRaises(HTTPError) as err:
             ns["upload_thumbnail"]({"image_base64":base64.b64encode(b"not-an-image").decode()},"protected")
         self.assertEqual(err.exception.status_code,400)
+        # Image replacement preserves edited text, while image reset restores only the image.
+        ns["upload_thumbnail"]({"image_base64":base64.b64encode(png).decode("ascii")},"protected")
+        self.assertEqual(ns["current_thumbnail"]()["title"],"연구를 위한 뉴스")
         ns["reset_thumbnail"]("protected")
         self.assertEqual(ns["current_thumbnail"]()["url"],STATIC_FALLBACK_URL)
+        self.assertEqual(ns["current_thumbnail"]()["title"],"연구를 위한 뉴스")
         self.assertEqual(ns["dashboard_page"]()["content"].count(STATIC_FALLBACK_URL),3)
         self.assertEqual(ns["public_thumbnail"](result["version"])["content"],image["content"])
 

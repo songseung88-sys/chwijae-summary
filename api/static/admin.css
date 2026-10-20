@@ -56,3 +56,44 @@
   .thumbnail-controls>#thumbnailLoad{width:100%}
   .thumbnail-file-label{min-width:0;width:100%}
 }
+
+/* Share preview text is independent of the uploaded image. */
+.thumbnail-metadata-fields{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  max-width:650px;
+  padding:20px 0 2px;
+  margin:19px 0 6px;
+  border-top:1px solid #dce6ef;
+}
+.thumbnail-metadata-fields h3{
+  font-size:16px;
+  letter-spacing:-.02em;
+  margin:0;
+  color:#214e7b;
+}
+.thumbnail-metadata-fields .publisher-editor-help{margin:-4px 0 4px}
+.thumbnail-metadata-fields label{
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  font-size:12px;
+  font-weight:650;
+  color:var(--muted);
+}
+.thumbnail-metadata-fields input,.thumbnail-metadata-fields textarea{
+  width:100%;
+  padding:11px 12px;
+  background:#fff;
+  color:var(--text);
+  border:1px solid #cfddeb;
+  border-radius:9px;
+  line-height:1.6;
+}
+.thumbnail-metadata-fields textarea{resize:vertical;min-height:78px}
+.thumbnail-metadata-fields input:focus-visible,.thumbnail-metadata-fields textarea:focus-visible{
+  outline:3px solid #bedef9;outline-offset:2px;
+}
+#thumbnailMetaStatus{font-size:12px;line-height:1.6;color:var(--muted)}
+#thumbnailMetaSave:disabled{cursor:wait;opacity:.6}
