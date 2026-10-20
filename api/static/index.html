@@ -29,12 +29,12 @@
   <main class="wrap">
     <header class="hero">
       <div>
-        <h1>취재를 종합하면</h1>
-        <div class="hero-intro"><p id="heroDescription"></p><a href="/about" class="about-link">자세히 보기 <span aria-hidden="true">↗</span></a></div>
+        <h1 id="dashboardTitle">취재를 종합하면</h1>
+        <div class="hero-intro"><p id="heroDescription"></p><a href="/about" class="about-link"><span id="aboutLinkLabel">자세히 보기</span> <span aria-hidden="true">↗</span></a></div>
         <div id="collectionHealth" class="collection-health" aria-live="polite">최근 수집 상태 확인 중…</div>
       </div>
       <label class="date-box">
-        <span>기준일</span>
+        <span id="dateLabel">기준일</span>
         <input id="dateInput" type="date" />
       </label>
     </header>
@@ -89,7 +89,7 @@
         <div class="panel-head">
           <div>
             <h2 id="secondaryTitle"></h2>
-            <span>해당 기사 본문 기준</span>
+            <span id="categoryCriteria">해당 기사 본문 기준</span>
           </div>
           <button class="text-link rank-toggle" data-target="secondaryRanking" type="button" aria-haspopup="dialog" aria-controls="rankingDialog"></button>
         </div>
@@ -147,8 +147,8 @@
     </article>
   </template>
 
-  <script src="/static/app.js?v=analysis-visual-3" defer></script>
-  <script src="/static/topic-dialog.js?v=analysis-visual-3" defer></script>
-  <script src="/static/ranking-dialog.js?v=ranking-details-1" defer></script>
+  <script src="/static/app.js?v=ui-copy-1" defer></script>
+  <script src="/static/topic-dialog.js?v=ui-copy-1" defer></script>
+  <script src="/static/ranking-dialog.js?v=ui-copy-1" defer></script>
 </body>
 </html>
