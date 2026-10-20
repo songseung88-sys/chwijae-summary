@@ -13,23 +13,18 @@ function renderCollectionHealth(collection){
   const el=qs("#collectionHealth");
   const stamp=collection?.finished_at;
   if(!stamp){
-    el.textContent="최근 수집 성공 기록을 확인할 수 없습니다.";
-    el.className="collection-health collection-health-warning";
+    el.textContent="마지막 수집 시각: 확인되지 않음";
     return;
   }
   const dt=new Date(stamp);
   if(Number.isNaN(dt.getTime())){
-    el.textContent="최근 수집 시각을 확인할 수 없습니다.";
-    el.className="collection-health collection-health-warning";
+    el.textContent="마지막 수집 시각: 확인되지 않음";
     return;
   }
   const time=new Intl.DateTimeFormat("ko-KR",{
     timeZone:"Asia/Seoul",month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit",hour12:false
   }).format(dt);
-  const ageMinutes=Math.max(0,Math.floor((Date.now()-dt.getTime())/60000));
-  const delayed=ageMinutes>90;
-  el.className="collection-health"+(delayed?" collection-health-warning":"");
-  el.textContent=`마지막 수집 완료: ${time} · ${delayed?"수집 지연 가능":"정상 갱신"} · 해당 실행 신규 ${collection.new_accepted||0}건`;
+  el.textContent=`마지막 수집 완료: ${time}`;
 }
 function rowLabel(r){
   return r.publisher ? `${esc(r.name)} <span class="rank-affiliation">${esc(r.publisher)}</span>` : esc(r.name);
@@ -95,24 +90,15 @@ function articleNode(a,cfg){
   node.querySelector(".context").textContent = a.context_sentence || "";
   const chips = [];
   if(a.is_exclusive) chips.push("[단독]");
-  chips.push(a.category_secondary || "주제 분류 대기");
+
   if(a.phrase_count>1) chips.push(`표현 ${a.phrase_count}회`);
-  for(const [k,v] of Object.entries(a.secondary_expressions||{})) chips.push(`${k} ${v}`);
+
   node.querySelector(".chips").innerHTML = chips.map(x=>`<span class="chip">${esc(x)}</span>`).join("");
   const details=node.querySelector(".paragraph-details");
   if(a.context_paragraph){
     node.querySelector("summary").textContent=cfg.paragraph_toggle_text;
     node.querySelector(".paragraph").textContent=a.context_paragraph;
   }else{details.remove();}
-  const topicDetails=node.querySelector(".topic-details");
-  if(a.category_secondary){
-    topicDetails.hidden=false;
-    topicDetails.querySelector(".topic-path").textContent=[a.category_primary,a.category_secondary,a.category_tertiary].filter(Boolean).join(" > ");
-    const tags=(a.topic_tags||[]).filter(Boolean);
-    topicDetails.querySelector(".topic-tags").textContent=tags.length?"태그: "+tags.join(", "):"태그 없음";
-    const original=a.category_original&&a.category_original!=="미분류"?a.category_original:"미확인";
-    topicDetails.querySelector(".topic-original").textContent="언론사 원문 분류: "+original;
-  }else{topicDetails.remove();}
   const links=[];
   if(a.original_url) links.push(`<a target="_blank" rel="noopener noreferrer" href="${esc(a.original_url)}">${esc(cfg.original_link_text)}</a>`);
   if(a.naver_url) links.push(`<a target="_blank" rel="noopener noreferrer" href="${esc(a.naver_url)}">${esc(cfg.naver_link_text)}</a>`);
