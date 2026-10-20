@@ -1,3 +1,4 @@
+function categoryCopy(key,fallback){return typeof uiCopy==="function"?uiCopy(key,fallback):fallback;}
 // Restrained editorial palette: distinct hues with similar visual weight.
 const topicColors=["#285B91","#337180","#47785F","#886D3F","#70628D","#935D55","#4A6D8A","#4C7771","#775F76","#806B52"];
 
@@ -115,7 +116,7 @@ function openCategoryDialog(){
   const root=qs("#categoryDialogContent");
   const total=rows.reduce((n,r)=>n+r.count,0);
   if(!total){
-    root.innerHTML='<p class="empty">'+esc(uiCopy("category_dialog_empty","분류된 기사가 없습니다."))+'</p>';
+    root.innerHTML='<p class="empty">'+esc(categoryCopy("category_dialog_empty","분류된 기사가 없습니다."))+'</p>';
     dialog.showModal();
     return;
   }
@@ -133,6 +134,6 @@ function openCategoryDialog(){
     return '<section class="topic-hierarchy-group"><h3>'+esc(group.primary)+' <small>'+group.count+'건</small></h3><ul>'+children+'</ul></section>';
   }).join("");
   root.innerHTML='<div class="topic-dialog-visual">'+pie+'<ul class="topic-legend">'+legend+'</ul></div>'+
-    '<div class="topic-dialog-hierarchy"><h3>'+esc(uiCopy("category_dialog_hierarchy","2차 · 3차 분류"))+'</h3><p class="topic-help">'+esc(uiCopy("category_dialog_tip","3차 분류가 없는 경우 2차 분류까지만 표시합니다."))+'</p>'+sections+'</div>';
+    '<div class="topic-dialog-hierarchy"><h3>'+esc(categoryCopy("category_dialog_hierarchy","2차 · 3차 분류"))+'</h3><p class="topic-help">'+esc(categoryCopy("category_dialog_tip","3차 분류가 없는 경우 2차 분류까지만 표시합니다."))+'</p>'+sections+'</div>';
   dialog.showModal();
 }
