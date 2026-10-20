@@ -97,3 +97,29 @@
 }
 #thumbnailMetaStatus{font-size:12px;line-height:1.6;color:var(--muted)}
 #thumbnailMetaSave:disabled{cursor:wait;opacity:.6}
+
+
+/* About article layout and editable BigKinds research-history table. */
+#aboutLayoutEditor h2,#bigkindsDataEditor h2{font-size:21px;letter-spacing:-.025em;margin:0 0 12px;color:#163e6d}
+.about-editor-tools{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px}
+.about-editor-list{display:flex;flex-direction:column;gap:12px}
+.about-editor-block{background:#f9fbfe;border:1px solid #dce6f0;border-radius:12px;padding:15px}
+.about-editor-block-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.about-editor-block-heading strong{color:#294968;font-size:14px}
+.about-editor-block-buttons{display:flex;gap:6px}
+.about-editor-block-buttons button{cursor:pointer;background:#fff;border:1px solid #cbddeb;color:#2e678f;border-radius:7px;padding:6px 9px}
+.about-editor-block-buttons button:disabled{opacity:.35;cursor:not-allowed}
+.about-editor-block .admin-field{margin-top:12px}
+.about-editor-chart-info{font-size:12px;color:#62778b;margin:10px 0 0}
+#aboutLayoutStatus,#bigkindsDataStatus{font-size:12px;color:#4b6a85;line-height:1.7}
+.bigkinds-editor-scroll{overflow:auto;max-width:100%;max-height:550px;border:1px solid #dce6f0;border-radius:12px}
+.bigkinds-editor-table{border-collapse:separate;border-spacing:0;font-size:12px;min-width:1180px}
+.bigkinds-editor-table th,.bigkinds-editor-table td{padding:9px 7px;border-bottom:1px solid #ebeff4;white-space:nowrap}
+.bigkinds-editor-table thead th{position:sticky;top:0;z-index:2;background:#eef5fb;color:#2c577a}
+.bigkinds-editor-table th:first-child,.bigkinds-editor-table td:first-child{position:sticky;left:0;z-index:1;background:#f7faff;font-variant-numeric:tabular-nums}
+.bigkinds-editor-table thead th:first-child{z-index:3}
+.bigkinds-editor-table td input{width:78px;border-radius:7px;border:1px solid #cbdbe9;padding:8px 6px;text-align:right;background:#fff;font-variant-numeric:tabular-nums;color:#213c54}
+.bigkinds-editor-table td input:focus-visible{outline:2px solid #74acd9;outline-offset:1px}
+.bigkinds-editor-table td input:invalid{border-color:#bd4444;background:#fff4f4}
+.bigkinds-editor-total{font-weight:800;color:#20517e;text-align:right;font-variant-numeric:tabular-nums;background:#f3f8fd}
+@media(max-width:560px){.about-editor-block-heading{align-items:flex-start;flex-direction:column}}

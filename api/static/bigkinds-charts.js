@@ -201,7 +201,7 @@ function renderBigkindsLegend(data,selected,render){
   });
 }
 async function loadBigkindsCharts(){
-  const response=await fetch("/static/bigkinds-annual-2016-2025.json",{cache:"no-store"});
+  const response=await fetch("/api/bigkinds-history",{cache:"no-store"});
   if(!response.ok)throw Error("빅카인즈 자료 불러오기 실패");
   const data=await response.json();
   validateBigkinds(data);
@@ -217,12 +217,6 @@ async function loadBigkindsCharts(){
     document.querySelector("#bigkindsSelectedCount").textContent=selected.size+" / 10개 언론사 선택";
   }
   renderPublishers();
-  document.querySelector("#bigkindsResetPublishers").addEventListener("click",()=>{
-    selected.clear();
-    BIGKINDS_DEFAULT_PUBLISHERS.forEach(name=>selected.add(name));
-    renderPublishers();
-  });
-  document.querySelector("#bigkindsPeakYear").textContent="2025년 "+bigkindsNumber(data.totals[9])+"건";
 }
 if(typeof document!=="undefined"){
   document.addEventListener("DOMContentLoaded",()=>{

@@ -19,8 +19,7 @@ ranking_collapse_text:"링크 · 접기",
 paragraph_toggle_text:"링크 · 문단 보기",
 original_link_text:"링크 · 원문",
 naver_link_text:"링크 · 네이버",
-articles_more_text:"버튼 · 더 보기",
-about_body:"자세히 보기 · 본문 (줄바꿈 유지)"
+articles_more_text:"버튼 · 더 보기"
 };
 let current={};
 async function load(){
