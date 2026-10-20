@@ -170,8 +170,8 @@ jobs:
             echo "Redundant About page heading must be removed"; exit 1
           fi
           grep -q '/static/about.js?v=4' /tmp/about.html
-          grep -q '/static/bigkinds-charts.css?v=6' /tmp/about.html
-          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.css?v=6" -o /tmp/about-charts.css
+          grep -q '/static/bigkinds-charts.css?v=7' /tmp/about.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.css?v=7" -o /tmp/about-charts.css
           grep -Fq '.feedback-section details[open] summary > span[aria-hidden="true"]{transform:rotate(180deg)}' /tmp/about-charts.css
           grep -Fq '.feedback-section summary #feedbackSummaryLabel{font-size:14px' /tmp/about-charts.css
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/admin" -o /tmp/format-admin.html
@@ -182,11 +182,15 @@ jobs:
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/about.js?v=4" -o /tmp/about-lead.js
           grep -q 'about-lead-phrase' /tmp/about-lead.js
           grep -q 'id="bigkindsPublisherChart"' /tmp/about.html
+          grep -q 'feedback-chevron' /tmp/about.html
+          grep -q '▼' /tmp/about.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-annual-2016-2025.json" -o /tmp/bigkinds.json
-          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.js?v=3" -o /tmp/bigkinds-charts.js
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/bigkinds-charts.js?v=4" -o /tmp/bigkinds-charts.js
           grep -q 'fetch("/api/bigkinds-history"' /tmp/bigkinds-charts.js
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/api/bigkinds-history" -o /tmp/bigkinds-live.json
           grep -q 'function annualBigkindsSvg' /tmp/bigkinds-charts.js
+          grep -q 'BIGKINDS_MOBILE_PLOT' /tmp/bigkinds-charts.js
+          grep -q 'bigkindsMobileView' /tmp/bigkinds-charts.js
           python - <<'PY'
           import json
           from pathlib import Path

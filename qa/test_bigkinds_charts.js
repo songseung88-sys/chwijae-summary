@@ -44,6 +44,30 @@ selected.add("국민일보");
 assert.equal((charts.publisherBigkindsSvg(data,selected).match(/class="bigkinds-series-line"/g)||[]).length,5);
 selected.clear();
 assert.match(charts.publisherBigkindsSvg(data,selected),/비교할 언론사를 선택해 주세요/);
+
+/* On mobile, plot the entire decade instead of exposing a cropped first half. */
+const compactAnnual=charts.annualBigkindsSvg(data,true);
+const compactPublisher=charts.publisherBigkindsSvg(data,new Set(charts.BIGKINDS_DEFAULT_PUBLISHERS),true);
+assert.match(compactAnnual,/viewBox="0 0 360 320"/);
+assert.match(compactPublisher,/viewBox="0 0 360 320"/);
+assert.match(compactAnnual,/bigkinds-svg-compact/);
+assert.match(compactPublisher,/bigkinds-svg-compact/);
+assert.equal((compactAnnual.match(/data-year-index="/g)||[]).length,10);
+assert.equal((compactPublisher.match(/data-year-index="/g)||[]).length,10);
+for(const year of [2016,2017,2018,2019,2020,2021,2022,2023,2024,2025]){
+  assert(compactAnnual.includes('>'+year+'</text>'),"Visible full decade: "+year);
+  assert(compactPublisher.includes('>'+year+'</text>'),"Visible publisher decade: "+year);
+}
+const compactSvgHitRects=[...compactAnnual.matchAll(/class="bigkinds-hit"[^>]*x="([\d.]+)"[^>]*width="([\d.]+)"/g)];
+assert.equal(compactSvgHitRects.length,10);
+for(const rect of compactSvgHitRects){
+  assert(Number(rect[1])>=0);
+  assert(Number(rect[1])+Number(rect[2])<=360);
+}
+assert.match(compactPublisher,/stroke="#285B91"/);
+assert.match(compactPublisher,/stroke="#47785F"/);
+assert.match(charts.publisherBigkindsSvg(data,new Set(),true),/viewBox="0 0 360 320"/);
+
 const html=fs.readFileSync("api/static/about.html","utf8");
 const css=fs.readFileSync("api/static/bigkinds-charts.css","utf8");
 for(const token of ["bigkindsAnnualChart","bigkindsPublisherChart","bigkindsPublisherFilters",
@@ -61,6 +85,13 @@ const aboutCode=fs.readFileSync("api/static/about.js","utf8");
 assert(aboutCode.includes("renderAboutLayout"));
 assert(aboutCode.includes("renderAboutText(node,block.text,!leadSeen)")); // First section is safely rendered with text nodes.
 assert(aboutCode.includes("node.textContent=text")); // Remaining content never treated as HTML.
+assert(css.includes(".bigkinds-svg{min-width:0;width:100%;max-width:100%}"));
+assert(css.includes(".bigkinds-chart-shell{overflow-x:visible;overflow-y:visible}"));
+assert(css.includes(".bigkinds-svg-compact .bigkinds-hit{touch-action:pan-y}"));
+assert(html.includes('class="feedback-chevron" aria-hidden="true">▼</span>'));
+assert(!html.includes('aria-hidden="true">⌄</span>'));
+assert(html.includes('bigkinds-charts.js?v=4'));
+assert(html.includes('bigkinds-charts.css?v=7'));
 assert(css.includes("bigkinds-tooltip"));
 assert(css.includes("bigkinds-hit:focus-visible"));
 assert(html.includes('id="aboutContent"'),"Keep legacy About content migration");

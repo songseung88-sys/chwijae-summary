@@ -62,7 +62,7 @@ const editor=fs.readFileSync("api/static/about-layout-editor.js","utf8");
 assert(css.includes('.feedback-section summary #feedbackSummaryLabel{font-size:14px'));
 assert(css.includes('.feedback-section details[open] summary > span[aria-hidden="true"]{transform:rotate(180deg)}'));
 assert(!css.includes('.feedback-section details[open] summary span{transform:rotate(180deg)}'));
-assert(about.includes('/static/bigkinds-charts.css?v=6'));
+assert(about.includes('/static/bigkinds-charts.css?v=7'));
 assert(admin.includes('/static/about-format.js?v=1'));
 assert(admin.includes('/static/about-layout-editor.js?v=3'));
 assert(admin.indexOf("about-format.js")<admin.indexOf("about-layout-editor.js"));
