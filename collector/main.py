@@ -324,7 +324,7 @@ def valid_body_container(node):
         return False
     if node.find_parent(["script", "style", "noscript", "template", "nav", "head"]):
         return False
-    if re.search(r"(^|[\\s_-])(search_layer|search-layer|popup|modal)([\\s_-]|$)",
+    if re.search(r"(^|[\s_-])(search_layer|search-layer|popup|modal)([\s_-]|$)",
                  " ".join(node.get("class", [])) + " " + (node.get("id") or ""),
                  flags=re.I):
         return False
