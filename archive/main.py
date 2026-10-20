@@ -403,5 +403,27 @@ def main():
     print(json.dumps({"mode":"full","articles":len(raw),"body_attempts":count,"rows_written":written,
         "runs":len(run_rows["30분 수집 로그"]),"status":status},ensure_ascii=False))
 
+def record_run_status(mode,status,detail):
+    """Operational status in private Firestore, independent of log-viewer IAM."""
+    db=firestore.Client(project=PROJECT_ID)
+    db.collection("archive_status").document(mode).set({
+        "mode":mode,"status":status,
+        "detail":str(detail)[:300],
+        "updated_at":datetime.now(KST).isoformat(),
+        "archive_version":ARCHIVE_VERSION,
+    },merge=True)
+
+
 if __name__=="__main__":
-    main()
+    import sys
+    mode="logs" if "--mode" in sys.argv and sys.argv.index("--mode")+1<len(sys.argv)
+                 and sys.argv[sys.argv.index("--mode")+1]=="logs" else "full"
+    try:
+        main()
+        record_run_status(mode,"success","Completed")
+    except Exception as exc:
+        try:
+            record_run_status(mode,"failure",type(exc).__name__+": "+str(exc))
+        except Exception:
+            pass
+        raise
