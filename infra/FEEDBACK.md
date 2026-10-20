@@ -18,7 +18,7 @@
 
 Google Apps Script `onEdit` triggers do **not** run for changes made via the
 Google Sheets API. Instead the provided script checks the private opinion tab
-every five minutes and sends one digest email for any new rows; it marks the
+once an hour and sends one digest email for any new rows; it marks the
 **알림 발송 시각(KST)** column only after sending.
 
 1. Open the existing [data archive spreadsheet](https://docs.google.com/spreadsheets/d/1pLRILhu02VX1_KYDgEaRjOeL4WgBP_1Wmh-mm-iFcaY/edit#gid=209).
@@ -30,9 +30,9 @@ every five minutes and sends one digest email for any new rows; it marks the
 5. Choose **installOpinionEmailAlerts** from the function menu and click **실행**.
    Accept Google's requested Sheets, trigger and mail scopes.
 6. Confirm under Apps Script **트리거** that `checkOpinionMessages` runs
-   every five minutes. For a test, create a real feedback submission through
+   every hour. For a test, create a real feedback submission through
    the public page and confirm the new row and a notification email.
 
 The Assistant cannot approve personal email-sending scopes on the owner's behalf.
-Only the above one-time authorization remains; the site works without it.
+If you already installed the five-minute version, replace Code.gs with the new script\nand run **installOpinionEmailAlerts** again. It deletes the existing opinion\ntrigger and creates an hourly one. The previously granted OAuth scopes can be reused.\nThe site works without notifications.
 To stop emails, delete that time-driven trigger in Apps Script.
