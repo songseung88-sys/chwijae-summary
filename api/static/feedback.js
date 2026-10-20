@@ -1,5 +1,10 @@
 "use strict";
 let feedbackSubmissionId=null;
+function feedbackCopy(key,fallback=""){
+  const ui=typeof window!=="undefined"?window.aboutPublicUiCopy:null;
+  return ui&&Object.prototype.hasOwnProperty.call(ui,key)?ui[key]:fallback;
+}
+
 const feedbackFormSelector="#feedbackForm";
 
 function freshFeedbackId(){
@@ -19,12 +24,12 @@ async function submitFeedback(event){
   const button=document.querySelector("#feedbackSubmit");
   const message=field.value.trim();
   if(message.length<2||message.length>3000){
-    status.textContent="의견을 2자 이상 3,000자 이하로 입력해주세요.";
+    status.textContent=feedbackCopy("feedback_length_error","의견을 2자 이상 3,000자 이하로 입력해주세요.");
     field.focus();return;
   }
   if(!feedbackSubmissionId)feedbackSubmissionId=freshFeedbackId();
   button.disabled=true;
-  status.textContent="전송 중…";
+  status.textContent=feedbackCopy("feedback_sending","전송 중…");
   try{
     const res=await fetch("/api/feedback",{
       method:"POST",
@@ -36,11 +41,11 @@ async function submitFeedback(event){
       })
     });
     const result=await res.json().catch(()=>({}));
-    if(!res.ok)throw Error(result.detail||"전송에 실패했습니다. 잠시 후 다시 시도해주세요.");
-    status.textContent="의견이 전송됐습니다. 감사합니다.";
+    if(!res.ok)throw Error(result.detail||feedbackCopy("feedback_error","전송에 실패했습니다. 잠시 후 다시 시도해주세요."));
+    status.textContent=feedbackCopy("feedback_success","의견이 전송됐습니다. 감사합니다.");
     field.value="";
     feedbackSubmissionId=null;
-    button.textContent="전송 완료";
+    button.textContent=feedbackCopy("feedback_sent_button","전송 완료");
     button.disabled=true;
   }catch(error){
     status.textContent=error.message;
@@ -55,7 +60,7 @@ if(typeof document!=="undefined"){
     const field=document.querySelector("#feedbackMessage");
     field.addEventListener("input",()=>{
       const button=document.querySelector("#feedbackSubmit");
-      button.textContent="전송하기";
+      button.textContent=feedbackCopy("feedback_submit","전송하기");
       button.disabled=false;
       document.querySelector("#feedbackStatus").textContent="";
       feedbackSubmissionId=null;
