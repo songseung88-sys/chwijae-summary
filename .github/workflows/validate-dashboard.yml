@@ -67,7 +67,7 @@ jobs:
           PY
       - name: Diagnose excluded publishers from public pages (one-time read-only)
         run: |
-          python -m pip install --quiet requests beautifulsoup4
+          python -m pip install --quiet -r collector/requirements.txt
           python qa/probe_failing_publishers.py
       - name: Publisher and scheduler regression checks
         run: |
@@ -77,6 +77,7 @@ jobs:
           python -m unittest discover -s qa -p "test_subjectless_table3.py" -v
           python -m unittest discover -s qa -p "test_expanded_corpus.py" -v
           python -m unittest discover -s qa -p "test_article_body_extraction.py" -v
+          python -m unittest discover -s qa -p "test_publisher_site_recovery.py" -v
           bash -n infra/setup_scheduler.sh
       - name: JavaScript syntax check
         run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/about-format.js && node --check api/static/bigkinds-data-editor.js && node --check api/static/feedback.js
