@@ -70,3 +70,23 @@ for name,url in PAGES:
             record["title"]=(soup.title.get_text(" ",strip=True) if soup.title else "")[:90]
     except Exception as exc:record["exception"]=type(exc).__name__+":"+str(exc)[:155]
     print("PUBLISHER_PROBE "+json.dumps(record,ensure_ascii=False),flush=True)
+
+# Verify the patched production parser against three real, public articles.
+from collector import main as production
+for label, url in [
+    ("businesspost-production", "https://www.businesspost.co.kr/BP?command=article_view&num=448697"),
+    ("viva100-production", "https://www.viva100.com/article/20261020500664"),
+    ("kbsm-production", "https://www.kbsm.net/news/view.php?idx=538427"),
+]:
+    item=production.parse_original(url)
+    print("PUBLISHER_PRODUCTION "+json.dumps({
+        "label":label,
+        "status":item.get("status_code"),
+        "error":item.get("error"),
+        "phrase_count":item.get("phrase_count"),
+        "chars":len(item.get("body","")),
+        "paragraphs":len(item.get("paragraphs",[])),
+        "variant":item.get("fetch_variant"),
+        "final_host":urlparse(item.get("final_url","")).hostname,
+        "context_samples":[x.get("text","")[:70] for x in item.get("phrase_contexts",[])[:2]],
+    },ensure_ascii=False),flush=True)
