@@ -65,6 +65,10 @@ jobs:
           assert 'src=basename' in archive
           print("Archive scheduling and per-domain diagnostics contract passed")
           PY
+      - name: Diagnose excluded publishers from public pages (one-time read-only)
+        run: |
+          python -m pip install --quiet requests beautifulsoup4
+          python qa/probe_failing_publishers.py
       - name: Publisher and scheduler regression checks
         run: |
           python -m pip install --quiet beautifulsoup4
