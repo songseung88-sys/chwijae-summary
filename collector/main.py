@@ -11,7 +11,7 @@ import time
 from datetime import datetime
 from difflib import SequenceMatcher
 from email.utils import parsedate_to_datetime
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 import requests
@@ -65,7 +65,7 @@ SUBJECTLESS_OTHER_RULES = [
     ("기타", "기타", "확인됐다", r"확인됐(?:다|고|으며|지만|는데)"),
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.5-major-publisher-body"
+COLLECTOR_VERSION = "0.5.6-publisher-recovery"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -331,7 +331,58 @@ def valid_body_container(node):
     return True
 
 
-def choose_body_container(soup):
+# Site-specific public article containers. They are checked only on their
+# matching publisher host, not against untrusted search-page text.
+PUBLISHER_BODY_SELECTORS = {
+    "businesspost.co.kr": ("#article-body-content",),
+    "viva100.com": (".news_content",),
+    "kbsm.net": ('[itemprop="articleBody"]',),
+}
+
+
+def publisher_body_node(soup, host):
+    host = (host or "").lower()
+    for domain, selectors in PUBLISHER_BODY_SELECTORS.items():
+        if host != domain and not host.endswith("." + domain):
+            continue
+        for selector in selectors:
+            node = soup.select_one(selector)
+            if node is None or node.name not in ("div", "section", "article", "main"):
+                continue
+            text = clean_text(node.get_text("\n", strip=True))
+            if not (100 <= len(text) <= 80000) or not contains_target_phrase(text):
+                continue
+            # Some kbsm pages have malformed head markup containing the
+            # articleBody <div>. The browser moves it into body, but html.parser
+            # leaves it under head; explicitly accept only this exact known
+            # articleBody element on that host, never scripts or metadata.
+            if domain == "kbsm.net" and node.get("itemprop") == "articleBody":
+                return node
+            if valid_body_container(node):
+                return node
+    return None
+
+
+def official_businesspost_mobile_url(url):
+    """One public mobile alternative for a www/root article blocked by HTTP 403."""
+    parsed = urlparse(url or "")
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or host not in ("www.businesspost.co.kr", "businesspost.co.kr"):
+        return ""
+    if parsed.path != "/BP":
+        return ""
+    params = parse_qs(parsed.query)
+    num = (params.get("num") or [""])[0]
+    command = (params.get("command") or [""])[0]
+    if not re.fullmatch(r"[0-9]{2,12}", num) or command not in ("article_view", "mobile_view"):
+        return ""
+    return f"https://m.businesspost.co.kr/BP?command=article_view&num={num}"
+
+
+def choose_body_container(soup, host=""):
+    site_node = publisher_body_node(soup, host) if host else None
+    if site_node is not None:
+        return site_node
     # Specific article-body containers beat generic article/page elements,
     # even when the article has none of our target phrases (QA / ordinary news).
     fallback = None
@@ -477,6 +528,7 @@ def parse_original(url):
         "ok": False,
         "status_code": None,
         "final_url": url,
+        "fetch_variant": "ORIGINAL",
         "title": "",
         "publisher": "",
         "reporters": "",
@@ -498,6 +550,22 @@ def parse_original(url):
         r = session.get(url, timeout=20, allow_redirects=True)
         result["status_code"] = r.status_code
         result["final_url"] = r.url
+        # Businesspost blocks the public desktop host in our collector runtime,
+        # but publishes the same numbered article at its official mobile host.
+        # No login/cookies/anti-bot bypass; only try that public equivalent once.
+        if r.status_code == 403:
+            mobile_url = official_businesspost_mobile_url(url)
+            if mobile_url:
+                alt = session.get(mobile_url, timeout=20, allow_redirects=True)
+                mobile_num = parse_qs(urlparse(alt.url).query).get("num", [""])[0]
+                requested_num = parse_qs(urlparse(url).query).get("num", [""])[0]
+                if (alt.status_code == 200
+                    and (urlparse(alt.url).hostname or "").lower() == "m.businesspost.co.kr"
+                    and mobile_num == requested_num):
+                    r = alt
+                    result["status_code"] = 200
+                    result["final_url"] = r.url
+                    result["fetch_variant"] = "OFFICIAL_MOBILE"
         if r.status_code != 200:
             result["error"] = f"HTTP_{r.status_code}"
             return result
@@ -536,7 +604,7 @@ def parse_original(url):
         if result["category_original"] == result["publisher"]:
             result["category_original"] = ""
 
-        container = choose_body_container(soup)
+        container = choose_body_container(soup, host)
         paragraphs = extract_paragraphs(container)
 
         if not any(contains_target_phrase(p) for p in paragraphs):
@@ -1031,6 +1099,8 @@ def main():
             ),
             "body_text_private": final.get("body", ""),
             "original_parse_error": original.get("error", ""),
+            "original_fetch_variant": original.get("fetch_variant", "ORIGINAL"),
+            "original_fetch_final_url": original.get("final_url", original_url),
             "naver_parse_error": naver.get("error", ""),
             "body_similarity_original_vs_naver": body_sim if item["naver_url"] else None,
             "phrase_context_similarity": similarity(
