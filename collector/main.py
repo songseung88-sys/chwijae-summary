@@ -349,7 +349,7 @@ def publisher_body_node(soup, host):
             node = soup.select_one(selector)
             if node is None or node.name not in ("div", "section", "article", "main"):
                 continue
-            text = clean_text(node.get_text("\\n", strip=True))
+            text = clean_text(node.get_text("\n", strip=True))
             if not (100 <= len(text) <= 80000) or not contains_target_phrase(text):
                 continue
             # Some kbsm pages have malformed head markup containing the
