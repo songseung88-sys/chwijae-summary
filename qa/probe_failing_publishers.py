@@ -72,6 +72,9 @@ for name,url in PAGES:
     print("PUBLISHER_PROBE "+json.dumps(record,ensure_ascii=False),flush=True)
 
 # Verify the patched production parser against three real, public articles.
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from collector import main as production
 for label, url in [
     ("businesspost-production", "https://www.businesspost.co.kr/BP?command=article_view&num=448697"),
