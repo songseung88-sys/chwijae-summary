@@ -15,7 +15,7 @@ PAGES = [
     ("viva-mobile", "https://m.viva100.com/article/20261020500664"),
     ("kbsm-main", "https://www.kbsm.net/news/view.php?idx=538427"),
     ("kbsm-mobile", "https://m.kbsm.net/view.php?idx=534514"),
-    ("ksmnews-main", "https://www.ksmnews.co.kr/"),
+    ("ksmnews-main", "https://www.ksmnews.co.kr/news/view.php?idx=617133"),
 ]
 SELECTORS=[
     "article","main","[itemprop=articleBody]","#articleBody","#article_body",
@@ -48,6 +48,25 @@ for name,url in PAGES:
                     record["body_candidates"].append({"selector":selector,"chars":len(body),"phrase":body.count("취재를 종합하면"),"start":body[:45]})
             record["body_candidates"]=record["body_candidates"][:20]
             record["article_json_ld"]=any('NewsArticle' in str(x) for x in soup.select('script[type="application/ld+json"]'))
+            record["json_ld_article_body_chars"]=[]
+            for t in soup.select('script[type="application/ld+json"]'):
+                try:
+                    o=json.loads(t.string or t.get_text(strip=True))
+                    if isinstance(o,dict):
+                        record["json_ld_article_body_chars"].append(len(str(o.get('articleBody',''))))
+                except Exception:pass
+            # Find the exact text node containing the phrase and trace its
+            # element ancestors to locate the site's published body wrapper.
+            nodes=soup.find_all(string=lambda x:isinstance(x,str) and "취재를 종합하면" in x)
+            record["phrase_ancestry"]=[]
+            for n in nodes[:2]:
+                parents=[]
+                for node in [n.parent,*list(n.parents)[:6]]:
+                    if node and node.name:
+                        parents.append({"tag":node.name,"id":node.get("id"),"classes":node.get("class",[]),
+                                        "length":len(node.get_text(" ",strip=True))})
+                record["phrase_ancestry"].append(parents)
+
             record["title"]=(soup.title.get_text(" ",strip=True) if soup.title else "")[:90]
     except Exception as exc:record["exception"]=type(exc).__name__+":"+str(exc)[:155]
     print("PUBLISHER_PROBE "+json.dumps(record,ensure_ascii=False),flush=True)
