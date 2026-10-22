@@ -15,7 +15,7 @@ PAGES = [
     ("viva-mobile", "https://m.viva100.com/article/20261020500664"),
     ("kbsm-main", "https://www.kbsm.net/news/view.php?idx=538427"),
     ("kbsm-mobile", "https://m.kbsm.net/view.php?idx=534514"),
-    ("ksmnews-main", "https://www.ksmnews.co.kr/news/view.php?idx=617133"),
+    ("ksmnews-main", "https://www.ksmnews.co.kr/news/view.php?idx=626359"),
 ]
 SELECTORS=[
     "article","main","[itemprop=articleBody]","#articleBody","#article_body",
