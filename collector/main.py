@@ -380,7 +380,7 @@ def official_businesspost_mobile_url(url):
 
 
 def choose_body_container(soup, host=""):
-    site_node = publisher_body_node(soup, host)
+    site_node = publisher_body_node(soup, host) if host else None
     if site_node is not None:
         return site_node
     # Specific article-body containers beat generic article/page elements,
