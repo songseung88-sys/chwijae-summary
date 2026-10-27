@@ -24,7 +24,7 @@ jobs:
       - uses: google-github-actions/setup-gcloud@v3
       - name: Read archive Cloud Run stdout and stderr
         run: |
-          gcloud logging read             'resource.type="cloud_run_job" AND resource.labels.job_name="chwijae-daily-archive"'             --project=chwijae-summary --freshness=3h --limit=40             --format='table(timestamp,severity,textPayload,jsonPayload.message)' || true
+          gcloud logging read             'resource.type="cloud_run_job" AND resource.labels.job_name="chwijae-daily-archive"'             --project=chwijae-summary --freshness=2h --limit=80             --format='table(timestamp,severity,textPayload,jsonPayload.message)' || true
       - name: Describe failed execution
         run: |
-          gcloud run jobs executions describe chwijae-daily-archive-2pnp4             --project=chwijae-summary --region=asia-northeast3             --format=json || true
+          gcloud run jobs executions describe chwijae-daily-archive-hws5g             --project=chwijae-summary --region=asia-northeast3             --format=json || true
