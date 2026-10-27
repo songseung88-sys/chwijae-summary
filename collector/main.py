@@ -65,7 +65,7 @@ SUBJECTLESS_OTHER_RULES = [
     ("기타", "기타", "확인됐다", r"확인됐(?:다|고|으며|지만|는데)"),
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.6-publisher-recovery"
+COLLECTOR_VERSION = "0.5.7-etoday-reporter"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -83,6 +83,7 @@ PUBLISHER_BY_HOST = {
     "segye.com": "세계일보",
     "view.asiae.co.kr": "아시아경제",
     "nocutnews.co.kr": "노컷뉴스",
+    "etoday.co.kr": "이투데이",
 }
 
 UA = (
@@ -222,16 +223,35 @@ def normalize_publisher(name, host):
     return name
 
 
-def normalize_reporter_text(raw, publisher=""):
+def publisher_as_reporter(raw, publisher="", host=""):
+    """A newsroom/site label must never be classified as an individual byline."""
+    raw = clean_text(raw).strip()
+    raw = re.sub(r"\\s*(?:기자|특파원|논설위원|에디터|PD)$", "", raw).strip()
+    if not raw:
+        return False
+    normalized = raw.casefold().replace(" ", "").replace("-", "")
+    if publisher and normalized == clean_text(publisher).casefold().replace(" ", "").replace("-", ""):
+        return True
+    expected = normalize_publisher("", host)
+    if expected and normalized == expected.casefold().replace(" ", "").replace("-", ""):
+        return True
+    if (host or "").lower().endswith("etoday.co.kr"):
+        return normalized in ("이투데이", "etoday")
+    return False
+
+
+def normalize_reporter_text(raw, publisher="", host=""):
     raw = clean_text(raw)
     if not raw:
         return ""
     if raw.startswith("http://") or raw.startswith("https://"):
         return ""
-    if publisher and raw == publisher:
+    if publisher_as_reporter(raw, publisher, host):
         return ""
 
     names = re.findall(r"([가-힣]{2,4})\s*기자", raw)
+    if names:
+        names = [n for n in names if not publisher_as_reporter(n, publisher, host)]
     if names:
         return ", ".join(dict.fromkeys(names))
 
@@ -239,6 +259,8 @@ def normalize_reporter_text(raw, publisher=""):
     good = []
     for part in parts:
         part = re.sub(r"\s*(기자|특파원|논설위원|에디터|PD)$", "", part).strip()
+        if publisher_as_reporter(part, publisher, host):
+            continue
         if re.fullmatch(r"[가-힣]{2,4}", part):
             good.append(part)
         elif re.fullmatch(r"[가-힣A-Za-z0-9]{2,10}팀", part):
@@ -247,10 +269,16 @@ def normalize_reporter_text(raw, publisher=""):
 
 
 def infer_reporters(soup, data, publisher, host):
-    candidates = [
+    candidates = []
+    if (host or "").lower().endswith("etoday.co.kr"):
+        # Visible author links take precedence over generic '이투데이' author
+        # metadata. Do not use related-news text as an inferred reporter.
+        for node in soup.select('a[href*="/reporter?eid="]')[:5]:
+            candidates.append(node.get_text(" ", strip=True))
+    candidates.extend([
         author_name(data.get("author")),
         meta(soup, "author", "article:author", "parsely-author"),
-    ]
+    ])
     for selector in [
         ".reporter", ".reporter_name", ".journalist", ".author", ".byline",
         "[class*='reporter']", "[class*='journalist']", "[class*='byline']",
@@ -262,7 +290,7 @@ def infer_reporters(soup, data, publisher, host):
     page_text = clean_text(soup.get_text(" ", strip=True))
 
     for raw in candidates:
-        cleaned = normalize_reporter_text(raw, publisher)
+        cleaned = normalize_reporter_text(raw, publisher, host)
         if cleaned:
             # 팀 바이라인이 대표값으로 노출되는 CMS는 같은 페이지의
             # '○○팀 개인명 기자' 표기에서 실제 작성자를 우선한다.
@@ -286,7 +314,7 @@ def infer_reporters(soup, data, publisher, host):
 
     # '기자명'은 뉴스 CMS의 명시적 메타데이터 라벨이므로 매체 공통 fallback으로 사용한다.
     m = re.search(r"기자명\s*([가-힣]{2,4})(?:\s*기자)?", page_text)
-    if m:
+    if m and not publisher_as_reporter(m.group(1), publisher, host):
         return m.group(1)
 
     # 이메일 앞 이름은 현재 확인된 CMS에서만 제한적으로 사용한다.
