@@ -69,6 +69,7 @@ jobs:
         run: |
           python -m pip install --quiet -r collector/requirements.txt
           python -m unittest discover -s qa -p "test_publisher_normalization.py" -v
+          python -m unittest discover -s qa -p "test_etoday_reporters.py" -v
           python -m unittest discover -s qa -p "test_publisher_alias_admin.py" -v
           python -m unittest discover -s qa -p "test_subjectless_table3.py" -v
           python -m unittest discover -s qa -p "test_expanded_corpus.py" -v

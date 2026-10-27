@@ -206,7 +206,7 @@ def latest_successful_collection():
     return None
 
 
-def split_reporters(value, people_only=False):
+def split_reporters(value, people_only=False, publisher=""):
     value = str(value or "").strip()
     if not value:
         return []
@@ -215,6 +215,10 @@ def split_reporters(value, people_only=False):
     out = []
     for part in re.split(r"[,/·|]", value):
         part = re.sub(r"\s*(기자|특파원|논설위원|에디터|PD)$", "", part).strip()
+        # Do not elevate a publisher/agency name into the journalist leaderboard.
+        # Some Etoday CMS pages expose '이투데이' as generic author metadata.
+        if part == publisher or part == "이투데이":
+            continue
         if re.fullmatch(r"[가-힣]{2,4}", part):
             out.append(part)
         elif not people_only and re.fullmatch(r"[가-힣A-Za-z0-9]{2,10}팀", part):
@@ -719,6 +723,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         for reporter in split_reporters(
             article.get("reporters_resolved") or article.get("reporters_original"),
             people_only=True,
+            publisher=publisher,
         ):
             reporter_counts[(reporter, publisher)] += 1
 
@@ -811,7 +816,8 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             "id": a.get("id"),
             "title": a.get("title_resolved") or a.get("title_original") or a.get("title_naver") or a.get("api_title"),
             "publisher": publisher_display(a, publisher_aliases),
-            "reporters": split_reporters(a.get("reporters_resolved") or a.get("reporters_original")),
+            "reporters": split_reporters(a.get("reporters_resolved") or a.get("reporters_original"),
+                                      publisher=publisher_display(a, publisher_aliases)),
             "published_at": a.get("api_pubdate"),
             "category_original": a.get("category_original") or "미분류",
             "category_primary": a.get("category_primary") if a.get("taxonomy_version") == "0.3" else None,
