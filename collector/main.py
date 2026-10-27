@@ -869,7 +869,7 @@ def etoday_reporter_correction(article):
     naver_reporter = normalize_reporter_text(
         article.get("reporters_naver") or "", "이투데이", host
     )
-    news_id_match = re.fullmatch(r"/news/view/(\\d+)", urlparse(original_url).path)
+    news_id_match = re.fullmatch(r"/news/view/(\d+)", urlparse(original_url).path)
     key = news_id_match.group(1) if news_id_match else ""
     verified = ETODAY_VERIFIED_BYLINES_20261026.get(key, "")
     replacement = verified or naver_reporter
