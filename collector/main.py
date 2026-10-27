@@ -844,6 +844,80 @@ def doc_id(url):
     return hashlib.sha256(url.encode("utf-8")).hexdigest()[:32]
 
 
+# Historical correction is explicitly limited to named articles whose
+# published bylines were independently verified on the Etoday article pages.
+# All other erroneous publisher-name bylines become 'unknown', never invented.
+ETODAY_VERIFIED_BYLINES_20261026 = {
+    "2640275": "김재학",
+    "2640213": "김재학",
+    "2640198": "김재학",
+    "2640195": "김재학",
+}
+ETODAY_REPORTER_REPAIR_ID = "etoday-publisher-as-byline-20261027-v1"
+
+
+def etoday_reporter_correction(article):
+    """Return audited correction, or None for articles with no fake byline."""
+    original_url = article.get("original_url") or ""
+    host = (urlparse(original_url).hostname or "").lower()
+    if host not in ("www.etoday.co.kr", "m.etoday.co.kr", "etoday.co.kr"):
+        return None
+    raw = str(article.get("reporters_resolved") or article.get("reporters_original") or "")
+    if not publisher_as_reporter(raw, article.get("publisher_original") or "", host):
+        return None
+    # Permit a correctly attributed Naver journalist if there is one.
+    naver_reporter = normalize_reporter_text(
+        article.get("reporters_naver") or "", "이투데이", host
+    )
+    news_id_match = re.fullmatch(r"/news/view/(\\d+)", urlparse(original_url).path)
+    key = news_id_match.group(1) if news_id_match else ""
+    verified = ETODAY_VERIFIED_BYLINES_20261026.get(key, "")
+    replacement = verified or naver_reporter
+    return {
+        "reporters_resolved": replacement,
+        "reporters_original": "",
+        "reporter_source": "VERIFIED_BYLINE" if verified else ("NAVER" if naver_reporter else "NONE"),
+        "reporter_invalid_previous": raw,
+        "reporter_repair_status": "VERIFIED" if verified else (
+            "NAVER" if naver_reporter else "UNKNOWN_NOT_GUESSED"
+        ),
+        "reporter_repaired_at": firestore.SERVER_TIMESTAMP,
+    }
+
+
+def repair_etoday_reporters_once(db):
+    """Correct bogus Etoday reporter names in existing accepted Firestore rows."""
+    marker_ref = db.collection("maintenance_runs").document(ETODAY_REPORTER_REPAIR_ID)
+    if marker_ref.get().exists:
+        return
+    checked = changed = verified = unknown = 0
+    for doc in (
+        db.collection("articles")
+        .order_by("api_pubdate", direction=firestore.Query.DESCENDING)
+        .limit(2000)
+        .stream()
+    ):
+        article = doc.to_dict() or {}
+        if article.get("status") != "accepted":
+            continue
+        checked += 1
+        patch = etoday_reporter_correction(article)
+        if patch is None:
+            continue
+        doc.reference.set(patch, merge=True)
+        changed += 1
+        verified += int(patch["reporter_repair_status"] in ("VERIFIED", "NAVER"))
+        unknown += int(patch["reporter_repair_status"] == "UNKNOWN_NOT_GUESSED")
+    marker_ref.set({
+        "finished_at": datetime.now(KST).isoformat(),
+        "scanned": checked,
+        "corrected": changed,
+        "confirmed": verified,
+        "unknown": unknown,
+    })
+    print(f"[ETODAY BYLINE REPAIR] corrected={changed} confirmed={verified} unknown={unknown}")
+
+
 def backfill_subjectless_once(db):
     """Recalculate the previously stored corpus from private body text, without
     re-fetching articles or invoking an AI model. Repeated runs are idempotent."""
@@ -902,6 +976,7 @@ def main():
 
     db = firestore.Client(project=project_id)
     backfill_subjectless_once(db)
+    repair_etoday_reporters_once(db)
     now = datetime.now(KST)
     target_date = now.date()
     run_ref = db.collection("collector_runs").document(now.strftime("%Y%m%dT%H%M%S%z"))
