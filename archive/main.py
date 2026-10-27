@@ -84,6 +84,7 @@ def reporters(article):
     result=[]
     for part in re.split(r"[,/·|]",text):
         part=re.sub(r"\s*(기자|특파원|논설위원|에디터|PD)$","",part).strip()
+        if part == "이투데이" or part == display_name(article,{}):continue
         if re.fullmatch(r"[가-힣]{2,4}",part) and part not in result:result.append(part)
     return result
 
