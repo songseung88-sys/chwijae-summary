@@ -44,6 +44,22 @@ const d={
 };
 const html=vm.runInContext("targetPhraseDetailMarkup("+JSON.stringify(d)+")",ctx);
 assert.equal((html.match(/class="target-detail-group"/g)||[]).length,4);
+// Equal article counts: expressions used more times rank ahead; other ties keep source order.
+const names=Array.from(html.matchAll(/<span class="target-detail-name">([^<]+)<\/span>/g),m=>m[1]);
+assert.deepEqual(names,[
+  "취재한 결과","취재를 종합하면","본지 취재 결과","본지 확인 결과"
+]);
+// Article count is the primary sort key, even when a smaller group has more mentions.
+const sorted={...d,target_phrase_breakdown:[
+  {name:"1건·10회",article_count:1,occurrence_count:10},
+  {name:"3건·3회",article_count:3,occurrence_count:3},
+  {name:"2건·5회",article_count:2,occurrence_count:5},
+  {name:"0건",article_count:0,occurrence_count:0},
+  {name:"2건·2회",article_count:2,occurrence_count:2},
+]};
+const sortedHtml=vm.runInContext("targetPhraseDetailMarkup("+JSON.stringify(sorted)+")",ctx);
+const sortedNames=Array.from(sortedHtml.matchAll(/<span class="target-detail-name">([^<]+)<\/span>/g),m=>m[1]);
+assert.deepEqual(sortedNames,["3건·3회","2건·5회","2건·2회","1건·10회"]);
 assert(!html.includes("전체 대상 기사 · 중복 제거"));
 assert(html.includes("3건"));
 assert(html.includes("취재를 종합하면"));
@@ -61,9 +77,9 @@ assert(files.app.includes('id="openTargetPhraseDialog"'));
 assert(!files.app.includes('card_additional_prefix'));
 assert(files.app.includes("openTargetPhraseDialog()"));
 assert(files.html.includes('id="targetPhraseDialog"'));
-assert(files.html.includes('/static/target-phrase-dialog.js?v=2'));
+assert(files.html.includes('/static/target-phrase-dialog.js?v=3'));
 assert(files.css.includes(".target-phrase-dialog"));
 const zeroData={...d,target_phrase_breakdown:d.target_phrase_breakdown.map(g=>({...g,article_count:0,occurrence_count:0}))};
 const zeroHtml=vm.runInContext("targetPhraseDetailMarkup("+JSON.stringify(zeroData)+")",ctx);
 assert.equal((zeroHtml.match(/class="target-detail-group"/g)||[]).length,0);
-console.log("Target phrase detail: positive-only groups, concise notes, safe links, overlapping article counts and mobile dialog verified.");
+console.log("Target phrase detail: descending article counts, occurrence tie-break, positive-only rows, safe links and mobile dialog verified.");
