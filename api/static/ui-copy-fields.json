@@ -438,10 +438,16 @@
     "default": "'취재를 종합하면'은 기사 어디에 등장할까?"
   },
   {
-    "key": "position_scope",
-    "label": "최초 등장 분석 대상 안내",
+    "key": "position_period_prefix",
+    "label": "위치 분석 기간 안내",
     "group": "첫 화면 · 분석",
-    "default": "선택한 날짜 · '취재를 종합하면' 포함 기사"
+    "default": "수집 기간"
+  },
+  {
+    "key": "position_article_label",
+    "label": "위치 분석 기사 수 앞말",
+    "group": "첫 화면 · 분석",
+    "default": "'취재를 종합하면' 포함 기사"
   },
   {
     "key": "position_avg",
@@ -450,22 +456,10 @@
     "default": "평균 첫 등장"
   },
   {
-    "key": "position_median",
-    "label": "중앙값 라벨",
-    "group": "첫 화면 · 분석",
-    "default": "중앙값"
-  },
-  {
     "key": "position_modal",
     "label": "최빈 문단 라벨",
     "group": "첫 화면 · 분석",
     "default": "가장 많이 등장하는 문단"
-  },
-  {
-    "key": "position_method",
-    "label": "최초 등장 분석 기준",
-    "group": "첫 화면 · 분석",
-    "default": "공백 포함, 정규화된 본문에서 최초 1회만 측정"
   },
   {
     "key": "position_samples",
