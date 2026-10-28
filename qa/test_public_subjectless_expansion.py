@@ -122,6 +122,8 @@ class PublicSubjectlessExpansion(unittest.TestCase):
                          {"name":"우려가 나온다","count":4})
         self.assertEqual(result["secondary_methodology"]["extension_version"],VERSION)
         self.assertEqual(result["today_count"],3)
+        self.assertEqual(result["first_phrase_position"]["period_start"],"2026-10-22")
+        self.assertEqual(result["first_phrase_position"]["period_end"],"2026-10-28")
         for forbidden in ("예상된다","전망된다","추정된다","비판이 나온다","표밖"):
             self.assertNotIn(forbidden,combined)
 

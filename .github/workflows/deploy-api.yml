@@ -158,8 +158,8 @@ jobs:
           grep -q 'id="topicSecondaryBars"' /tmp/dashboard.html
           grep -q 'id="secondaryRanking"' /tmp/dashboard.html
           grep -q 'id="firstPhrasePosition"' /tmp/dashboard.html
-          grep -q '/static/phrase-position.js?v=1' /tmp/dashboard.html
-          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/phrase-position.js?v=1" -o /tmp/phrase-position.js
+          grep -q '/static/phrase-position.js?v=2' /tmp/dashboard.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/phrase-position.js?v=2" -o /tmp/phrase-position.js
           grep -q 'function renderFirstPhrasePosition' /tmp/phrase-position.js
           grep -q 'id="targetPhraseDialog"' /tmp/dashboard.html
           grep -q '/static/target-phrase-dialog.js?v=3' /tmp/dashboard.html
