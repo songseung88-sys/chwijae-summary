@@ -595,3 +595,30 @@ body{background:linear-gradient(180deg,#edf5fd 0,#f5f8fc 240px,#f5f8fc 100%);col
   .target-detail-group>summary{gap:7px;padding:13px 3px}
   .target-detail-group>summary small{min-width:44px}
 }
+
+/* Primary expression first-position analytics: editorial, low-chrome panel. */
+.position-panel{margin-top:16px}
+.position-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.position-stats>div{background:#f3f7fb;border:1px solid #dde8f3;border-radius:11px;padding:15px}
+.position-stats span{font-size:12px;color:#55708b;display:block;margin-bottom:5px}
+.position-stats strong{font-size:27px;font-weight:750;color:#225c97;letter-spacing:-.035em;line-height:1.2}
+.position-stats small{font-size:13px;font-weight:500;margin-left:3px}
+.position-splits{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.position-splits h3{font-size:13px;margin:0 0 12px;font-weight:650;color:#243a53}
+.position-bars{display:grid;gap:11px}
+.position-row{display:grid;grid-template-columns:93px minmax(0,1fr) 102px;align-items:center;gap:9px;font-size:12px}
+.position-row-label{color:#354a60}
+.position-track{height:8px;background:#edf2f7;border-radius:20px;overflow:hidden}
+.position-fill{display:block;background:#3b7dbc;height:100%;border-radius:20px}
+.position-row-value{text-align:right;color:#496176;font-variant-numeric:tabular-nums;font-size:11px}
+.position-footnote{font-size:11px;color:var(--muted);margin:18px 0 0;line-height:1.65}
+.position-examples{margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+.position-examples summary{font-size:12px;color:#235d95;font-weight:600}
+.position-examples ul{list-style:none;margin:10px 0 0;padding:0}
+.position-examples li{padding:10px 0;border-bottom:1px solid var(--line)}
+.position-examples li:last-child{border:0}
+.position-example-meta{display:block;font-size:11px;color:var(--muted);margin-bottom:4px}
+.position-example-text{font-size:12px;line-height:1.65;overflow-wrap:anywhere}
+.position-example-text a{color:var(--text);text-decoration:underline;text-decoration-color:#b0c8df;text-underline-offset:3px}
+@media(max-width:720px){.position-splits{grid-template-columns:1fr;gap:20px}.position-stats{gap:7px}.position-stats>div{padding:11px}.position-stats strong{font-size:22px}}
+@media(max-width:420px){.position-row{grid-template-columns:78px minmax(0,1fr) 93px;gap:6px}.position-row-label{font-size:11px}.position-stats strong{font-size:19px}.position-stats span{font-size:10px}}

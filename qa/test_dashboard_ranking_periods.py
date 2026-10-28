@@ -79,6 +79,7 @@ class WeeklyDailyRankings(unittest.TestCase):
             "get_publisher_aliases": lambda: {},
             "split_reporters": lambda value, **_kw: [value] if value else [],
             "get_site_config": lambda: {},
+            "summarize_core_phrase_positions": lambda rows: {"eligible_articles":0,"analyzed_articles":0},
             "latest_successful_collection": lambda: None,
             "target_counts_for_article": lambda a: {"취재를 종합하면": 1},
             "TARGET_PHRASE_COMPILED": [("취재를 종합하면", None)],

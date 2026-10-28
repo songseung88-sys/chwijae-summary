@@ -116,7 +116,7 @@ assert(ranked.includes("신문A")&&ranked.includes("신문B"));
 const html=fs.readFileSync("api/static/index.html","utf8");
 assert(html.includes('id="publisherWeekLabel"'));
 assert(html.includes('id="weekLabel"'));
-assert(html.includes('/static/app.js?v=target-phrase-v2-weekly-rank-v1'));
+assert(html.includes('/static/app.js?v=position-v1'));
 assert(html.includes('/static/ranking-dialog.js?v=flat-weekly-v2'));
 const app=fs.readFileSync("api/static/app.js","utf8");
 assert(app.includes('qs("#publisherWeekLabel").textContent'));

@@ -256,6 +256,7 @@ async function load(date){
   renderCards(d);
   renderCollectionHealth(d.last_successful_collection);
   renderRankings();
+  renderFirstPhrasePosition(d.first_phrase_position);
   renderHistory(d.daily_counts_14d);
   renderArticles();
   qs("#publisherWeekLabel").textContent = `${d.week_start}~${d.date}`;

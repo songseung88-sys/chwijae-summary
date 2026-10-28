@@ -57,7 +57,7 @@ jobs:
 
       - name: Validate API image
         run: |
-          docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py /app/feedback_store.py
+          docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py /app/phrase_position.py /app/feedback_store.py
           # Catch ASGI route-registration and import errors before Cloud Run revision rollout.
           docker run --rm --entrypoint python "${IMAGE}" -c 'import google.cloud.firestore as f; f.Client=lambda **kwargs: object(); import main; print("APP_IMPORT_AND_ROUTES_OK")'
           docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css && test -f /app/static/admin.html && test -f /app/static/admin.js && test -s /app/static/og-thumbnail-wide.jpg'
@@ -157,11 +157,15 @@ jobs:
           grep -q 'id="topicPrimaryPie"' /tmp/dashboard.html
           grep -q 'id="topicSecondaryBars"' /tmp/dashboard.html
           grep -q 'id="secondaryRanking"' /tmp/dashboard.html
+          grep -q 'id="firstPhrasePosition"' /tmp/dashboard.html
+          grep -q '/static/phrase-position.js?v=1' /tmp/dashboard.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/phrase-position.js?v=1" -o /tmp/phrase-position.js
+          grep -q 'function renderFirstPhrasePosition' /tmp/phrase-position.js
           grep -q 'id="targetPhraseDialog"' /tmp/dashboard.html
           grep -q '/static/target-phrase-dialog.js?v=3' /tmp/dashboard.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/target-phrase-dialog.js?v=3" -o /tmp/target-detail.js
           grep -q 'function targetPhraseDetailMarkup' /tmp/target-detail.js
-          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/app.js?v=target-phrase-v2-weekly-rank-v1" -o /tmp/analysis-app.js
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/app.js?v=position-v1" -o /tmp/analysis-app.js
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/topic-dialog.js?v=analysis-visual-1" -o /tmp/analysis-pie.js
           grep -q 'function renderTopicOverview' /tmp/analysis-app.js
           grep -q 'function renderExpressionChart' /tmp/analysis-app.js

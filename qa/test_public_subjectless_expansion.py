@@ -106,6 +106,7 @@ class PublicSubjectlessExpansion(unittest.TestCase):
             "PAPER_SUBJECTLESS_LABELS":{"알려졌다"},
             "context_sentence":lambda s:s,
             "public_subjectless_candidate_counts":self.read,
+            "summarize_core_phrase_positions":lambda rows: {"eligible_articles":0,"analyzed_articles":0},
         }
         result=load_function(API_TREE,"dashboard",ns)("2026-10-28")
         combined={r["name"]:r["count"] for r in result["secondary_expressions"]}
