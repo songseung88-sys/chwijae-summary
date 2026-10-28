@@ -61,7 +61,7 @@ function openRankingDialog(id){
   const d=state.data;
   if(!d) return;
   const source={
-    publisherRanking:{rows:d.publisher_ranking,title:d.site_config.section_publisher_title},
+    publisherRanking:{rows:d.publisher_ranking_week,title:d.site_config.section_publisher_title},
     reporterRanking:{rows:d.reporter_ranking_week,title:d.site_config.section_reporter_title},
     secondaryRanking:{rows:d.secondary_expressions,title:d.site_config.section_secondary_title},
   }[id];
