@@ -51,6 +51,7 @@ jobs:
         run: |
           python -m py_compile archive/main.py collector/main.py
           python -m unittest discover -s qa -p "test_daily_archive.py" -v
+          python -m unittest discover -s qa -p "test_archive_naver_priority.py" -v
           python -m unittest discover -s qa -p "test_archive_sheet_quota.py" -v
           python - <<'PY'
           from pathlib import Path

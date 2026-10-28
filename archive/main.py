@@ -24,7 +24,7 @@ import collector_parser as parser
 KST=ZoneInfo("Asia/Seoul")
 SHEET_ID=os.environ["ARCHIVE_SPREADSHEET_ID"]
 PROJECT_ID=os.environ.get("GCP_PROJECT_ID") or None
-ARCHIVE_VERSION="sheets-v1-20261028-quota"
+ARCHIVE_VERSION="sheets-v1-20261028-naver-first"
 CANDIDATE_VERSION="subjectless-candidate-v1-20261028"
 CANDIDATE_SUBTYPE={
     "우려가 나온다":"자생발생형", "목소리가 나온다":"자생발생형",
@@ -114,15 +114,19 @@ def body_quality(result):
     return True,""
 
 def archive_body(article,db):
-    """Original HTML first, then Naver; failed rows are retained and retried daily."""
+    """Naver-first for new fetches, publisher fallback; preserve cached successes.
+
+    Existing successfully archived bodies are never re-fetched or replaced
+    because of this source-priority change. Failed and pending items retry.
+    """
     cached_text=article.get("archive_body_text")
     cached_source=article.get("archive_body_source")
     if cached_text and article.get("archive_body_status")=="수집 성공" and cached_source in ("원문","네이버뉴스"):
         return cached_text,cached_source,"수집 성공","",article.get("archive_body_checked_at") or ""
     checks=[]
     for label,url,extract in [
-        ("원문",article.get("original_url"),parser.parse_original),
         ("네이버뉴스",article.get("naver_url"),parser.parse_naver),
+        ("원문",article.get("original_url"),parser.parse_original),
     ]:
         if not url:
             checks.append(label+":URL 없음")
