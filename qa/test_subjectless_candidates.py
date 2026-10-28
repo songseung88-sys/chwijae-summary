@@ -40,7 +40,8 @@ compiled=tuple((major,sub,label,re.compile(regex))
     for major,sub,label,regex in rules)
 ns={"re":re,"SUBJECTLESS_CANDIDATE_COMPILED":compiled,
     "SUBJECTLESS_CANDIDATE_VERSION":candidate_version,
-    "KST":ZoneInfo("Asia/Seoul"),"datetime":datetime}
+    "KST":ZoneInfo("Asia/Seoul"),"datetime":datetime,
+    "firestore":types.SimpleNamespace(Query=types.SimpleNamespace(DESCENDING="DESC"))}
 functions(TREE,{"subjectless_candidate_fields","backfill_subjectless_candidates_batch"},ns)
 extract=ns["subjectless_candidate_fields"]
 
