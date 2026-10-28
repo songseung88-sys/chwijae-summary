@@ -57,7 +57,7 @@ jobs:
 
       - name: Validate API image
         run: |
-          docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py /app/feedback_store.py
+          docker run --rm --entrypoint python "${IMAGE}" -m py_compile /app/main.py /app/phrase_position.py /app/feedback_store.py
           # Catch ASGI route-registration and import errors before Cloud Run revision rollout.
           docker run --rm --entrypoint python "${IMAGE}" -c 'import google.cloud.firestore as f; f.Client=lambda **kwargs: object(); import main; print("APP_IMPORT_AND_ROUTES_OK")'
           docker run --rm --entrypoint sh "${IMAGE}" -c 'test -f /app/static/index.html && test -f /app/static/app.js && test -f /app/static/style.css && test -f /app/static/admin.html && test -f /app/static/admin.js && test -s /app/static/og-thumbnail-wide.jpg'
