@@ -10,7 +10,11 @@ function targetSafeLink(value){
 function targetPhraseDetailMarkup(data){
   const articles=Array.isArray(data?.articles)?data.articles:[];
   const groups=(Array.isArray(data?.target_phrase_breakdown)?data.target_phrase_breakdown:[])
-    .filter(group=>Number(group?.article_count)>0);
+    .filter(group=>Number(group?.article_count)>0)
+    .sort((a,b)=>
+      Number(b.article_count)-Number(a.article_count) ||
+      (Number(b.occurrence_count)||0)-(Number(a.occurrence_count)||0)
+    );
   const countUnit=targetDetailCopy("count_unit","건");
   const unique=Number(data?.today_count)||0;
   const rows=groups.map(group=>{
