@@ -239,10 +239,6 @@ jobs:
           };
           vm.createContext(context);
           vm.runInContext(fs.readFileSync("api/static/ranking-dialog.js","utf8"),context);
-          const group=vm.runInContext('groupReportersByPublisher',context);
-          const groups=group(context.state.data.reporter_ranking_week);
-          assert.equal(groups[0].publisher,"언론사A");
-          assert.equal(groups[0].members.length,3);
           const open=vm.runInContext('openRankingDialog',context);
           const more=vm.runInContext('showMoreRankingDialog',context);
           open("publisherRanking");
@@ -259,11 +255,13 @@ jobs:
           more();
           assert.equal((element("#rankingDialogContent").innerHTML.match(/ranking-dialog-row/g)||[]).length,29);
           open("reporterRanking");
-          const grouped=element("#rankingDialogContent").innerHTML;
-          assert(grouped.indexOf("언론사A")<grouped.indexOf("언론사B"));
-          assert.equal((grouped.match(/ranking-dialog-row/g)||[]).length,5);
+          const ranked=element("#rankingDialogContent").innerHTML;
+          assert(!ranked.includes("ranking-dialog-group"));
+          assert.equal((ranked.match(/ranking-dialog-row/g)||[]).length,5);
+          assert(ranked.indexOf('class="rank-name">나')<ranked.indexOf('class="rank-name">마'));
+          assert(ranked.includes("언론사A")&&ranked.includes("언론사B"));
           assert.equal(element("#rankingDialogMore").hidden,true);
-          console.log("Ranking pagination 20/40/45, 20/29 and grouping validated");
+          console.log("Ranking pagination 20/40/45, 20/29 and flat reporter ordering validated");
           JS
       - name: Verify publisher admin editor and Naver link restoration
         run: |
