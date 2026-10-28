@@ -74,11 +74,14 @@ jobs:
           python -m unittest discover -s qa -p "test_publisher_alias_admin.py" -v
           python -m unittest discover -s qa -p "test_subjectless_table3.py" -v
           python -m unittest discover -s qa -p "test_expanded_corpus.py" -v
+          python -m unittest discover -s qa -p "test_target_phrase_expansion.py" -v
           python -m unittest discover -s qa -p "test_article_body_extraction.py" -v
           python -m unittest discover -s qa -p "test_publisher_site_recovery.py" -v
           bash -n infra/setup_scheduler.sh
+      - name: Verify target phrase breakdown modal and safe examples
+        run: node qa/test_target_phrase_dialog.js
       - name: JavaScript syntax check
-        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/about-format.js && node --check api/static/bigkinds-data-editor.js && node --check api/static/feedback.js
+        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/about-format.js && node --check api/static/bigkinds-data-editor.js && node --check api/static/feedback.js && node --check api/static/target-phrase-dialog.js
       - name: Verify BigKinds annual/publisher historical charts
         run: node qa/test_bigkinds_charts.js
       - name: Validate individual saves preserve other pending edits
@@ -147,7 +150,7 @@ jobs:
               assert '"key": "'+key+'"' in Path("api/static/ui-copy-fields.json").read_text(),key
               assert f'id="{node_id}"' in html,node_id
               assert f'#{node_id}' in js,node_id
-          assert 'analysis-visual-1' in html
+          assert 'target-phrase-v2' in html
           assert 'class="dashboard-group usage-group"' in html
           assert 'class="dashboard-group analysis-group"' in html
           assert 'id="summaryCards"' in html
@@ -281,7 +284,7 @@ jobs:
           assert "publisherEditor.visible+=50" in adminjs
           assert 'if(a.naver_url) links.push' in app
           assert "esc(cfg.naver_link_text)" in app
-          assert "/static/app.js?v=ui-copy-1" in index
+          assert "/static/app.js?v=target-phrase-v2" in index
           print("Publisher alias admin and Naver link contract passed")
           PY
           node - <<'JS'
