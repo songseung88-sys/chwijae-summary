@@ -19,7 +19,7 @@ ns = {
     "re": re,
     "PHRASE": get_assignment("PHRASE"),
     "ADDITIONAL_PHRASE": get_assignment("ADDITIONAL_PHRASE"),
-    "TARGET_PHRASES": ("취재를 종합하면", "본지 취재 결과"),
+    "TARGET_PHRASES": ("취재를 종합하면", "본지 취재 결과", "취재에 따르면", "취재한 결과", "본보 취재 결과", "본지 확인 결과"),
     "SUBJECTLESS_RULES": get_assignment("SUBJECTLESS_RULES"),
     "SUBJECTLESS_OTHER_RULES": get_assignment("SUBJECTLESS_OTHER_RULES"),
 }
@@ -28,10 +28,11 @@ fn_nodes = [
     if isinstance(node, ast.FunctionDef)
     and node.name in {"target_phrase_counts", "secondary_counts", "subjectless_type_counts"}
 ]
-pattern_assign = next(node for node in tree.body if isinstance(node, ast.Assign)
-    and any(isinstance(t, ast.Name) and t.id == "ADDITIONAL_PHRASE_PATTERN"
-            for t in node.targets))
-exec(compile(ast.Module(body=[pattern_assign]+fn_nodes, type_ignores=[]), "collector/main.py", "exec"), ns)
+rule_nodes=[n for n in tree.body if isinstance(n,ast.Assign)
+    and any(isinstance(t,ast.Name) and t.id in
+            {"TARGET_PHRASE_RULES","TARGET_PHRASE_COMPILED","LEGACY_TARGET_PHRASES"}
+            for t in n.targets)]
+exec(compile(ast.Module(body=rule_nodes+fn_nodes, type_ignores=[]), "collector/main.py", "exec"), ns)
 counts = ns["secondary_counts"]
 group_counts = ns["subjectless_type_counts"]
 
