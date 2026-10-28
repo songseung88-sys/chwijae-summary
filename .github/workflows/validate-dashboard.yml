@@ -226,7 +226,7 @@ jobs:
             state:{data:{site_config:{
               section_publisher_title:"언론사",section_reporter_title:"기자",
               section_secondary_title:"무주체형 표현",articles_more_text:"더 보기",
-            },publisher_ranking:Array.from({length:45},(_,i)=>({name:"신문"+(i+1),count:45-i})),
+            },publisher_ranking_week:Array.from({length:45},(_,i)=>({name:"신문"+(i+1),count:45-i})),
               reporter_ranking_week:[
                 {name:"가",publisher:"언론사A",count:2},
                 {name:"나",publisher:"언론사B",count:10},
