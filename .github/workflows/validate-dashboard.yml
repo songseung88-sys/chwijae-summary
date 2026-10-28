@@ -134,9 +134,9 @@ jobs:
           expected={
               "card_today_label":"오늘의 '취재 종합'",
               "card_publisher_label":"오늘의 최다 '취재 종합' 언론사",
-              "card_reporter_label":"이번 주 가장 많이 '취재 종합'한 기자",
+              "card_reporter_label":"오늘 가장 많이 '취재 종합'한 기자",
               "card_exclusive_label":"[단독] 동반 비율",
-              "section_publisher_title":"오늘의 최다 '취재 종합' 언론사",
+              "section_publisher_title":"이번 주 가장 많이 '취재 종합'한 언론사",
               "section_reporter_title":"이번 주 가장 많이 '취재 종합'한 기자",
               "section_category_title":"원문 기사 분류",
               "section_secondary_title":"함께 쓰인 무주체형 표현",
