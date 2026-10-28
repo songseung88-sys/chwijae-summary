@@ -40,7 +40,7 @@ function renderFirstPhrasePosition(data){
     const name=esc(ex.publisher||"");
     const text=esc(ex.excerpt||"");
     return '<li><span class="position-example-meta">'+
-      esc(String(ex.paragraph||""))+'문단 · '+esc(String(ex.character_offset||0))+'자 앞 · '+name+
+      esc(String(ex.paragraph||""))+'문단 · 본문 시작 '+esc(String(ex.character_offset||0))+'자 지점 · '+name+
       '</span><div class="position-example-text">'+
       (url?'<a href="'+esc(url)+'" target="_blank" rel="noopener noreferrer">'+text+'</a>':text)+
       '</div></li>';
