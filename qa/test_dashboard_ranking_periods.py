@@ -95,6 +95,8 @@ class WeeklyDailyRankings(unittest.TestCase):
         result = load_function("dashboard", ns)("2026-10-28")
         self.assertEqual(result["week_start"], "2026-10-26")
         self.assertEqual(result["today_count"], 3)
+        self.assertEqual(result["first_phrase_position"]["period_start"],"2026-10-22")
+        self.assertEqual(result["first_phrase_position"]["period_end"],"2026-10-28")
         self.assertEqual(result["top_publisher"], {"name": "언론A", "count": 2})
         self.assertEqual(result["top_reporter_today"], {
             "name": "오늘기자", "publisher": "언론A", "count": 2})
