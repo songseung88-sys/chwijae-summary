@@ -82,6 +82,7 @@ class WeeklyDailyRankings(unittest.TestCase):
             "latest_successful_collection": lambda: None,
             "target_counts_for_article": lambda a: {"취재를 종합하면": 1},
             "TARGET_PHRASE_COMPILED": [("취재를 종합하면", None)],
+            "TARGET_PHRASE_VERSION": "test-v1",
             "ADDITIONAL_PHRASE": "본지 취재 결과",
             "LEGACY_TARGET_PHRASES": ("취재를 종합하면", "본지 취재 결과"),
             "PAPER_SUBJECTLESS_LABELS": set(),
