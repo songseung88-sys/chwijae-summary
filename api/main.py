@@ -19,6 +19,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from google.cloud import firestore
 from feedback_store import clean_feedback, new_timestamp, save_feedback_to_sheet
+from phrase_position import summarize_core_phrase_positions
 
 from bigkinds_content import (SOURCE as BIGKINDS_SOURCE, default_about_layout,
                               validate_about_layout, validate_history)
@@ -922,6 +923,8 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     config = get_site_config()
     last_collection = latest_successful_collection()
 
+    first_phrase_position = summarize_core_phrase_positions(today_articles)
+
     article_rows = []
     for a in sorted(
         today_articles,
@@ -961,6 +964,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         "legacy_today_count": legacy_today_count,
         "target_phrase_version": TARGET_PHRASE_VERSION,
         "target_phrase_breakdown": target_breakdown,
+        "first_phrase_position": first_phrase_position,
         "exclusive_count": exclusive_count,
         "exclusive_ratio": round(exclusive_count / len(today_articles), 4) if today_articles else 0,
         "top_publisher": (
