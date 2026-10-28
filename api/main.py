@@ -33,6 +33,33 @@ PROJECT_ID = os.getenv("GCP_PROJECT_ID", "").strip() or None
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
 ADDITIONAL_PHRASE = "본지 취재 결과"
+
+TARGET_PHRASE_VERSION = "evidence-v2-20261028"
+TARGET_PHRASE_RULES = (
+    (PHRASE, r"취재를 종합하면"),
+    (ADDITIONAL_PHRASE, r"본지\s*취재\s*결과"),
+    ("취재에 따르면", r"취재에\s*따르면"),
+    ("취재한 결과", r"취재(?:를\s*)?한\s*결과"),
+    ("본보 취재 결과", r"본보\s*취재\s*결과"),
+    ("본지 확인 결과", r"본지\s*확인\s*결과"),
+)
+TARGET_PHRASE_COMPILED = tuple(
+    (label, re.compile(pattern)) for label, pattern in TARGET_PHRASE_RULES
+)
+LEGACY_TARGET_PHRASES = (PHRASE, ADDITIONAL_PHRASE)
+
+def target_counts_for_article(article):
+    """Use the analyzed body, not search-result snippets. Older accepted
+    articles are counted when their private body is already available; no
+    historical back-search is implied by the result."""
+    body = article.get("body_text_private")
+    if isinstance(body, str) and body:
+        return {label: len(pattern.findall(body))
+                for label, pattern in TARGET_PHRASE_COMPILED}
+    saved = article.get("phrase_counts") or {}
+    return {label: max(0, int(saved.get(label) or 0))
+            for label, _ in TARGET_PHRASE_COMPILED}
+
 ADMIN_EDITOR_PASSWORD = os.getenv("ADMIN_EDITOR_PASSWORD", "")
 # Canonical paper Table 3 lexical labels; guard against stale legacy tags.
 PAPER_SUBJECTLESS_LABELS = {
@@ -782,11 +809,27 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             if canonical in PAPER_SUBJECTLESS_LABELS:
                 secondary_counts[canonical] += int(count or 0)
 
-    # Count unique articles carrying the added wording, including overlap;
-    # one article still contributes only once to today_count.
-    additional_article_count = sum(
-        bool((a.get("phrase_counts") or {}).get(ADDITIONAL_PHRASE)
-             or ADDITIONAL_PHRASE in (a.get("body_text_private") or ""))
+    # Breakdown is measured per unique article; the same article can appear
+    # in several phrase groups, but it never adds twice to today's headline.
+    article_target_counts = {
+        a.get("id"): target_counts_for_article(a) for a in today_articles
+    }
+    target_breakdown = []
+    for label, _pattern in TARGET_PHRASE_COMPILED:
+        occurrences = sum(counts.get(label, 0)
+                          for counts in article_target_counts.values())
+        target_breakdown.append({
+            "name": label,
+            "article_count": sum(bool(counts.get(label)) for counts in article_target_counts.values()),
+            "occurrence_count": occurrences,
+        })
+    additional_article_count = next(
+        (entry["article_count"] for entry in target_breakdown
+         if entry["name"] == ADDITIONAL_PHRASE), 0
+    )
+    legacy_today_count = sum(
+        any(article_target_counts.get(a.get("id"), {}).get(label)
+            for label in LEGACY_TARGET_PHRASES)
         for a in today_articles
     )
     exclusive_count = sum(bool(a.get("is_exclusive_strict")) for a in today_articles)
@@ -825,7 +868,8 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             "category_tertiary": a.get("category_tertiary") if a.get("taxonomy_version") == "0.3" else None,
             "topic_tags": a.get("topic_tags") or [] if a.get("taxonomy_version") == "0.3" else [],
             "is_exclusive": bool(a.get("is_exclusive_strict")),
-            "phrase_count": int(a.get("phrase_count") or 0),
+            "phrase_count": sum(article_target_counts.get(a.get("id"), {}).values()),
+            "target_phrase_counts": article_target_counts.get(a.get("id"), {}),
             "context_sentence": context_sentence(first_context),
             "context_paragraph": first_context,
             "secondary_expressions": a.get("secondary_expressions") or {},
@@ -839,6 +883,9 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         "last_successful_collection": last_collection,
         "today_count": len(today_articles),
         "additional_phrase_article_count": additional_article_count,
+        "legacy_today_count": legacy_today_count,
+        "target_phrase_version": TARGET_PHRASE_VERSION,
+        "target_phrase_breakdown": target_breakdown,
         "exclusive_count": exclusive_count,
         "exclusive_ratio": round(exclusive_count / len(today_articles), 4) if today_articles else 0,
         "top_publisher": (
@@ -896,7 +943,10 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         "articles": article_rows,
         "site_config": config,
         "methodology": {
-            "query": f'"{PHRASE}" OR "{ADDITIONAL_PHRASE}"',
+            "query": "10개 검색식: 기존 3개 + 취재 근거 표현 7개",
+            "target_phrase_version": TARGET_PHRASE_VERSION,
+            "target_phrase_expanded_since": "2026-10-28",
+            "target_phrase_note": "새 표현의 과거 기사 소급 검색은 하지 않았습니다. 적용 이전과 총계를 단순 비교하지 마세요.",
             "source_priority": "언론사 원문 우선, NAVER 전송본 비교",
             "refresh": "30분 간격",
             "category_note": "기사 주제는 AI 공통분류의 2차 범주이며, 미분류 기사는 주제 순위에서 제외됩니다.",
