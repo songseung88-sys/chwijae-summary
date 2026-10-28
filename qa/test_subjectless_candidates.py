@@ -159,9 +159,11 @@ class CandidateRules(unittest.TestCase):
         self.assertEqual(mapping["전망이 나온다"],"자생발생형")
         self.assertIn('day,CANDIDATE_VERSION,"출처소거형",sub,term',ARCHIVE)
         self.assertIn('day,"paper-table3-v2",major,sub,term',ARCHIVE)
-        # Private exploratory counts are not read by the public API.
+        # Public chart now includes the six approved lexical expressions, but
+        # the paper and extension counts remain independently available.
         api=(ROOT/"api/main.py").read_text(encoding="utf-8")
-        self.assertNotIn("subjectless_candidate_counts",api)
-        self.assertIn('"secondary_taxonomy_version") != "paper-table3-v2"',api)
+        self.assertIn('"secondary_expressions_paper"',api)
+        self.assertIn('"secondary_expressions_extension"',api)
+        self.assertIn('if article.get("secondary_taxonomy_version") == "paper-table3-v2"',api)
 
 if __name__=="__main__":unittest.main()
