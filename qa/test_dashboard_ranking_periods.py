@@ -86,6 +86,7 @@ class WeeklyDailyRankings(unittest.TestCase):
             "ADDITIONAL_PHRASE": "본지 취재 결과",
             "LEGACY_TARGET_PHRASES": ("취재를 종합하면", "본지 취재 결과"),
             "PAPER_SUBJECTLESS_LABELS": set(),
+            "SUBJECTLESS_CANDIDATE_VERSION": "subjectless-candidate-v1-20261028",
             "SUBJECTLESS_CANDIDATE_LABELS": set(),
             "public_subjectless_candidate_counts": lambda a: {},
             "context_sentence": lambda s: s,
