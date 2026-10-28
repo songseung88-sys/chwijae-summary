@@ -159,7 +159,8 @@ jobs:
               assert '"key": "'+key+'"' in Path("api/static/ui-copy-fields.json").read_text(),key
               assert f'id="{node_id}"' in html,node_id
               assert f'#{node_id}' in js,node_id
-          assert 'target-phrase-v2' in html
+          assert '/static/app.js?v=position-v1' in html
+          assert '/static/phrase-position.js?v=1' in html
           assert 'class="dashboard-group usage-group"' in html
           assert 'class="dashboard-group analysis-group"' in html
           assert 'id="summaryCards"' in html
