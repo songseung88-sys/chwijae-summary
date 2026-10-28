@@ -71,10 +71,53 @@ assert(node("#rankingDialog").open);
 assert(node("#rankingDialogTitle").textContent.includes("이번 주"));
 assert(node("#rankingDialogContent").innerHTML.includes("주간언론6"));
 
+// Unsorted source data must become one global weekly reporter ranking,
+// with affiliation printed on each row and the same 20-at-a-time paging.
+state.data.reporter_ranking_week=Array.from({length:45},(_,i)=>({
+  name:"기자"+String(i+1).padStart(2,"0"),
+  publisher:i%2?"신문B":"신문A",
+  count:45-i,
+})).reverse();
+vm.runInContext('openRankingDialog("reporterRanking")',context);
+let ranked=node("#rankingDialogContent").innerHTML;
+assert(!ranked.includes("ranking-dialog-group"));
+assert.equal((ranked.match(/ranking-dialog-row/g)||[]).length,20);
+assert(ranked.includes('class="rank-name">기자01'));
+assert(ranked.includes('class="rank-name">기자20'));
+assert(!ranked.includes('class="rank-name">기자21'));
+assert(ranked.includes('rank-affiliation">신문A'));
+assert(ranked.includes('rank-affiliation">신문B'));
+assert(ranked.indexOf('class="rank-name">기자01') < ranked.indexOf('class="rank-name">기자20'));
+assert.equal(node("#rankingDialogMore").hidden,false);
+vm.runInContext("showMoreRankingDialog()",context);
+ranked=node("#rankingDialogContent").innerHTML;
+assert.equal((ranked.match(/ranking-dialog-row/g)||[]).length,40);
+assert(ranked.includes('class="rank-name">기자40'));
+assert(!ranked.includes('class="rank-name">기자41'));
+vm.runInContext("showMoreRankingDialog()",context);
+ranked=node("#rankingDialogContent").innerHTML;
+assert.equal((ranked.match(/ranking-dialog-row/g)||[]).length,45);
+assert(ranked.includes('class="rank-name">기자45'));
+assert.equal(node("#rankingDialogMore").hidden,true);
+state.data.reporter_ranking_week=[
+ {name:"<script>",publisher:"<img>",count:2},
+ {name:"동명이인",publisher:"신문A",count:1},
+ {name:"동명이인",publisher:"신문B",count:1}
+];
+vm.runInContext('openRankingDialog("reporterRanking")',context);
+ranked=node("#rankingDialogContent").innerHTML;
+assert(!ranked.includes("<script>"));
+assert(!ranked.includes("<img>"));
+assert(ranked.includes("&lt;script&gt;"));
+assert(ranked.includes("&lt;img&gt;"));
+assert.equal((ranked.match(/ranking-dialog-row/g)||[]).length,3);
+assert(ranked.includes("신문A")&&ranked.includes("신문B"));
+
 const html=fs.readFileSync("api/static/index.html","utf8");
 assert(html.includes('id="publisherWeekLabel"'));
 assert(html.includes('id="weekLabel"'));
 assert(html.includes('/static/app.js?v=target-phrase-v2-weekly-rank-v1'));
+assert(html.includes('/static/ranking-dialog.js?v=flat-weekly-v2'));
 const app=fs.readFileSync("api/static/app.js","utf8");
 assert(app.includes('qs("#publisherWeekLabel").textContent'));
 assert(app.includes('qs("#weekLabel").textContent'));
