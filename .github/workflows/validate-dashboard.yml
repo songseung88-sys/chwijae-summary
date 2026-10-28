@@ -292,7 +292,7 @@ jobs:
           assert "publisherEditor.visible+=50" in adminjs
           assert 'if(a.naver_url) links.push' in app
           assert "esc(cfg.naver_link_text)" in app
-          assert "/static/app.js?v=target-phrase-v2" in index
+          assert "/static/app.js?v=position-v1" in index
           print("Publisher alias admin and Naver link contract passed")
           PY
           node - <<'JS'
