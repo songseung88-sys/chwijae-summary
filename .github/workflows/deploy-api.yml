@@ -158,8 +158,8 @@ jobs:
           grep -q 'id="topicSecondaryBars"' /tmp/dashboard.html
           grep -q 'id="secondaryRanking"' /tmp/dashboard.html
           grep -q 'id="targetPhraseDialog"' /tmp/dashboard.html
-          grep -q '/static/target-phrase-dialog.js?v=1' /tmp/dashboard.html
-          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/target-phrase-dialog.js?v=1" -o /tmp/target-detail.js
+          grep -q '/static/target-phrase-dialog.js?v=2' /tmp/dashboard.html
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/target-phrase-dialog.js?v=2" -o /tmp/target-detail.js
           grep -q 'function targetPhraseDetailMarkup' /tmp/target-detail.js
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/app.js?v=target-phrase-v2" -o /tmp/analysis-app.js
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/topic-dialog.js?v=analysis-visual-1" -o /tmp/analysis-pie.js
