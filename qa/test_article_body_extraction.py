@@ -16,16 +16,18 @@ def literal_assignment(key):
 names={"clean_text", "target_phrase_counts", "contains_target_phrase",
        "valid_body_container", "choose_body_container", "extract_paragraphs", "clean_structured_fragment"}
 funcs=[n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in names]
-reg=next(n for n in tree.body if isinstance(n, ast.Assign) and
-    any(isinstance(t, ast.Name) and t.id=="ADDITIONAL_PHRASE_PATTERN" for t in n.targets))
+rule_nodes=[n for n in tree.body if isinstance(n,ast.Assign)
+    and any(isinstance(t,ast.Name) and t.id in
+            {"TARGET_PHRASE_RULES","TARGET_PHRASE_COMPILED","LEGACY_TARGET_PHRASES"}
+            for t in n.targets)]
 ns={
     "re": re, "html": html, "json": json,
     "PHRASE": "취재를 종합하면",
     "ADDITIONAL_PHRASE": "본지 취재 결과",
-    "TARGET_PHRASES": ("취재를 종합하면", "본지 취재 결과"),
+    "TARGET_PHRASES": ("취재를 종합하면", "본지 취재 결과", "취재에 따르면", "취재한 결과", "본보 취재 결과", "본지 확인 결과"),
     "COMMON_BODY_SELECTORS": literal_assignment("COMMON_BODY_SELECTORS"),
 }
-exec(compile(ast.Module(body=[reg]+funcs,type_ignores=[]),"collector/main.py","exec"),ns)
+exec(compile(ast.Module(body=rule_nodes+funcs,type_ignores=[]),"collector/main.py","exec"),ns)
 
 
 class SiteBodySelection(unittest.TestCase):
