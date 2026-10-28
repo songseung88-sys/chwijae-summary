@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Python compile
-        run: python -m py_compile api/main.py classifier/main.py collector/main.py
+        run: python -m py_compile api/main.py api/phrase_position.py classifier/main.py collector/main.py
       - name: Verify social sharing Open Graph tags and thumbnail image
         run: python -m unittest discover -s qa -p "test_social_preview.py" -v
       - name: Verify password-protected image upload and crawler metadata rendering
@@ -86,9 +86,11 @@ jobs:
       - name: Verify daily top cards and weekly ranking panels
         run: |
           python -m unittest discover -s qa -p "test_dashboard_ranking_periods.py" -v
+          python -m unittest discover -s qa -p "test_phrase_position.py" -v
           node qa/test_dashboard_ranking_periods.js
+          node qa/test_phrase_position_ui.js
       - name: JavaScript syntax check
-        run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/about-format.js && node --check api/static/bigkinds-data-editor.js && node --check api/static/feedback.js && node --check api/static/target-phrase-dialog.js
+        run: node --check api/static/app.js && node --check api/static/phrase-position.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/about-format.js && node --check api/static/bigkinds-data-editor.js && node --check api/static/feedback.js && node --check api/static/target-phrase-dialog.js
       - name: Verify BigKinds annual/publisher historical charts
         run: node qa/test_bigkinds_charts.js
       - name: Validate individual saves preserve other pending edits
