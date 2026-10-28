@@ -69,7 +69,7 @@
     "key": "card_reporter_label",
     "label": "최다 기자 카드",
     "group": "첫 화면 · 요약 카드",
-    "default": "이번 주 가장 많이 '취재 종합'한 기자"
+    "default": "오늘 가장 많이 '취재 종합'한 기자"
   },
   {
     "key": "card_exclusive_label",
@@ -90,10 +90,10 @@
     "default": "오늘 기준"
   },
   {
-    "key": "card_reporter_since",
+    "key": "card_reporter_asof",
     "label": "최다 기자 기준",
     "group": "첫 화면 · 요약 카드",
-    "default": " 이후"
+    "default": "오늘 기준"
   },
   {
     "key": "card_additional_prefix",
@@ -129,7 +129,7 @@
     "key": "section_publisher_title",
     "label": "언론사 제목",
     "group": "첫 화면 · 구역·버튼",
-    "default": "오늘의 최다 '취재 종합' 언론사"
+    "default": "이번 주 가장 많이 '취재 종합'한 언론사"
   },
   {
     "key": "section_reporter_title",

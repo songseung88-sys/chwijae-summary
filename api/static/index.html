@@ -46,7 +46,10 @@
       <div class="grid two">
       <article class="panel">
         <div class="panel-head">
-          <h2 id="publisherTitle"></h2>
+          <div>
+            <h2 id="publisherTitle"></h2>
+            <span id="publisherWeekLabel"></span>
+          </div>
           <button class="text-link rank-toggle" data-target="publisherRanking" type="button" aria-haspopup="dialog" aria-controls="rankingDialog"></button>
         </div>
         <div id="publisherRanking" class="ranking"></div>
@@ -154,7 +157,7 @@
     </article>
   </template>
 
-  <script src="/static/app.js?v=target-phrase-v2" defer></script>
+  <script src="/static/app.js?v=target-phrase-v2-weekly-rank-v1" defer></script>
   <script src="/static/topic-dialog.js?v=ui-copy-1" defer></script>
   <script src="/static/ranking-dialog.js?v=ui-copy-1" defer></script>
   <script src="/static/target-phrase-dialog.js?v=3" defer></script>

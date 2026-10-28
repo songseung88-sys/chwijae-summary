@@ -161,7 +161,7 @@ jobs:
           grep -q '/static/target-phrase-dialog.js?v=3' /tmp/dashboard.html
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/target-phrase-dialog.js?v=3" -o /tmp/target-detail.js
           grep -q 'function targetPhraseDetailMarkup' /tmp/target-detail.js
-          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/app.js?v=target-phrase-v2" -o /tmp/analysis-app.js
+          curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/app.js?v=target-phrase-v2-weekly-rank-v1" -o /tmp/analysis-app.js
           curl --retry 5 --retry-delay 2 --fail --silent --show-error "${URL}/static/topic-dialog.js?v=analysis-visual-1" -o /tmp/analysis-pie.js
           grep -q 'function renderTopicOverview' /tmp/analysis-app.js
           grep -q 'function renderExpressionChart' /tmp/analysis-app.js
