@@ -14,9 +14,10 @@ function renderFirstPhrasePosition(data){
   const caption=qs("#positionScope");
   if(!root || !title || !caption)return;
   title.textContent=uiCopy("position_title","'취재를 종합하면'은 기사 어디에 등장할까?");
-  const eligible=Number(data?.eligible_articles)||0;
   const n=Number(data?.analyzed_articles)||0;
-  caption.textContent=uiCopy("position_scope","선택한 날짜 · '취재를 종합하면' 포함 기사")+" "+n+"/"+eligible+uiCopy("count_unit","건");
+  caption.textContent=uiCopy("position_period_prefix","수집 기간")+" "+
+    String(data?.period_start||"")+"~"+String(data?.period_end||"")+" · "+
+    uiCopy("position_article_label","'취재를 종합하면' 포함 기사")+" "+n+uiCopy("count_unit","건");
   if(!n){
     root.innerHTML='<p class="empty">'+esc(uiCopy("position_empty","위치를 분석할 수 있는 기사 본문이 없습니다."))+'</p>';
     return;
@@ -33,8 +34,6 @@ function renderFirstPhrasePosition(data){
   }).join("");
   const best=data.modal_paragraph ? data.modal_paragraph+'문단' : "—";
   const mean=num(data.mean_characters);
-  const mid=num(data.median_characters);
-  const in500=Number(data.within_500_articles)||0;
   const samples=(data.examples||[]).slice(0,5).map(ex=>{
     const url=safePositionLink(ex.url);
     const name=esc(ex.publisher||"");
@@ -48,17 +47,13 @@ function renderFirstPhrasePosition(data){
   root.innerHTML=
     '<div class="position-stats">'+
       '<div><span>'+esc(uiCopy("position_avg","평균 첫 등장"))+'</span><strong>'+mean+'<small>자</small></strong></div>'+
-      '<div><span>'+esc(uiCopy("position_median","중앙값"))+'</span><strong>'+mid+'<small>자</small></strong></div>'+
       '<div><span>'+esc(uiCopy("position_modal","가장 많이 등장하는 문단"))+'</span><strong>'+esc(best)+'</strong></div>'+
     '</div>'+
     '<div class="position-splits">'+
-      '<div><h3>처음 등장하는 문단</h3><div class="position-bars">'+bars(data.paragraph_distribution||[])+'</div></div>'+
+      '<div><h3>등장하는 문단</h3><div class="position-bars">'+bars(data.paragraph_distribution||[])+'</div></div>'+
       '<div><h3>문단 안에서의 등장 구조</h3><div class="position-bars">'+bars(data.structure||[])+'</div></div>'+
     '</div>'+
-    '<p class="position-footnote">처음 500자 이내 '+in500+'/'+n+'건 ('+num(positionPercent(in500,n))+'%) · '+
-      esc(uiCopy("position_method","공백 포함, 정규화된 본문에서 최초 1회만 측정"))+
-      (Number(data.unavailable_articles)>0?' · 본문 확인 불가 '+Number(data.unavailable_articles)+'건':"")+
-    '</p>'+
+
     (samples?'<details class="position-examples"><summary>'+
       esc(uiCopy("position_samples","실제 기사에서 확인하기"))+
       '</summary><ul>'+samples+'</ul></details>':"");
