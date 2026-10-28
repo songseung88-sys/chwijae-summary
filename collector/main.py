@@ -58,6 +58,7 @@ NAVER_API_URL = "https://naverapihub.apigw.ntruss.com/search/v1/news"
 # These are lexical candidate matches, not contextual judgments about whether
 # a sentence actually suppresses its source. Keep precise versioned metadata.
 SECONDARY_TAXONOMY_VERSION = "paper-table3-v2"
+SUBJECTLESS_CANDIDATE_VERSION = "subjectless-candidate-v1-20261028"
 SUBJECTLESS_RULES = [
     # (major type, subtype, displayed canonical expression, lexical pattern)
     ("출처소거형", "피동형", "알려졌다", r"알려졌(?:다|고|으며|지만|는데)"),
@@ -77,13 +78,35 @@ SUBJECTLESS_RULES = [
     ("기자귀속형", "명사형", "대목이다", r"대목이다(?![가-힣])"),
     ("기자귀속형", "명사형", "관측이다", r"관측이다(?![가-힣])"),
 ]
+# Exploratory lexical matches only: NOT adjudications of anonymous attribution.
+# The paper-derived Table 3 classifications and public rankings remain unchanged.
+# These six are candidate extensions to the EXISTING subtypes, not new subtypes.
+SUBJECTLESS_CANDIDATE_RULES = (
+    ("출처소거형", "자생발생형", "우려가 나온다",
+     r"(?<![가-힣])우려(?:가|도)\\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "자생발생형", "목소리가 나온다",
+     r"(?<![가-힣])목소리(?:가|도)\\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "자생발생형", "의견이 나온다",
+     r"(?<![가-힣])의견(?:이|도)\\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "자생발생형", "평가가 나온다",
+     r"(?<![가-힣])평가(?:가|도)\\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "자생발생형", "전망이 나온다",
+     r"(?<![가-힣])전망(?:이|도)\\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "피동형", "지적된다",
+     r"(?<![가-힣])지적(?:된다|됐다|되었다|되고|되면서|되는|됐으며|됐지만|될)"),
+)
+SUBJECTLESS_CANDIDATE_COMPILED = tuple(
+    (major, subtype, label, re.compile(pattern))
+    for major, subtype, label, pattern in SUBJECTLESS_CANDIDATE_RULES
+)
+
 # Exploratory non-paper expressions. Keep them separate from paper type totals.
 SUBJECTLESS_OTHER_RULES = [
     ("기타", "기타", "파악됐다", r"파악됐(?:다|고|으며|지만|는데)"),
     ("기타", "기타", "확인됐다", r"확인됐(?:다|고|으며|지만|는데)"),
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.8-target-evidence-v2"
+COLLECTOR_VERSION = "0.5.9-subjectless-candidates-v1"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -547,6 +570,48 @@ def subjectless_type_counts(body, expressions=None):
     return groups
 
 
+def subjectless_candidate_fields(body):
+    """Private, reviewable lexical candidates for already-accepted target news.
+
+    These counts are NOT merged into paper-table3-v2 or the public chart.
+    Store a bounded local excerpt and the preceding paragraph for context
+    because a visible source may precede the matched expression.
+    """
+    paragraphs = [p.strip() for p in str(body or "").splitlines() if p.strip()]
+    counts = {}
+    groups = {}
+    examples = []
+    for paragraph_no, paragraph in enumerate(paragraphs, 1):
+        previous = paragraphs[paragraph_no - 2][-220:] if paragraph_no > 1 else ""
+        for major, subtype, label, pattern in SUBJECTLESS_CANDIDATE_COMPILED:
+            matches = list(pattern.finditer(paragraph))
+            if not matches:
+                continue
+            counts[label] = counts.get(label, 0) + len(matches)
+            kind = major + " / " + subtype
+            groups[kind] = groups.get(kind, 0) + len(matches)
+            for match in matches:
+                if len(examples) >= 40:
+                    break
+                examples.append({
+                    "expression": label,
+                    "proposed_type": kind,
+                    "matched_text": match.group(0),
+                    "paragraph_no": paragraph_no,
+                    "start_in_paragraph": match.start(),
+                    "context": paragraph[max(0, match.start() - 160):
+                                         min(len(paragraph), match.end() + 160)],
+                    "previous_paragraph_end": previous,
+                })
+    examples.sort(key=lambda x: (x["paragraph_no"], x["start_in_paragraph"], x["expression"]))
+    return {
+        "subjectless_candidate_version": SUBJECTLESS_CANDIDATE_VERSION,
+        "subjectless_candidate_counts": counts,
+        "subjectless_candidate_type_counts": groups,
+        "subjectless_candidate_contexts": examples,
+    }
+
+
 def strict_exclusive(title):
     return bool(re.match(r"^\s*\[단독\]", clean_text(title)))
 
@@ -986,6 +1051,58 @@ def backfill_subjectless_once(db):
     print(f"[SUBJECTLESS BACKFILL] updated={changed}, missing_body={missing_body}")
 
 
+def backfill_subjectless_candidates_batch(db, batch_size=100):
+    """Incrementally analyze stored accepted bodies; no new searches or AI.
+
+    Save the pagination cursor only after the batch is committed. If a job is
+    interrupted, replaying that batch is harmless. The separate version
+    prevents existing paper-derived counts and public trends from changing.
+    """
+    marker = db.collection("maintenance_runs").document(SUBJECTLESS_CANDIDATE_VERSION)
+    snapshot = marker.get()
+    progress = (snapshot.to_dict() or {}) if snapshot.exists else {}
+    if progress.get("done"):
+        return
+    query = db.collection("articles").order_by(
+        "api_pubdate", direction=firestore.Query.DESCENDING
+    )
+    previous_path = progress.get("cursor_document")
+    if previous_path:
+        previous = db.document(previous_path).get()
+        if previous.exists:
+            query = query.start_after(previous)
+    docs = list(query.limit(batch_size).stream())
+    updated = 0
+    missing = 0
+    matched = 0
+    for doc in docs:
+        article = doc.to_dict() or {}
+        if article.get("status") != "accepted":
+            continue
+        if article.get("subjectless_candidate_version") == SUBJECTLESS_CANDIDATE_VERSION:
+            continue
+        body = article.get("body_text_private") or article.get("archive_body_text") or ""
+        if not body:
+            missing += 1
+            continue
+        fields = subjectless_candidate_fields(body)
+        matched += int(bool(fields["subjectless_candidate_counts"]))
+        doc.reference.set(fields, merge=True)
+        updated += 1
+    marker.set({
+        "version": SUBJECTLESS_CANDIDATE_VERSION,
+        "cursor_document": docs[-1].reference.path if docs else previous_path,
+        "done": len(docs) < batch_size,
+        "updated_articles": int(progress.get("updated_articles") or 0) + updated,
+        "matched_articles": int(progress.get("matched_articles") or 0) + matched,
+        "skipped_missing_body": int(progress.get("skipped_missing_body") or 0) + missing,
+        "scanned_articles": int(progress.get("scanned_articles") or 0) + len(docs),
+        "updated_at": datetime.now(KST).isoformat(),
+    }, merge=True)
+    print(f"[SUBJECTLESS CANDIDATE PILOT] scanned={len(docs)} updated={updated} matches={matched} missing_body={missing}")
+
+
+
 def main():
     project_id = os.getenv("GCP_PROJECT_ID", "").strip() or None
     client_id = os.environ.get("NAVER_API_HUB_CLIENT_ID", "").strip()
@@ -999,6 +1116,7 @@ def main():
 
     db = firestore.Client(project=project_id)
     backfill_subjectless_once(db)
+    backfill_subjectless_candidates_batch(db)
     repair_etoday_reporters_once(db)
     now = datetime.now(KST)
     target_date = now.date()
@@ -1059,6 +1177,7 @@ def main():
                 article_ref.set({
                     "collector_version": COLLECTOR_VERSION,
                     "secondary_expressions": expressions,
+                    **subjectless_candidate_fields(body),
                     "secondary_taxonomy_version": SECONDARY_TAXONOMY_VERSION,
                     "subjectless_type_counts": subjectless_type_counts(body, expressions),
                     "phrase_counts": counts,
@@ -1222,6 +1341,7 @@ def main():
             "phrase_count": final.get("phrase_count", 0),
             "phrase_contexts": final.get("phrase_contexts", []),
             "secondary_expressions": final.get("secondary", {}),
+            **subjectless_candidate_fields(final.get("body", "")),
             "secondary_taxonomy_version": SECONDARY_TAXONOMY_VERSION,
             "subjectless_type_counts": subjectless_type_counts(
                 final.get("body", ""), final.get("secondary", {})
