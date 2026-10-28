@@ -13,6 +13,7 @@ COPY main.py .
 COPY share_thumbnail.py .
 COPY bigkinds_content.py .
 COPY feedback_store.py .
+COPY phrase_position.py .
 COPY static ./static
 
 CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT}"]
