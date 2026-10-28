@@ -21,17 +21,35 @@ from google.cloud import firestore
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
 ADDITIONAL_PHRASE = "본지 취재 결과"
-TARGET_PHRASES = (PHRASE, ADDITIONAL_PHRASE)
-# Include the documented orthographic variant in which 취재결과 is one word.
-# Both spellings contribute to one canonical '본지 취재 결과' counter.
-ADDITIONAL_PHRASE_PATTERN = re.compile(r"본지\s*취재\s*결과")
+TARGET_PHRASE_VERSION = "evidence-v2-20261028"
+# The two historical seed expressions are kept separate from the newly
+# collected evidence-attribution phrases for transparent longitudinal analysis.
+TARGET_PHRASE_RULES = (
+    (PHRASE, r"취재를 종합하면"),
+    (ADDITIONAL_PHRASE, r"본지\s*취재\s*결과"),
+    ("취재에 따르면", r"취재에\s*따르면"),
+    ("취재한 결과", r"취재(?:를\s*)?한\s*결과"),
+    ("본보 취재 결과", r"본보\s*취재\s*결과"),
+    ("본지 확인 결과", r"본지\s*확인\s*결과"),
+)
+TARGET_PHRASES = tuple(label for label, _ in TARGET_PHRASE_RULES)
+TARGET_PHRASE_COMPILED = tuple(
+    (label, re.compile(pattern)) for label, pattern in TARGET_PHRASE_RULES
+)
+# Quoted exact-match searches; variants appear as individual queries where
+# the collector's lexicon accepts spacing and grammatical variations.
+TARGET_SEARCH_QUERIES = (
+    f'"{PHRASE}"', f'"{ADDITIONAL_PHRASE}"', '"본지 취재결과"',
+    '"취재에 따르면"', '"취재한 결과"', '"취재를 한 결과"',
+    '"본보 취재 결과"', '"본보 취재결과"',
+    '"본지 확인 결과"', '"본지 확인결과"',
+)
+LEGACY_TARGET_PHRASES = (PHRASE, ADDITIONAL_PHRASE)
 
 def target_phrase_counts(body):
     body = str(body or "")
-    return {
-        PHRASE: body.count(PHRASE),
-        ADDITIONAL_PHRASE: len(ADDITIONAL_PHRASE_PATTERN.findall(body)),
-    }
+    return {label: len(pattern.findall(body))
+            for label, pattern in TARGET_PHRASE_COMPILED}
 
 def contains_target_phrase(text):
     return any(target_phrase_counts(text).values())
@@ -65,7 +83,7 @@ SUBJECTLESS_OTHER_RULES = [
     ("기타", "기타", "확인됐다", r"확인됐(?:다|고|으며|지만|는데)"),
 ]
 WIRE_NAMES = ["연합뉴스", "뉴스1", "뉴시스"]
-COLLECTOR_VERSION = "0.5.7-etoday-reporter"
+COLLECTOR_VERSION = "0.5.8-target-evidence-v2"
 
 PUBLISHER_BY_HOST = {
     "khan.co.kr": "경향신문",
@@ -522,7 +540,8 @@ def subjectless_type_counts(body, expressions=None):
         if count:
             key = f"{major} / {subtype}"
             groups[key] = groups.get(key, 0) + count
-    seed = sum(target_phrase_counts(body).values())
+    legacy_counts = target_phrase_counts(body)
+    seed = sum(legacy_counts.get(p, 0) for p in LEGACY_TARGET_PHRASES)
     if seed:
         groups["기자귀속형 / 종합형"] = seed
     return groups
@@ -825,8 +844,9 @@ def fetch_candidates(client_id, client_secret, target_date, query, max_pages=10)
 
 
 def collect_target_candidates(client_id, client_secret, target_date, max_articles):
-    # Naver may match either spacing convention; query both spellings and deduplicate.
-    queries = [f'"{PHRASE}"', f'"{ADDITIONAL_PHRASE}"', '"본지 취재결과"']
+    # Query all authorized variants, then deduplicate on the original article URL.
+    # Existing core phrases go first so a broad query cannot starve them.
+    queries = list(TARGET_SEARCH_QUERIES)
     by_url = {}
     for query in queries:
         for item in fetch_candidates(client_id, client_secret, target_date, query=query):
@@ -990,6 +1010,7 @@ def main():
         "started_at": now.isoformat(),
         "search_query_used": " ; ".join(queries),
         "search_queries_used": queries,
+        "target_phrase_version": TARGET_PHRASE_VERSION,
         "candidates": len(candidates),
         "accepted": 0,
         "existing_accepted": 0,
@@ -1039,6 +1060,7 @@ def main():
                     "subjectless_type_counts": subjectless_type_counts(body, expressions),
                     "phrase_counts": counts,
                     "phrase_count": sum(counts.values()),
+                    "target_phrase_version": TARGET_PHRASE_VERSION,
                     "phrase_contexts": phrase_contexts(body.split("\n")),
                     "last_seen_at": firestore.SERVER_TIMESTAMP,
                 }, merge=True)
@@ -1193,6 +1215,7 @@ def main():
             "is_exclusive_strict": is_exclusive,
             "phrase": PHRASE,
             "phrase_counts": final.get("phrase_counts", target_phrase_counts(final.get("body", ""))),
+            "target_phrase_version": TARGET_PHRASE_VERSION,
             "phrase_count": final.get("phrase_count", 0),
             "phrase_contexts": final.get("phrase_contexts", []),
             "secondary_expressions": final.get("secondary", {}),
