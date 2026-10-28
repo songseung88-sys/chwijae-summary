@@ -70,6 +70,53 @@ PAPER_SUBJECTLESS_LABELS = {
     "법조계에 따르면", "파악됐다", "확인됐다",
 }
 
+SUBJECTLESS_CANDIDATE_VERSION = "subjectless-candidate-v1-20261028"
+SUBJECTLESS_CANDIDATE_RULES = (
+    ("출처소거형", "자생발생형", "우려가 나온다",
+     r"(?<![가-힣])우려(?:가|도)\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "자생발생형", "목소리가 나온다",
+     r"(?<![가-힣])목소리(?:가|도)\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "자생발생형", "의견이 나온다",
+     r"(?<![가-힣])의견(?:이|도)\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "자생발생형", "평가가 나온다",
+     r"(?<![가-힣])평가(?:가|도)\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "자생발생형", "전망이 나온다",
+     r"(?<![가-힣])전망(?:이|도)\s+나(?:온다|왔다|오고|오면서|오는|왔으며|왔지만|올)"),
+    ("출처소거형", "피동형", "지적된다",
+     r"(?<![가-힣])지적(?:된다|됐다|되었다|되고|되면서|되는|됐으며|됐지만|될)"),
+)
+SUBJECTLESS_CANDIDATE_COMPILED = tuple(
+    (label, re.compile(pattern)) for _, _, label, pattern in SUBJECTLESS_CANDIDATE_RULES
+)
+SUBJECTLESS_CANDIDATE_LABELS = {rule[2] for rule in SUBJECTLESS_CANDIDATE_RULES}
+
+
+def public_subjectless_candidate_counts(article):
+    """Lexical candidates, not an attribution judgment; keep legacy data intact.
+
+    Use versioned stored matches where present. For earlier article dates not
+    yet processed by the incremental collector backfill, use the already-stored
+    body in memory (no extra fetching/writes), following its paragraph rules.
+    '업계에서는' is not assumed to identify a specific accountable source.
+    """
+    if article.get("subjectless_candidate_version") == SUBJECTLESS_CANDIDATE_VERSION:
+        saved = article.get("subjectless_candidate_counts")
+        if isinstance(saved, dict):
+            return {label: max(0, int(saved.get(label) or 0))
+                    for label in SUBJECTLESS_CANDIDATE_LABELS}
+    body = article.get("body_text_private") or article.get("archive_body_text") or ""
+    if not isinstance(body, str):
+        return {}
+    counts = Counter()
+    for paragraph in (line.strip() for line in body.splitlines()):
+        if not paragraph:
+            continue
+        for label, pattern in SUBJECTLESS_CANDIDATE_COMPILED:
+            count = len(pattern.findall(paragraph))
+            if count:
+                counts[label] += count
+    return dict(counts)
+
 db = firestore.Client(project=PROJECT_ID)
 
 DEFAULT_SITE_CONFIG = {
@@ -820,16 +867,21 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         for primary, total in primary_counts.most_common()
     ]
 
-    secondary_counts = Counter()
+    paper_secondary_counts = Counter()
+    candidate_secondary_counts = Counter()
     for article in today_articles:
-        # Keep old taxonomy rows out of the new paper-based comparison ranking
-        # until they have been reprocessed; never mix incompatible versions.
-        if article.get("secondary_taxonomy_version") != "paper-table3-v2":
-            continue
-        for exp, count in (article.get("secondary_expressions") or {}).items():
-            canonical = "셈이다" if exp == "한 셈이다" else exp
-            if canonical in PAPER_SUBJECTLESS_LABELS:
-                secondary_counts[canonical] += int(count or 0)
+        # Preserve the accepted 2026 Table 3 extraction as a separate stream.
+        if article.get("secondary_taxonomy_version") == "paper-table3-v2":
+            for exp, count in (article.get("secondary_expressions") or {}).items():
+                canonical = "셈이다" if exp == "한 셈이다" else exp
+                if canonical in PAPER_SUBJECTLESS_LABELS:
+                    paper_secondary_counts[canonical] += max(0, int(count or 0))
+        # New user-approved expressions enter the public chart, but retain
+        # their own version and separate audit counts.
+        for exp, count in public_subjectless_candidate_counts(article).items():
+            if exp in SUBJECTLESS_CANDIDATE_LABELS:
+                candidate_secondary_counts[exp] += max(0, int(count or 0))
+    secondary_counts = paper_secondary_counts + candidate_secondary_counts
 
     # Breakdown is measured per unique article; the same article can appear
     # in several phrase groups, but it never adds twice to today's headline.
@@ -960,13 +1012,23 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         "category_unclassified_count": len(today_articles) - topic_classified_count,
         "secondary_expressions": [
             {"name": name, "count": count}
-            for name, count in secondary_counts.most_common()
+            for name, count in secondary_counts.most_common() if count > 0
+        ],
+        "secondary_expressions_paper": [
+            {"name": name, "count": count}
+            for name, count in paper_secondary_counts.most_common() if count > 0
+        ],
+        "secondary_expressions_extension": [
+            {"name": name, "count": count}
+            for name, count in candidate_secondary_counts.most_common() if count > 0
         ],
         "secondary_methodology": {
-            "version": "paper-table3-v2",
-            "basis": "송승환·임소영(2026), Table 3 + 추가 후보 표현",
+            "version": "paper-table3-v2+subjectless-candidate-v1-20261028",
+            "paper_version": "paper-table3-v2",
+            "extension_version": SUBJECTLESS_CANDIDATE_VERSION,
+            "basis": "송승환·임소영(2026), Table 3 + 승인된 신규 표현 6개",
             "measure": "정규표현식 기반 출현 빈도(문맥 판별 아님)",
-            "scope": "새 기준으로 집계된 기사만 포함(일부 추가 표현은 기타·전언형)",
+            "scope": "확보한 승인 기사 본문 기반. 신규 표현은 과거 본문이 있으면 소급 계수",
         },
         "daily_counts_14d": [
             {
