@@ -76,9 +76,9 @@ DEFAULT_SITE_CONFIG = {
     "hero_description": "한국 언론의 기사에서 “취재를 종합하면”이 어떻게 쓰이는지 기록합니다.",
     "card_today_label": "오늘의 '취재 종합'",
     "card_publisher_label": "오늘의 최다 '취재 종합' 언론사",
-    "card_reporter_label": "이번 주 가장 많이 '취재 종합'한 기자",
+    "card_reporter_label": "오늘 가장 많이 '취재 종합'한 기자",
     "card_exclusive_label": "[단독] 동반 비율",
-    "section_publisher_title": "오늘의 최다 '취재 종합' 언론사",
+    "section_publisher_title": "이번 주 가장 많이 '취재 종합'한 언론사",
     "section_reporter_title": "이번 주 가장 많이 '취재 종합'한 기자",
     "section_category_title": "원문 기사 분류",
     "section_secondary_title": "함께 쓰인 무주체형 표현",
@@ -324,6 +324,23 @@ def get_site_config():
     # Other administrator customizations remain untouched.
     if config.get("ranking_view_all_text") == "전체 보기":
         config["ranking_view_all_text"] = "자세히 보기"
+    # Transition existing administrator-edited period labels without overriding
+    # their chosen wording. Only the time-period prefix is changed.
+    old_reporter = config.get("card_reporter_label", "")
+    if old_reporter.startswith("이번 주"):
+        label = "오늘" + old_reporter[len("이번 주"):]
+        config["card_reporter_label"] = label
+        config["ui_copy"]["card_reporter_label"] = label
+    old_publisher = config.get("section_publisher_title", "")
+    if old_publisher == "오늘의 최다 '취재 종합' 언론사":
+        label = "이번 주 가장 많이 '취재 종합'한 언론사"
+    elif old_publisher.startswith("오늘 가장 많이"):
+        label = "이번 주" + old_publisher[len("오늘"):]
+    else:
+        label = None
+    if label is not None:
+        config["section_publisher_title"] = label
+        config["ui_copy"]["section_publisher_title"] = label
     return config
 
 
@@ -743,16 +760,21 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
 
     publisher_aliases = get_publisher_aliases()
     publisher_counts = Counter(publisher_display(a, publisher_aliases) for a in today_articles)
+    publisher_counts_week = Counter(publisher_display(a, publisher_aliases) for a in week_articles)
 
+    reporter_counts_today = Counter()
     reporter_counts = Counter()
     for article in week_articles:
         publisher = publisher_display(article, publisher_aliases)
+        is_today = article["_dt"].date() == selected
         for reporter in split_reporters(
             article.get("reporters_resolved") or article.get("reporters_original"),
             people_only=True,
             publisher=publisher,
         ):
             reporter_counts[(reporter, publisher)] += 1
+            if is_today:
+                reporter_counts_today[(reporter, publisher)] += 1
 
     category_counts = Counter(
         a.get("category_original") or "미분류"
@@ -843,6 +865,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             daily_counts[str(dt.date())] += 1
 
     top_publisher = publisher_counts.most_common(1)
+    top_reporter_today = reporter_counts_today.most_common(1)
     top_reporter = reporter_counts.most_common(1)
     config = get_site_config()
     last_collection = latest_successful_collection()
@@ -892,6 +915,14 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             {"name": top_publisher[0][0], "count": top_publisher[0][1]}
             if top_publisher else None
         ),
+        "top_reporter_today": (
+            {
+                "name": top_reporter_today[0][0][0],
+                "publisher": top_reporter_today[0][0][1],
+                "count": top_reporter_today[0][1],
+            }
+            if top_reporter_today else None
+        ),
         "top_reporter_week": (
             {
                 "name": top_reporter[0][0][0],
@@ -903,6 +934,10 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         "publisher_ranking": [
             {"name": name, "count": count}
             for name, count in publisher_counts.most_common()
+        ],
+        "publisher_ranking_week": [
+            {"name": name, "count": count}
+            for name, count in publisher_counts_week.most_common()
         ],
         "reporter_ranking_week": [
             {"name": key[0], "publisher": key[1], "count": count}
