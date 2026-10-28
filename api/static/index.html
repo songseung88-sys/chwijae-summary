@@ -23,7 +23,7 @@
   <meta name="twitter:title" content="취재를 종합하면" />
   <meta name="twitter:description" content="한국 언론의 취재 표현 사용 현황을 기록하는 대시보드" />
   <meta name="twitter:image" content="https://based-on-our-reporting.com/static/og-thumbnail-wide.jpg" />
-  <link rel="stylesheet" href="/static/style.css?v=analysis-visual-1" />
+  <link rel="stylesheet" href="/static/style.css?v=target-phrase-v2" />
 </head>
 <body>
   <main class="wrap">
@@ -115,6 +115,13 @@
         <button id="loadMore" class="more-button" type="button"></button>
       </div>
     </section>
+    <dialog class="target-phrase-dialog" id="targetPhraseDialog" aria-labelledby="targetPhraseDialogTitle">
+      <header class="topic-dialog-head">
+        <h2 id="targetPhraseDialogTitle">오늘의 취재 근거 표현</h2>
+        <button type="button" id="closeTargetPhraseDialog" aria-label="팝업 닫기">✕</button>
+      </header>
+      <div id="targetPhraseDialogContent"></div>
+    </dialog>
     <dialog class="topic-dialog" id="categoryDialog" aria-labelledby="categoryDialogTitle">
       <header class="topic-dialog-head">
         <h2 id="categoryDialogTitle">기사 분류별 비중</h2>
@@ -147,8 +154,9 @@
     </article>
   </template>
 
-  <script src="/static/app.js?v=ui-copy-1" defer></script>
+  <script src="/static/app.js?v=target-phrase-v2" defer></script>
   <script src="/static/topic-dialog.js?v=ui-copy-1" defer></script>
   <script src="/static/ranking-dialog.js?v=ui-copy-1" defer></script>
+  <script src="/static/target-phrase-dialog.js?v=1" defer></script>
 </body>
 </html>

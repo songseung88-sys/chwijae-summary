@@ -178,7 +178,7 @@ function renderCards(d){
     ? `${esc(d.top_reporter_week.name)} <small>${esc(d.top_reporter_week.publisher)} · ${d.top_reporter_week.count}${esc(uiCopy("count_unit","건"))}</small>`
     : "—";
   qs("#summaryCards").innerHTML = `
-    <div class="card"><div class="label">${esc(cfg.card_today_label)}</div><div class="value">${d.today_count}${esc(uiCopy("count_unit","건"))}</div><div class="sub">${d.date}${esc(uiCopy("card_today_asof"," 현재"))}</div><div class="sub">${esc(uiCopy("card_additional_prefix","(\'본지 취재 결과\' "))}${d.additional_phrase_article_count||0}${esc(uiCopy("card_additional_suffix","건 포함)"))}</div></div>
+    <div class="card target-phrase-summary"><div class="label">${esc(cfg.card_today_label)}</div><div class="value">${d.today_count}${esc(uiCopy("count_unit","건"))}</div><div class="sub">${d.date}${esc(uiCopy("card_today_asof"," 현재"))}</div><button type="button" class="text-link target-phrase-open" id="openTargetPhraseDialog" aria-haspopup="dialog" aria-controls="targetPhraseDialog">${esc(cfg.ranking_view_all_text||"자세히 보기")}</button></div>
     <div class="card"><div class="label">${esc(cfg.card_publisher_label)}</div><div class="value compact">${pub}</div><div class="sub">${esc(uiCopy("card_publisher_asof","오늘 기준"))}</div></div>
     <div class="card"><div class="label">${esc(cfg.card_reporter_label)}</div><div class="value compact">${rep}</div><div class="sub">${d.week_start}${esc(uiCopy("card_reporter_since"," 이후"))}</div></div>
     <div class="card"><div class="label">${esc(cfg.card_exclusive_label)}</div><div class="value">${(d.exclusive_ratio*100).toFixed(1)}%</div><div class="sub">${d.exclusive_count} / ${d.today_count}${esc(uiCopy("count_unit","건"))}</div></div>`;
@@ -186,7 +186,7 @@ function renderCards(d){
 function highlightTargetPhrases(element, value){
   // Use text nodes rather than injecting HTML from published article content.
   const text=String(value||"");
-  const regex=/(취재를\s*종합하면|본지\s*취재\s*결과)/g;
+  const regex=/(취재를\s*종합하면|본지\s*취재\s*결과|취재에\s*따르면|취재(?:를\s*)?한\s*결과|본보\s*취재\s*결과|본지\s*확인\s*결과)/g;
   let cursor=0;
   for(const match of text.matchAll(regex)){
     if(match.index>cursor) element.appendChild(document.createTextNode(text.slice(cursor,match.index)));
@@ -279,6 +279,9 @@ document.addEventListener("DOMContentLoaded",()=>{
   qs("#closeCategoryDialog").addEventListener("click",()=>qs("#categoryDialog").close());
   qs("#categoryDialog").addEventListener("click",e=>{
     if(e.target===qs("#categoryDialog")) qs("#categoryDialog").close();
+  });
+  qs("#summaryCards").addEventListener("click",event=>{
+    if(event.target.closest("#openTargetPhraseDialog"))openTargetPhraseDialog();
   });
   qs("#loadMore").addEventListener("click",()=>{state.articleVisible+=10;renderArticles();});
   qs("#categoryRanking").addEventListener("click",e=>{
