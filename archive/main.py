@@ -10,22 +10,27 @@ import json
 import os
 import re
 import time
+import random
 from datetime import datetime, timedelta, date
 from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 import google.auth
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from google.cloud import firestore
 import collector_parser as parser
 
 KST=ZoneInfo("Asia/Seoul")
 SHEET_ID=os.environ["ARCHIVE_SPREADSHEET_ID"]
 PROJECT_ID=os.environ.get("GCP_PROJECT_ID") or None
-ARCHIVE_VERSION="sheets-v1-20261020"
+ARCHIVE_VERSION="sheets-v1-20261028-quota"
 BODY_LIMIT=47500
 MAX_BODY_PARTS=3
 MAX_ARTICLE_FETCH=int(os.environ.get("MAX_ARCHIVE_BODY_FETCH","100"))
+# Two overlapping archive jobs can share the Sheets per-user write quota.
+SHEETS_MIN_WRITE_INTERVAL_SECONDS=2.2
+SHEETS_MAX_RATE_LIMIT_RETRIES=8
 SHEET_HEADERS={
     "일별 통계":750549775,"언론사별":201,"기자별":202,
     "주제별":203,"무주체형 표현":204,"기사 목록":205,
@@ -328,6 +333,7 @@ class SheetWriter:
         creds,_=google.auth.default(scopes=["https://www.googleapis.com/auth/spreadsheets"])
         self.api=build("sheets","v4",credentials=creds,cache_discovery=False).spreadsheets()
         self.id=sheet_id
+        self._last_write_attempt=None
         meta=self.api.get(spreadsheetId=self.id,fields="sheets(properties(sheetId,title,gridProperties(rowCount)))").execute()
         self.grids={s["properties"]["title"]:s["properties"]["gridProperties"]["rowCount"] for s in meta["sheets"]}
 
@@ -351,6 +357,30 @@ class SheetWriter:
             index,rem=divmod(index-1,26)
             s=chr(65+rem)+s
         return s
+
+    def write_batch_with_retry(self,batch,number,total):
+        """Retry only definitive Sheets quota rejections; never replay an
+        ambiguous 5xx for appendCells (which could append twice)."""
+        for attempt in range(SHEETS_MAX_RATE_LIMIT_RETRIES+1):
+            if self._last_write_attempt is not None:
+                remaining=SHEETS_MIN_WRITE_INTERVAL_SECONDS-(time.monotonic()-self._last_write_attempt)
+                if remaining>0:
+                    time.sleep(remaining)
+            self._last_write_attempt=time.monotonic()
+            try:
+                self.api.batchUpdate(spreadsheetId=self.id,body={"requests":batch}).execute()
+                print(f"[SHEETS] batch {number}/{total}, operations={len(batch)}, "
+                      f"quota_retries={attempt}",flush=True)
+                return
+            except HttpError as exc:
+                code=int(getattr(getattr(exc,"resp",None),"status",0))
+                if code!=429 or attempt>=SHEETS_MAX_RATE_LIMIT_RETRIES:
+                    raise
+                backoff=min(120.0,5.0*(2**attempt))+random.uniform(0.0,2.0)
+                print(f"[SHEETS] quota 429, batch={number}/{total}, "
+                      f"retry={attempt+1}/{SHEETS_MAX_RATE_LIMIT_RETRIES}, "
+                      f"sleep={backoff:.1f}s",flush=True)
+                time.sleep(backoff)
 
     def write(self,out):
         names=[name for name,rows in out.items() if rows]
@@ -385,10 +415,13 @@ class SheetWriter:
                   "rows":[{"values":[value(v) for v in row]} for row in appended],
                   "fields":"userEnteredValue"}})
                 n+=len(appended)
-        # API limit 1000 req; split to keep response sizes stable.
+        # One batchUpdate is one Sheets write quota unit, but full 14-day
+        # synchronizations can produce dozens of batches. Pace them to stay
+        # below the per-user 60/min limit; retry a rejected 429 with backoff.
+        total=(len(requests)+149)//150
         for start in range(0,len(requests),150):
             batch=requests[start:start+150]
-            self.api.batchUpdate(spreadsheetId=self.id,body={"requests":batch}).execute()
+            self.write_batch_with_retry(batch,start//150+1,total)
         return n
 
 def main():
