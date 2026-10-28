@@ -857,6 +857,9 @@ def collect_target_candidates(client_id, client_secret, target_date, max_article
     candidates = sorted(
         by_url.values(), key=lambda row: row["api_pubdate"], reverse=True
     )
+    if len(candidates)>max_articles:
+        print(f"[TARGET LIMIT] total_unique={len(candidates)}, processed={max_articles}; "
+              "consider increasing the collection budget", flush=True)
     return candidates[:max_articles], queries
 
 
@@ -988,7 +991,7 @@ def main():
     client_id = os.environ.get("NAVER_API_HUB_CLIENT_ID", "").strip()
     client_secret = os.environ.get("NAVER_API_HUB_CLIENT_SECRET", "").strip()
     compare_naver = os.getenv("COMPARE_NAVER", "true").lower() == "true"
-    max_articles = int(os.getenv("MAX_ARTICLES_PER_RUN", "100"))
+    max_articles = int(os.getenv("MAX_ARTICLES_PER_RUN", "160"))
 
     if not client_id or not client_secret:
         print("Missing NAVER API credentials.", file=sys.stderr)
