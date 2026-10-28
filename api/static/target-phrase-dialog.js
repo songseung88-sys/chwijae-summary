@@ -9,11 +9,10 @@ function targetSafeLink(value){
 }
 function targetPhraseDetailMarkup(data){
   const articles=Array.isArray(data?.articles)?data.articles:[];
-  const groups=Array.isArray(data?.target_phrase_breakdown)?data.target_phrase_breakdown:[];
+  const groups=(Array.isArray(data?.target_phrase_breakdown)?data.target_phrase_breakdown:[])
+    .filter(group=>Number(group?.article_count)>0);
   const countUnit=targetDetailCopy("count_unit","건");
   const unique=Number(data?.today_count)||0;
-  const legacy=Number(data?.legacy_today_count)||0;
-  const allNames=groups.map(g=>String(g.name||""));
   const rows=groups.map(group=>{
     const name=String(group.name||"");
     const matched=articles.filter(a=>Number(a?.target_phrase_counts?.[name])>0);
@@ -35,14 +34,10 @@ function targetPhraseDetailMarkup(data){
         '<p>'+esc(targetDetailCopy("target_detail_empty","해당 날짜에 확인된 기사가 없습니다."))+'</p>')+
       '</div></details>';
   }).join("");
-  const breakdownTotal=groups.reduce((sum,g)=>sum+(Number(g.article_count)||0),0);
   return '<div class="target-detail-metrics"><strong>'+unique+esc(countUnit)+'</strong>'+
-    '<span>'+esc(targetDetailCopy("target_detail_unique","전체 대상 기사 · 중복 제거"))+'</span></div>'+
+    '</div>'+
     '<p class="target-detail-intro">'+esc(targetDetailCopy("target_detail_intro","표현별 기사 수를 누르면 실제 기사와 언론사를 확인할 수 있습니다."))+'</p>'+
-    '<div class="target-detail-list">'+rows+'</div>'+
-    '<p class="target-detail-note">'+esc(targetDetailCopy("target_detail_overlap","한 기사가 두 표현 이상을 쓰면 각각에 표시하지만 전체 기사 수에는 한 번만 반영합니다."))+'</p>'+
-    '<p class="target-detail-note">'+esc(data?.methodology?.target_phrase_note||
-      targetDetailCopy("target_detail_history","새 표현을 과거 날짜에 소급 검색하지 않았으므로 적용 전후 추이를 단순 비교하지 마세요."))+'</p>';
+    '<div class="target-detail-list">'+rows+'</div>';
 }
 function openTargetPhraseDialog(){
   const d=state.data;
