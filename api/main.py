@@ -923,7 +923,15 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     config = get_site_config()
     last_collection = latest_successful_collection()
 
-    first_phrase_position = summarize_core_phrase_positions(today_articles)
+    # Rolling seven-day interval, independent of Monday-based rank lists.
+    position_period_start = selected - timedelta(days=6)
+    position_articles = [
+        a for a in all_articles
+        if a.get("_dt") and position_period_start <= a["_dt"].date() <= selected
+    ]
+    first_phrase_position = summarize_core_phrase_positions(position_articles)
+    first_phrase_position["period_start"] = str(position_period_start)
+    first_phrase_position["period_end"] = str(selected)
 
     article_rows = []
     for a in sorted(
