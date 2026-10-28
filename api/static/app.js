@@ -140,7 +140,7 @@ function renderRankings(){
   const d=state.data;
   const cfg=d.site_config;
   const defs=[
-    ["publisherRanking",d.publisher_ranking],
+    ["publisherRanking",d.publisher_ranking_week],
     ["reporterRanking",d.reporter_ranking_week],
   ];
   for(const [id,rows] of defs){
@@ -174,13 +174,13 @@ function renderHistory(rows){
 function renderCards(d){
   const cfg=d.site_config;
   const pub = d.top_publisher ? `${esc(d.top_publisher.name)} <small>${d.top_publisher.count}${esc(uiCopy("count_unit","건"))}</small>` : "—";
-  const rep = d.top_reporter_week
-    ? `${esc(d.top_reporter_week.name)} <small>${esc(d.top_reporter_week.publisher)} · ${d.top_reporter_week.count}${esc(uiCopy("count_unit","건"))}</small>`
+  const rep = d.top_reporter_today
+    ? `${esc(d.top_reporter_today.name)} <small>${esc(d.top_reporter_today.publisher)} · ${d.top_reporter_today.count}${esc(uiCopy("count_unit","건"))}</small>`
     : "—";
   qs("#summaryCards").innerHTML = `
     <div class="card target-phrase-summary"><div class="label">${esc(cfg.card_today_label)}</div><div class="value">${d.today_count}${esc(uiCopy("count_unit","건"))}</div><div class="sub">${d.date}${esc(uiCopy("card_today_asof"," 현재"))}</div><button type="button" class="text-link target-phrase-open" id="openTargetPhraseDialog" aria-haspopup="dialog" aria-controls="targetPhraseDialog">${esc(cfg.ranking_view_all_text||"자세히 보기")}</button></div>
     <div class="card"><div class="label">${esc(cfg.card_publisher_label)}</div><div class="value compact">${pub}</div><div class="sub">${esc(uiCopy("card_publisher_asof","오늘 기준"))}</div></div>
-    <div class="card"><div class="label">${esc(cfg.card_reporter_label)}</div><div class="value compact">${rep}</div><div class="sub">${d.week_start}${esc(uiCopy("card_reporter_since"," 이후"))}</div></div>
+    <div class="card"><div class="label">${esc(cfg.card_reporter_label)}</div><div class="value compact">${rep}</div><div class="sub">${esc(uiCopy("card_reporter_asof","오늘 기준"))}</div></div>
     <div class="card"><div class="label">${esc(cfg.card_exclusive_label)}</div><div class="value">${(d.exclusive_ratio*100).toFixed(1)}%</div><div class="sub">${d.exclusive_count} / ${d.today_count}${esc(uiCopy("count_unit","건"))}</div></div>`;
 }
 function highlightTargetPhrases(element, value){
@@ -258,6 +258,7 @@ async function load(date){
   renderRankings();
   renderHistory(d.daily_counts_14d);
   renderArticles();
+  qs("#publisherWeekLabel").textContent = `${d.week_start}~${d.date}`;
   qs("#weekLabel").textContent = `${d.week_start}~${d.date}`;
 }
 document.addEventListener("DOMContentLoaded",()=>{
