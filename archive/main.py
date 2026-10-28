@@ -25,6 +25,12 @@ KST=ZoneInfo("Asia/Seoul")
 SHEET_ID=os.environ["ARCHIVE_SPREADSHEET_ID"]
 PROJECT_ID=os.environ.get("GCP_PROJECT_ID") or None
 ARCHIVE_VERSION="sheets-v1-20261028-quota"
+CANDIDATE_VERSION="subjectless-candidate-v1-20261028"
+CANDIDATE_SUBTYPE={
+    "우려가 나온다":"자생발생형", "목소리가 나온다":"자생발생형",
+    "의견이 나온다":"자생발생형", "평가가 나온다":"자생발생형",
+    "전망이 나온다":"자생발생형", "지적된다":"피동형",
+}
 BODY_LIMIT=47500
 MAX_BODY_PARTS=3
 MAX_ARTICLE_FETCH=int(os.environ.get("MAX_ARCHIVE_BODY_FETCH","100"))
@@ -186,6 +192,8 @@ def collect_rows(articles,aliases,now,max_fetch):
         topics=collections.Counter()
         secondary=collections.Counter()
         secondary_docs=collections.Counter()
+        candidates=collections.Counter()
+        candidate_docs=collections.Counter()
         n_exclusive=0
         n_primary=0
         n_additional=0
@@ -213,6 +221,11 @@ def collect_rows(articles,aliases,now,max_fetch):
                     term="셈이다" if term=="한 셈이다" else term
                     n=int(count or 0)
                     if n>0:secondary[term]+=n;secondary_docs[term]+=1
+            if a.get("subjectless_candidate_version")==CANDIDATE_VERSION:
+                for term,count in (a.get("subjectless_candidate_counts") or {}).items():
+                    if term not in CANDIDATE_SUBTYPE:continue
+                    n=max(0,int(count or 0))
+                    if n>0:candidates[term]+=n;candidate_docs[term]+=1
             body=a.get("archive_body_text") if a.get("archive_body_status")=="수집 성공" else None
             if body:
                 body=body.strip()
@@ -264,6 +277,15 @@ def collect_rows(articles,aliases,now,max_fetch):
             major,sub=rules.get(term,("기타","기타"))
             key="|".join((day,"paper-table3-v2",term))
             out["무주체형 표현"].append([day,"paper-table3-v2",major,sub,term,n,secondary_docs[term],now,key])
+        # Store exploratory lexical candidates under their own version in the
+        # existing research archive. Do not add them to paper-derived totals.
+        for term,n in sorted(candidates.items()):
+            sub=CANDIDATE_SUBTYPE[term]
+            key="|".join((day,CANDIDATE_VERSION,term))
+            out["무주체형 표현"].append([
+                day,CANDIDATE_VERSION,"출처소거형",sub,term,
+                n,candidate_docs[term],now,key,
+            ])
     return out,new_fetches
 
 def collect_run_rows(runs,now):

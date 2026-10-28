@@ -73,6 +73,7 @@ jobs:
           python -m unittest discover -s qa -p "test_etoday_reporters.py" -v
           python -m unittest discover -s qa -p "test_publisher_alias_admin.py" -v
           python -m unittest discover -s qa -p "test_subjectless_table3.py" -v
+          python -m unittest discover -s qa -p "test_subjectless_candidates.py" -v
           python -m unittest discover -s qa -p "test_expanded_corpus.py" -v
           python -m unittest discover -s qa -p "test_target_phrase_expansion.py" -v
           python -m unittest discover -s qa -p "test_article_body_extraction.py" -v
