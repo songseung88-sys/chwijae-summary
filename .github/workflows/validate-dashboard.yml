@@ -80,6 +80,10 @@ jobs:
           bash -n infra/setup_scheduler.sh
       - name: Verify target phrase breakdown modal and safe examples
         run: node qa/test_target_phrase_dialog.js
+      - name: Verify daily top cards and weekly ranking panels
+        run: |
+          python -m unittest discover -s qa -p "test_dashboard_ranking_periods.py" -v
+          node qa/test_dashboard_ranking_periods.js
       - name: JavaScript syntax check
         run: node --check api/static/app.js && node --check api/static/admin.js && node --check api/static/about.js && node --check api/static/topic-dialog.js && node --check api/static/ranking-dialog.js && node --check api/static/publisher-editor.js && node --check api/static/bigkinds-charts.js && node --check api/static/about-layout-editor.js && node --check api/static/about-format.js && node --check api/static/bigkinds-data-editor.js && node --check api/static/feedback.js && node --check api/static/target-phrase-dialog.js
       - name: Verify BigKinds annual/publisher historical charts
