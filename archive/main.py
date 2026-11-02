@@ -25,8 +25,22 @@ import collector_parser as parser
 KST=ZoneInfo("Asia/Seoul")
 SHEET_ID=os.environ["ARCHIVE_SPREADSHEET_ID"]
 PROJECT_ID=os.environ.get("GCP_PROJECT_ID") or None
-ARCHIVE_VERSION="sheets-v1-20261028-naver-first"
+ARCHIVE_VERSION="sheets-v2-20261102-six-evidence-phrases"
 CANDIDATE_VERSION="subjectless-candidate-v1-20261028"
+# Stable phrase columns: historical H/I and publisher F:I never change meaning.
+# New phrase columns are appended after existing sync keys and body chunks.
+TARGET_PHRASE_RULES=(
+    ("취재를 종합하면",r"취재를 종합하면"),
+    ("본지 취재 결과",r"본지\s*취재\s*결과"),
+    ("취재에 따르면",r"취재에\s*따르면"),
+    ("취재한 결과",r"취재(?:를\s*)?한\s*결과"),
+    ("본보 취재 결과",r"본보\s*취재\s*결과"),
+    ("본지 확인 결과",r"본지\s*확인\s*결과"),
+)
+TARGET_PHRASE_COMPILED=tuple((label,re.compile(regex)) for label,regex in TARGET_PHRASE_RULES)
+TARGET_PHRASE_LABELS=tuple(label for label,_ in TARGET_PHRASE_RULES)
+NEW_TARGET_PHRASE_LABELS=TARGET_PHRASE_LABELS[2:]
+
 CANDIDATE_SUBTYPE={
     "우려가 나온다":"자생발생형", "목소리가 나온다":"자생발생형",
     "의견이 나온다":"자생발생형", "평가가 나온다":"자생발생형",
@@ -101,8 +115,21 @@ def reporters(article):
     return result
 
 def phrase_counts(article):
-    v=article.get("phrase_counts") or {}
-    return int(v.get("취재를 종합하면") or 0),int(v.get("본지 취재 결과") or 0)
+    """Match public API counts: full analyzed private body when present,
+    otherwise fall back to versioned saved counts (no network backfill).
+    Return every target category independently, including new-only articles.
+    """
+    body=article.get("body_text_private")
+    if isinstance(body,str) and body:
+        return {label:len(pattern.findall(body))
+                for label,pattern in TARGET_PHRASE_COMPILED}
+    saved=article.get("phrase_counts") or {}
+    return {label:max(0,int(saved.get(label) or 0))
+            for label in TARGET_PHRASE_LABELS}
+
+def only_new_target_phrases(counts):
+    return (not any(counts.get(label) for label in TARGET_PHRASE_LABELS[:2])
+            and any(counts.get(label) for label in NEW_TARGET_PHRASE_LABELS))
 
 def body_quality(result):
     text=str(result.get("body") or "").strip()
@@ -204,6 +231,9 @@ def collect_rows(articles,aliases,now,max_fetch):
         n_additional=0
         phrase1=0
         phrase2=0
+        new_phrase_articles=collections.Counter()
+        new_phrase_occurrences=collections.Counter()
+        new_only_articles=0
         all_reporters=set()
         ai_done=0
         for a in group:
@@ -212,10 +242,17 @@ def collect_rows(articles,aliases,now,max_fetch):
             names=reporters(a)
             all_reporters.update((label,r) for r in names)
             for reporter in names:pub_reporter[(src,label,reporter)]+=1
-            c1,c2=phrase_counts(a)
+            counts=phrase_counts(a)
+            c1=counts["취재를 종합하면"]
+            c2=counts["본지 취재 결과"]
             n_primary+=c1>0
             n_additional+=c2>0
             phrase1+=c1;phrase2+=c2
+            new_only_articles+=only_new_target_phrases(counts)
+            for label in NEW_TARGET_PHRASE_LABELS:
+                n=counts[label]
+                new_phrase_articles[label]+=bool(n)
+                new_phrase_occurrences[label]+=n
             exclusive=bool(a.get("is_exclusive_strict"))
             n_exclusive+=exclusive
             if a.get("taxonomy_version")=="0.3" and a.get("category_secondary"):
@@ -252,25 +289,38 @@ def collect_rows(articles,aliases,now,max_fetch):
             original=a.get("title_resolved") or a.get("title_original") or a.get("api_title") or ""
             row=[
                 a["id"],day,a.get("api_pubdate") or "",src,label,", ".join(names),
-                original,c1,c2,c1+c2,exclusive,a.get("category_primary") or "",
+                original,c1,c2,sum(counts.values()),exclusive,a.get("category_primary") or "",
                 a.get("category_secondary") or "",a.get("category_tertiary") or "",
                 a.get("taxonomy_version") or "",a.get("secondary_taxonomy_version") or "",
                 a.get("content_basis") or a.get("final_source") or "",excerpt.get("text") or "",
                 a.get("original_url") or "",a.get("naver_url") or "",now,
                 p1,source,status,error,checked,a["id"],p2,p3,
+                *(counts[label] for label in NEW_TARGET_PHRASE_LABELS),
             ]
             out["기사 목록"].append(row)
         out["일별 통계"].append([
             day,len(group),len(set(k[1] for k in publ)),len(all_reporters),
             n_exclusive,round(n_exclusive/len(group),5),n_primary,n_additional,
             phrase1,phrase2,ai_done,len(group)-ai_done,sum(secondary.values()),now,day,
+            *(new_phrase_articles[label] for label in NEW_TARGET_PHRASE_LABELS),
+            *(new_phrase_occurrences[label] for label in NEW_TARGET_PHRASE_LABELS),
+            phrase1+phrase2+sum(new_phrase_occurrences.values()),
+            new_only_articles,sum(candidates.values()),
+            sum(secondary.values())+sum(candidates.values()),
         ])
         for (src,label),a_list in sorted(publ.items()):
             c=[phrase_counts(a) for a in a_list]
             out["언론사별"].append([
                 day,src,label,len(a_list),sum(bool(a.get("is_exclusive_strict")) for a in a_list),
-                sum(x>0 for x,_ in c),sum(y>0 for _,y in c),
-                sum(x for x,_ in c),sum(y for _,y in c),now,day+"|"+src,
+                sum(x["취재를 종합하면"]>0 for x in c),
+                sum(x["본지 취재 결과"]>0 for x in c),
+                sum(x["취재를 종합하면"] for x in c),
+                sum(x["본지 취재 결과"] for x in c),
+                now,day+"|"+src,
+                *(sum(x[label]>0 for x in c) for label in NEW_TARGET_PHRASE_LABELS),
+                *(sum(x[label] for x in c) for label in NEW_TARGET_PHRASE_LABELS),
+                sum(sum(x.values()) for x in c),
+                sum(only_new_target_phrases(x) for x in c),
             ])
         for (src,label,reporter),n in sorted(pub_reporter.items()):
             out["기자별"].append([day,src,label,reporter,n,now,day+"|"+src+"|"+reporter])
