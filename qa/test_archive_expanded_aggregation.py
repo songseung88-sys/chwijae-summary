@@ -57,6 +57,8 @@ class ArchiveExpandedAggregation(unittest.TestCase):
         self.assertEqual(body_fetches, 0)
         rows = {row[0]: row for row in out["기사 목록"]}
         # H/I remain historical counts, J is all six, AD:AG are new counts.
+        self.assertEqual(rows["new"][4], "시험신문")
+        self.assertEqual(rows["old"][4], "시험신문")
         self.assertEqual(rows["new"][7:10], [0, 0, 2])
         self.assertEqual(rows["new"][29:33], [2, 0, 0, 0])
         self.assertEqual(rows["old"][7:10], [1, 0, 1])

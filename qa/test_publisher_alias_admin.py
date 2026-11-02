@@ -20,6 +20,10 @@ names={
 }
 nodes=[]
 for node in tree.body:
+    if (isinstance(node,ast.Assign) and any(
+        isinstance(t,ast.Name) and t.id=="PUBLISHER_DISPLAY_BY_DOMAIN"
+        for t in node.targets)):
+        nodes.append(copy.deepcopy(node))
     if isinstance(node,ast.FunctionDef) and node.name in names:
         node=copy.deepcopy(node)
         node.decorator_list=[]

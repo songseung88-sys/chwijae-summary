@@ -129,6 +129,15 @@ PUBLISHER_BY_HOST = {
     "view.asiae.co.kr": "아시아경제",
     "nocutnews.co.kr": "노컷뉴스",
     "etoday.co.kr": "이투데이",
+    "kgnews.co.kr": "경기신문",
+    "tvchosun.com": "TV조선",
+    "ilyosisa.co.kr": "일요시사",
+    "hankookilbo.com": "한국일보",
+    "weeklytrade.co.kr": "한국무역신문",
+    "geconomy.co.kr": "지이코노미",
+    "wowtv.co.kr": "한국경제TV",
+    "osen.co.kr": "OSEN",
+    "m-economynews.com": "M이코노미뉴스",
 }
 
 UA = (

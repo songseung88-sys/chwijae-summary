@@ -98,9 +98,24 @@ def value(v):
 def basename(article):
     return re.sub(r"\s+"," ",str(article.get("publisher_original") or urlparse(article.get("original_url") or "").hostname or "미확인")).strip()
 
+PUBLISHER_DISPLAY_BY_DOMAIN={
+    "kgnews.co.kr": "경기신문",
+    "tvchosun.com": "TV조선",
+    "ilyosisa.co.kr": "일요시사",
+    "hankookilbo.com": "한국일보",
+    "weeklytrade.co.kr": "한국무역신문",
+    "geconomy.co.kr": "지이코노미",
+    "wowtv.co.kr": "한국경제TV",
+    "osen.co.kr": "OSEN",
+    "m-economynews.com": "M이코노미뉴스",
+}
+
 def display_name(article,aliases):
     name=basename(article)
     if name in aliases:return aliases[name]
+    domain=name.casefold().removeprefix("www.")
+    if domain in PUBLISHER_DISPLAY_BY_DOMAIN:
+        return PUBLISHER_DISPLAY_BY_DOMAIN[domain]
     if name.lower() in ("etoday","e-today"):return "이투데이"
     if re.match(r"^중부일보\s*[-–—]\s*.+",name):return "중부일보"
     return name
@@ -249,10 +264,12 @@ def collect_rows(articles,aliases,now,max_fetch):
             n_additional+=c2>0
             phrase1+=c1;phrase2+=c2
             new_only_articles+=only_new_target_phrases(counts)
-            for label in NEW_TARGET_PHRASE_LABELS:
-                n=counts[label]
-                new_phrase_articles[label]+=bool(n)
-                new_phrase_occurrences[label]+=n
+            # Never reuse the publisher display 'label' for phrase labels:
+            # it is needed unchanged in the article archive row below.
+            for phrase_label in NEW_TARGET_PHRASE_LABELS:
+                n=counts[phrase_label]
+                new_phrase_articles[phrase_label]+=bool(n)
+                new_phrase_occurrences[phrase_label]+=n
             exclusive=bool(a.get("is_exclusive_strict"))
             n_exclusive+=exclusive
             if a.get("taxonomy_version")=="0.3" and a.get("category_secondary"):
