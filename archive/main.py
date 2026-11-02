@@ -31,11 +31,11 @@ CANDIDATE_VERSION="subjectless-candidate-v1-20261028"
 # New phrase columns are appended after existing sync keys and body chunks.
 TARGET_PHRASE_RULES=(
     ("취재를 종합하면",r"취재를 종합하면"),
-    ("본지 취재 결과",r"본지\\s*취재\\s*결과"),
-    ("취재에 따르면",r"취재에\\s*따르면"),
-    ("취재한 결과",r"취재(?:를\\s*)?한\\s*결과"),
-    ("본보 취재 결과",r"본보\\s*취재\\s*결과"),
-    ("본지 확인 결과",r"본지\\s*확인\\s*결과"),
+    ("본지 취재 결과",r"본지\s*취재\s*결과"),
+    ("취재에 따르면",r"취재에\s*따르면"),
+    ("취재한 결과",r"취재(?:를\s*)?한\s*결과"),
+    ("본보 취재 결과",r"본보\s*취재\s*결과"),
+    ("본지 확인 결과",r"본지\s*확인\s*결과"),
 )
 TARGET_PHRASE_COMPILED=tuple((label,re.compile(regex)) for label,regex in TARGET_PHRASE_RULES)
 TARGET_PHRASE_LABELS=tuple(label for label,_ in TARGET_PHRASE_RULES)
