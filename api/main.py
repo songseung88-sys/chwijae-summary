@@ -226,11 +226,26 @@ def clean_category(value):
     return text
 
 
+PUBLISHER_DISPLAY_BY_DOMAIN = {
+    "kgnews.co.kr": "경기신문",
+    "tvchosun.com": "TV조선",
+    "ilyosisa.co.kr": "일요시사",
+    "hankookilbo.com": "한국일보",
+    "weeklytrade.co.kr": "한국무역신문",
+    "geconomy.co.kr": "지이코노미",
+    "wowtv.co.kr": "한국경제TV",
+    "osen.co.kr": "OSEN",
+    "m-economynews.com": "M이코노미뉴스",
+}
+
 def normalize_publisher(value):
     """Normalize display and ranking labels without changing archived source metadata."""
     name = re.sub(r"\s+", " ", str(value or "")).strip()
     if not name:
         return "미확인"
+    mapped=PUBLISHER_DISPLAY_BY_DOMAIN.get(name.casefold().removeprefix("www."))
+    if mapped:
+        return mapped
     if name.casefold() in {"etoday", "e-today"}:
         return "이투데이"
     if re.match(r"^중부일보\s*[-–—]\s*.+$", name):
