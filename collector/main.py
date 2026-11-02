@@ -17,7 +17,10 @@ from zoneinfo import ZoneInfo
 import requests
 from bs4 import BeautifulSoup
 from google.cloud import firestore
-from article_identity import canonical_article_url
+try:
+    from .article_identity import canonical_article_url
+except ImportError:  # collector/main.py runs standalone inside the Cloud Run image
+    from article_identity import canonical_article_url
 
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
