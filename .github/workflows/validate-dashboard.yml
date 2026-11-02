@@ -141,14 +141,14 @@ jobs:
           html=Path("api/static/index.html").read_text()
           css=Path("api/static/style.css").read_text()
           js=Path("api/static/app.js").read_text()
-          # All existing titles are preserved byte-for-byte in the source defaults.
+          # Non-period titles remain unchanged; ranking titles now state the previous 7 days.
           expected={
               "card_today_label":"오늘의 '취재 종합'",
               "card_publisher_label":"오늘의 최다 '취재 종합' 언론사",
               "card_reporter_label":"오늘 가장 많이 '취재 종합'한 기자",
               "card_exclusive_label":"[단독] 동반 비율",
-              "section_publisher_title":"이번 주 가장 많이 '취재 종합'한 언론사",
-              "section_reporter_title":"이번 주 가장 많이 '취재 종합'한 기자",
+              "section_publisher_title":"지난 7일 가장 많이 '취재 종합'한 언론사",
+              "section_reporter_title":"지난 7일 가장 많이 '취재 종합'한 기자",
               "section_category_title":"원문 기사 분류",
               "section_secondary_title":"함께 쓰인 무주체형 표현",
               "section_history_title":"최근 14일",
@@ -161,7 +161,7 @@ jobs:
               assert '"key": "'+key+'"' in Path("api/static/ui-copy-fields.json").read_text(),key
               assert f'id="{node_id}"' in html,node_id
               assert f'#{node_id}' in js,node_id
-          assert '/static/app.js?v=position-v1' in html
+          assert '/static/app.js?v=rolling-complete-7d-v1' in html
           assert '/static/phrase-position.js?v=2' in html
           assert 'class="dashboard-group usage-group"' in html
           assert 'class="dashboard-group analysis-group"' in html
