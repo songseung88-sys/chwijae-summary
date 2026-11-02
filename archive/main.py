@@ -13,6 +13,7 @@ import time
 import random
 from datetime import datetime, timedelta, date
 from urllib.parse import urlparse
+from article_identity import canonical_article_url, unique_articles
 from zoneinfo import ZoneInfo
 
 import google.auth
@@ -169,7 +170,7 @@ def scan_articles(db,dates):
         doc["id"]=snap.id
         doc["_date"]=str(d.date())
         rows.append(doc)
-    return rows
+    return unique_articles(rows)
 
 def scan_runs(db,mode,dates):
     cap=120 if mode=="logs" else 2000
