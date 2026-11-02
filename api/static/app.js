@@ -136,6 +136,11 @@ function renderExpressionChart(rows){
   }).join("");
 }
 
+function renderRankingPeriod(d){
+  const period=`${d.week_start}~${d.week_end}`;
+  qs("#publisherWeekLabel").textContent=period;
+  qs("#weekLabel").textContent=period;
+}
 function renderRankings(){
   const d=state.data;
   const cfg=d.site_config;
@@ -259,8 +264,7 @@ async function load(date){
   renderFirstPhrasePosition(d.first_phrase_position);
   renderHistory(d.daily_counts_14d);
   renderArticles();
-  qs("#publisherWeekLabel").textContent = `${d.week_start}~${d.date}`;
-  qs("#weekLabel").textContent = `${d.week_start}~${d.date}`;
+  renderRankingPeriod(d);
 }
 document.addEventListener("DOMContentLoaded",()=>{
   const input=qs("#dateInput");
