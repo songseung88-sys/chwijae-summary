@@ -127,8 +127,8 @@ DEFAULT_SITE_CONFIG = {
     "card_publisher_label": "오늘의 최다 '취재 종합' 언론사",
     "card_reporter_label": "오늘 가장 많이 '취재 종합'한 기자",
     "card_exclusive_label": "[단독] 동반 비율",
-    "section_publisher_title": "이번 주 가장 많이 '취재 종합'한 언론사",
-    "section_reporter_title": "이번 주 가장 많이 '취재 종합'한 기자",
+    "section_publisher_title": "지난 7일 가장 많이 '취재 종합'한 언론사",
+    "section_reporter_title": "지난 7일 가장 많이 '취재 종합'한 기자",
     "section_category_title": "원문 기사 분류",
     "section_secondary_title": "함께 쓰인 무주체형 표현",
     "topic_primary_caption": "1차 분류",
@@ -398,14 +398,22 @@ def get_site_config():
         config["ui_copy"]["card_reporter_label"] = label
     old_publisher = config.get("section_publisher_title", "")
     if old_publisher == "오늘의 최다 '취재 종합' 언론사":
-        label = "이번 주 가장 많이 '취재 종합'한 언론사"
+        label = "지난 7일 가장 많이 '취재 종합'한 언론사"
     elif old_publisher.startswith("오늘 가장 많이"):
-        label = "이번 주" + old_publisher[len("오늘"):]
+        label = "지난 7일" + old_publisher[len("오늘"):]
     else:
         label = None
     if label is not None:
         config["section_publisher_title"] = label
         config["ui_copy"]["section_publisher_title"] = label
+    # Only update obsolete time-period prefixes, including old admin-edited
+    # labels. Preserve all other wording and never rewrite Firestore originals.
+    for key in ("section_publisher_title", "section_reporter_title"):
+        previous = config.get(key, "")
+        if previous.startswith("이번 주"):
+            updated = "지난 7일" + previous[len("이번 주"):]
+            config[key] = updated
+            config["ui_copy"][key] = updated
     return config
 
 
@@ -811,7 +819,11 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     else:
         selected = datetime.now(KST).date()
 
-    week_start = selected - timedelta(days=selected.weekday())
+    # Seven *completed* calendar days immediately before the selected day.
+    # Excluding the selected day keeps Monday rankings independent of
+    # today's incomplete real-time total, and also works for historical dates.
+    week_end = selected - timedelta(days=1)
+    week_start = week_end - timedelta(days=6)
     all_articles = accepted_articles(1200)
 
     today_articles = [
@@ -820,7 +832,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     ]
     week_articles = [
         a for a in all_articles
-        if a.get("_dt") and week_start <= a["_dt"].date() <= selected
+        if a.get("_dt") and week_start <= a["_dt"].date() <= week_end
     ]
 
     publisher_aliases = get_publisher_aliases()
@@ -829,17 +841,20 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
 
     reporter_counts_today = Counter()
     reporter_counts = Counter()
-    for article in week_articles:
+    for article in today_articles:
         publisher = publisher_display(article, publisher_aliases)
-        is_today = article["_dt"].date() == selected
         for reporter in split_reporters(
             article.get("reporters_resolved") or article.get("reporters_original"),
-            people_only=True,
-            publisher=publisher,
+            people_only=True, publisher=publisher,
+        ):
+            reporter_counts_today[(reporter, publisher)] += 1
+    for article in week_articles:
+        publisher = publisher_display(article, publisher_aliases)
+        for reporter in split_reporters(
+            article.get("reporters_resolved") or article.get("reporters_original"),
+            people_only=True, publisher=publisher,
         ):
             reporter_counts[(reporter, publisher)] += 1
-            if is_today:
-                reporter_counts_today[(reporter, publisher)] += 1
 
     category_counts = Counter(
         a.get("category_original") or "미분류"
@@ -940,7 +955,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     config = get_site_config()
     last_collection = latest_successful_collection()
 
-    # Rolling seven-day interval, independent of Monday-based rank lists.
+    # Today's first-phrase analysis retains its own selected-day-inclusive 7-day range.
     position_period_start = selected - timedelta(days=6)
     position_articles = [
         a for a in all_articles
@@ -983,6 +998,7 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     return {
         "date": str(selected),
         "week_start": str(week_start),
+        "week_end": str(week_end),
         "last_successful_collection": last_collection,
         "today_count": len(today_articles),
         "additional_phrase_article_count": additional_article_count,
