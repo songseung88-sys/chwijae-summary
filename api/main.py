@@ -243,9 +243,10 @@ def normalize_publisher(value):
     name = re.sub(r"\s+", " ", str(value or "")).strip()
     if not name:
         return "미확인"
-    mapped=PUBLISHER_DISPLAY_BY_DOMAIN.get(name.casefold().removeprefix("www."))
-    if mapped:
-        return mapped
+    domain=name.casefold().removeprefix("www.")
+    for publisher_host, publisher_label in PUBLISHER_DISPLAY_BY_DOMAIN.items():
+        if domain==publisher_host or domain.endswith("."+publisher_host):
+            return publisher_label
     if name.casefold() in {"etoday", "e-today"}:
         return "이투데이"
     if re.match(r"^중부일보\s*[-–—]\s*.+$", name):
