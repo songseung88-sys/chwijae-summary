@@ -14,7 +14,8 @@ def load_targets(path,fn_names):
     nodes=[n for n in tree.body if isinstance(n,ast.Assign) and
            any(isinstance(t,ast.Name) and t.id in names for t in n.targets)]
     nodes += [n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in fn_names]
-    ns={"re":re}
+    from collector.article_identity import canonical_article_url
+    ns={"re":re,"canonical_article_url":canonical_article_url}
     exec(compile(ast.Module(body=nodes,type_ignores=[]),path,"exec"),ns)
     return ns
 

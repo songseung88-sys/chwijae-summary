@@ -13,6 +13,7 @@ import time
 import random
 from datetime import datetime, timedelta, date
 from urllib.parse import urlparse
+from article_identity import canonical_article_url, unique_articles
 from zoneinfo import ZoneInfo
 
 import google.auth
@@ -169,7 +170,7 @@ def scan_articles(db,dates):
         doc["id"]=snap.id
         doc["_date"]=str(d.date())
         rows.append(doc)
-    return rows
+    return unique_articles(rows)
 
 def scan_runs(db,mode,dates):
     cap=120 if mode=="logs" else 2000
@@ -360,6 +361,7 @@ class SheetWriter:
         self.api=build("sheets","v4",credentials=creds,cache_discovery=False).spreadsheets()
         self.id=sheet_id
         self._last_write_attempt=None
+        self.article_url_keys={}
         meta=self.api.get(spreadsheetId=self.id,fields="sheets(properties(sheetId,title,gridProperties(rowCount)))").execute()
         self.grids={s["properties"]["title"]:s["properties"]["gridProperties"]["rowCount"] for s in meta["sheets"]}
 
@@ -374,6 +376,20 @@ class SheetWriter:
             for row_index,row in enumerate(v.get("values") or [],start=1):
                 if row and str(row[0]).strip():mapping[str(row[0])]=row_index
             existing[name]=mapping
+        # Historic article IDs differ only because Nocut UTM parameters were
+        # hashed. Match on semantic identity too, so a corrected ID updates
+        # the existing row instead of being appended again.
+        if "기사 목록" in names:
+            links=self.api.values().get(
+                spreadsheetId=self.id,range="'기사 목록'!S2:S",
+                valueRenderOption="UNFORMATTED_VALUE"
+            ).execute().get("values") or []
+            for pos,row in enumerate(links,start=1):
+                if not row or not row[0]:
+                    continue
+                key=canonical_article_url(row[0])
+                if key:
+                    self.article_url_keys.setdefault(key,pos)
         return existing
 
     @staticmethod
@@ -419,11 +435,15 @@ class SheetWriter:
             appended=[];updated=[]
             for row in rows:
                 key=str(row[KEY_COL[name]])
-                if key in index:
+                canonical = (canonical_article_url(row[18])
+                             if name == "기사 목록" and len(row)>18 else "")
+                matching_row = (index.get(key) if key in index
+                                else self.article_url_keys.get(canonical) if canonical else None)
+                if matching_row is not None:
                     if name == "의견 보내기":
                         # Never overwrite mail alert timestamps or private notes.
                         continue
-                    updated.append((index[key],row))
+                    updated.append((matching_row,row))
                 else:
                     appended.append(row)
             required=maxrow+len(appended)

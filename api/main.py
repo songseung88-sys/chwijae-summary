@@ -20,6 +20,7 @@ from fastapi.staticfiles import StaticFiles
 from google.cloud import firestore
 from feedback_store import clean_feedback, new_timestamp, save_feedback_to_sheet
 from phrase_position import summarize_core_phrase_positions
+from article_identity import unique_articles
 
 from bigkinds_content import (SOURCE as BIGKINDS_SOURCE, default_about_layout,
                               validate_about_layout, validate_history)
@@ -332,7 +333,7 @@ def accepted_articles(limit=1200):
         data["_dt"] = parse_kst(data.get("api_pubdate"))
         data["category_original"] = clean_category(data.get("category_original"))
         out.append(data)
-    return out
+    return unique_articles(out)
 
 
 def get_site_config():

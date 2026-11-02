@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Python compile
-        run: python -m py_compile api/main.py api/phrase_position.py classifier/main.py collector/main.py
+        run: python -m py_compile api/main.py api/phrase_position.py api/article_identity.py classifier/main.py collector/main.py collector/article_identity.py
       - name: Verify social sharing Open Graph tags and thumbnail image
         run: python -m unittest discover -s qa -p "test_social_preview.py" -v
       - name: Verify password-protected image upload and crawler metadata rendering
@@ -50,6 +50,7 @@ jobs:
       - name: Archive exporter syntax and idempotency regression
         run: |
           python -m py_compile archive/main.py collector/main.py
+          python -m unittest discover -s qa -p "test_canonical_article_dedup.py" -v
           python -m unittest discover -s qa -p "test_daily_archive.py" -v
           python -m unittest discover -s qa -p "test_archive_naver_priority.py" -v
           python -m unittest discover -s qa -p "test_archive_sheet_quota.py" -v

@@ -6,5 +6,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY archive/main.py ./main.py
 COPY archive/bootstrap.py ./bootstrap.py
 COPY collector/main.py ./collector_parser.py
+COPY collector/article_identity.py ./article_identity.py
 ENTRYPOINT ["python","bootstrap.py"]
 CMD ["--mode","full","--days","7"]

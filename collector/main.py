@@ -17,6 +17,10 @@ from zoneinfo import ZoneInfo
 import requests
 from bs4 import BeautifulSoup
 from google.cloud import firestore
+try:
+    from .article_identity import canonical_article_url
+except ImportError:  # collector/main.py runs standalone inside the Cloud Run image
+    from article_identity import canonical_article_url
 
 KST = ZoneInfo("Asia/Seoul")
 PHRASE = "취재를 종합하면"
@@ -890,7 +894,7 @@ def fetch_candidates(client_id, client_secret, target_date, query, max_pages=10)
                 continue
 
             original_url = item.get("originallink") or item.get("link") or ""
-            key = original_url or item.get("link", "")
+            key = canonical_article_url(original_url or item.get("link", ""))
             if key and key not in seen:
                 seen.add(key)
                 candidates.append({
@@ -916,7 +920,7 @@ def collect_target_candidates(client_id, client_secret, target_date, max_article
     for query in queries:
         for item in fetch_candidates(client_id, client_secret, target_date, query=query):
             # Same published URL may appear in both search responses.
-            key = item.get("original_url") or item.get("naver_url")
+            key = canonical_article_url(item.get("original_url") or item.get("naver_url"))
             if key:
                 by_url.setdefault(key, item)
     candidates = sorted(
@@ -929,7 +933,7 @@ def collect_target_candidates(client_id, client_secret, target_date, max_article
 
 
 def doc_id(url):
-    return hashlib.sha256(url.encode("utf-8")).hexdigest()[:32]
+    return hashlib.sha256(canonical_article_url(url).encode("utf-8")).hexdigest()[:32]
 
 
 # Historical correction is explicitly limited to named articles whose
