@@ -114,8 +114,9 @@ def display_name(article,aliases):
     name=basename(article)
     if name in aliases:return aliases[name]
     domain=name.casefold().removeprefix("www.")
-    if domain in PUBLISHER_DISPLAY_BY_DOMAIN:
-        return PUBLISHER_DISPLAY_BY_DOMAIN[domain]
+    for publisher_host, publisher_label in PUBLISHER_DISPLAY_BY_DOMAIN.items():
+        if domain==publisher_host or domain.endswith("."+publisher_host):
+            return publisher_label
     if name.lower() in ("etoday","e-today"):return "이투데이"
     if re.match(r"^중부일보\s*[-–—]\s*.+",name):return "중부일보"
     return name

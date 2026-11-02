@@ -22,6 +22,11 @@ normalize = ns["normalize_publisher"]
 
 
 class TestPublisherNormalization(unittest.TestCase):
+    def test_known_news_subdomain(self):
+        self.assertEqual(normalize("news.tvchosun.com"),"TV조선")
+        self.assertEqual(normalize("www.kgnews.co.kr"),"경기신문")
+        self.assertEqual(normalize("unrelated-tvchosun.com"),"unrelated-tvchosun.com")
+
     def test_etoday_aliases(self):
         for raw in ("ETODAY", "etoday", "Etoday", "E-TODAY"):
             with self.subTest(raw=raw):
