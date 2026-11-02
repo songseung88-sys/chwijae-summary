@@ -39,3 +39,36 @@ class TestPublisherNormalization(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# Domain-based fallback mappings must remain identical across all three
+# components: collector, public API and private Sheets exporter.
+class DomainPublisherFallback(unittest.TestCase):
+    def test_domain_mapping_codes_and_publisher_label_no_shadowing(self):
+        import ast
+        from pathlib import Path
+        expected = {
+            "kgnews.co.kr": "경기신문",
+            "tvchosun.com": "TV조선",
+            "ilyosisa.co.kr": "일요시사",
+            "hankookilbo.com": "한국일보",
+            "weeklytrade.co.kr": "한국무역신문",
+            "geconomy.co.kr": "지이코노미",
+            "wowtv.co.kr": "한국경제TV",
+            "osen.co.kr": "OSEN",
+            "m-economynews.com": "M이코노미뉴스",
+        }
+        for filename, symbol in [
+            ("collector/main.py", "PUBLISHER_BY_HOST"),
+            ("api/main.py", "PUBLISHER_DISPLAY_BY_DOMAIN"),
+            ("archive/main.py", "PUBLISHER_DISPLAY_BY_DOMAIN"),
+        ]:
+            source = Path(filename).read_text(encoding="utf-8")
+            tree = ast.parse(source)
+            dictionaries = [node for node in tree.body if isinstance(node, ast.Assign)
+                 and any(isinstance(k, ast.Name) and k.id == symbol for k in node.targets)]
+            self.assertEqual(len(dictionaries), 1, filename)
+            mapping = ast.literal_eval(dictionaries[0].value)
+            for host, label in expected.items():
+                self.assertEqual(mapping.get(host), label, (filename,host))
+        archive = Path("archive/main.py").read_text(encoding="utf-8")
+        self.assertIn("for phrase_label in NEW_TARGET_PHRASE_LABELS:", archive)
