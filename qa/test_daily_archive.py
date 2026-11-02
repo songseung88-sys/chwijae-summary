@@ -7,7 +7,7 @@ from pathlib import Path
 source=Path("archive/main.py").read_text(encoding="utf-8")
 tree=ast.parse(source)
 names={"body_parts","body_quality","phrase_counts","only_new_target_phrases","norm_time","basename","display_name"}
-constants={"TARGET_PHRASE_RULES","TARGET_PHRASE_COMPILED","TARGET_PHRASE_LABELS","NEW_TARGET_PHRASE_LABELS"}
+constants={"TARGET_PHRASE_RULES","TARGET_PHRASE_COMPILED","TARGET_PHRASE_LABELS","NEW_TARGET_PHRASE_LABELS","PUBLISHER_DISPLAY_BY_DOMAIN"}
 nodes=[copy.deepcopy(x) for x in tree.body
        if (isinstance(x,ast.FunctionDef) and x.name in names)
        or (isinstance(x,ast.Assign)
