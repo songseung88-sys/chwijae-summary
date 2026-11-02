@@ -78,7 +78,7 @@ const file=fs.readFileSync("api/static/index.html","utf8");
 const css=fs.readFileSync("api/static/style.css","utf8");
 assert(file.includes('id="firstPhrasePosition"'));
 assert(file.includes('/static/phrase-position.js?v=2'));
-assert(file.includes('/static/app.js?v=position-v1'));
+assert(file.includes('/static/app.js?v=rolling-complete-7d-v1'));
 assert(file.includes('/static/style.css?v=position-week-v2'));
 assert(css.includes(".position-stats"));
 assert(css.includes(".position-splits"));
