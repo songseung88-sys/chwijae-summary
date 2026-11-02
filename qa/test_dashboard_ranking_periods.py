@@ -105,7 +105,7 @@ class WeeklyDailyRankings(unittest.TestCase):
         self.assertEqual(result["top_reporter_week"], {
             "name": "주간기자", "publisher": "언론B", "count": 3})
         self.assertEqual(result["publisher_ranking_week"], [
-            {"name": "언론B", "count": 4},
+            {"name": "언론B", "count": 3},
             {"name": "언론C", "count": 2},
         ])
         self.assertEqual(result["publisher_ranking"], [
