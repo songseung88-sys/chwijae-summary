@@ -435,7 +435,8 @@ class SheetWriter:
             appended=[];updated=[]
             for row in rows:
                 key=str(row[KEY_COL[name]])
-                canonical = canonical_article_url(row[18]) if name == "기사 목록" else ""
+                canonical = (canonical_article_url(row[18])
+                             if name == "기사 목록" and len(row)>18 else "")
                 matching_row = (index.get(key) if key in index
                                 else self.article_url_keys.get(canonical) if canonical else None)
                 if matching_row is not None:
