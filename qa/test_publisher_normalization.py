@@ -11,7 +11,13 @@ fn = next(
     if isinstance(node, ast.FunctionDef) and node.name == "normalize_publisher"
 )
 ns = {"re": re}
-exec(compile(ast.Module(body=[fn], type_ignores=[]), "api/main.py", "exec"), ns)
+domain_mapping = next(
+    node for node in module.body
+    if isinstance(node, ast.Assign)
+    and any(isinstance(t, ast.Name) and t.id == "PUBLISHER_DISPLAY_BY_DOMAIN"
+            for t in node.targets)
+)
+exec(compile(ast.Module(body=[domain_mapping, fn], type_ignores=[]), "api/main.py", "exec"), ns)
 normalize = ns["normalize_publisher"]
 
 
