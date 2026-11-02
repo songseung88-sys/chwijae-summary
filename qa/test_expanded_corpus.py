@@ -15,7 +15,8 @@ rule_nodes=[n for n in tree.body if isinstance(n,ast.Assign)
     and any(isinstance(t,ast.Name) and t.id in
             {"TARGET_PHRASE_RULES","TARGET_PHRASE_COMPILED","LEGACY_TARGET_PHRASES"}
             for t in n.targets)]
-ns=dict(constants,re=re)
+from collector.article_identity import canonical_article_url
+ns=dict(constants,re=re,canonical_article_url=canonical_article_url)
 ns["TARGET_SEARCH_QUERIES"]=("취재를 종합하면","본지 취재 결과","본지 취재결과","취재에 따르면","취재한 결과","취재를 한 결과","본보 취재 결과","본보 취재결과","본지 확인 결과","본지 확인결과")
 exec(compile(ast.Module(body=rule_nodes+nodes,type_ignores=[]),"collector/main.py","exec"),ns)
 
