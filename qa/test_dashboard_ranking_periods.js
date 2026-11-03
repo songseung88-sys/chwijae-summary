@@ -16,7 +16,7 @@ vm.runInContext(fs.readFileSync("api/static/app.js","utf8"),context);
 vm.runInContext(fs.readFileSync("api/static/ranking-dialog.js","utf8"),context);
 const state=vm.runInContext("state",context);
 state.data={
-  date:"2026-10-28",week_start:"2026-10-21",week_end:"2026-10-27",
+  date:"2026-10-28",week_start:"2026-10-22",week_end:"2026-10-28",
   today_count:3,exclusive_ratio:0,exclusive_count:0,
   site_config:{
     card_today_label:"오늘의 '취재 종합'",
@@ -24,8 +24,8 @@ state.data={
     card_reporter_label:"오늘 가장 많이 '취재를 종합'한 기자",
     card_exclusive_label:"[단독] 비율",
     ranking_view_all_text:"자세히 보기",articles_more_text:"더 보기",
-    section_publisher_title:"지난 7일 가장 많이 '취재를 종합'한 언론사",
-    section_reporter_title:"지난 7일 가장 많이 '취재를 종합'한 기자",
+    section_publisher_title:"최근 7일 가장 많이 '취재를 종합'한 언론사",
+    section_reporter_title:"최근 7일 가장 많이 '취재를 종합'한 기자",
   },
   top_publisher:{name:"오늘언론",count:2},
   top_reporter_today:{name:"오늘기자",publisher:"오늘언론",count:2},
@@ -33,13 +33,13 @@ state.data={
   publisher_ranking:[{name:"오늘언론",count:2}],
   publisher_ranking_week:[
     {name:"주간언론",count:12},{name:"주간언론2",count:9},
-    {name:"주간언론3",count:7},{name:"주간언론4",count:6},
+    {name:"오늘언론",count:7},{name:"주간언론4",count:6},
     {name:"주간언론5",count:5},{name:"주간언론6",count:3},
   ],
   reporter_ranking_week:[
     {name:"주간기자",count:9,publisher:"주간언론"},
     {name:"기자2",count:7,publisher:"주간언론"},
-    {name:"기자3",count:6,publisher:"주간언론"},
+    {name:"오늘기자",count:6,publisher:"오늘언론"},
     {name:"기자4",count:5,publisher:"주간언론"},
     {name:"기자5",count:4,publisher:"주간언론"},
     {name:"기자6",count:3,publisher:"주간언론"},
@@ -57,22 +57,23 @@ assert(!cards.includes(" 이후"));
 assert(!cards.includes("1위"));
 
 vm.runInContext("renderRankingPeriod(state.data)",context);
-assert.equal(node("#publisherWeekLabel").textContent,"2026-10-21~2026-10-27");
-assert.equal(node("#weekLabel").textContent,"2026-10-21~2026-10-27");
-assert(!node("#weekLabel").textContent.includes("2026-10-28"));
+assert.equal(node("#publisherWeekLabel").textContent,"2026-10-22~2026-10-28");
+assert.equal(node("#weekLabel").textContent,"2026-10-22~2026-10-28");
+assert(node("#weekLabel").textContent.endsWith("2026-10-28"));
 vm.runInContext("renderRankings()",context);
 const publisher=node("#publisherRanking").innerHTML;
 const reporter=node("#reporterRanking").innerHTML;
 assert.equal((publisher.match(/class="rank-row"/g)||[]).length,5);
 assert.equal((reporter.match(/class="rank-row"/g)||[]).length,5);
 assert(publisher.includes("주간언론"));
-assert(!publisher.includes("오늘언론"));
+assert(publisher.includes("오늘언론"));
 assert(!publisher.includes("주간언론6"));
 assert(reporter.includes("주간기자"));
+assert(reporter.includes("오늘기자"));
 assert(!reporter.includes("기자6"));
 vm.runInContext('openRankingDialog("publisherRanking")',context);
 assert(node("#rankingDialog").open);
-assert(node("#rankingDialogTitle").textContent.includes("지난 7일"));
+assert(node("#rankingDialogTitle").textContent.includes("최근 7일"));
 assert(node("#rankingDialogContent").innerHTML.includes("주간언론6"));
 
 // Unsorted source data must become one global weekly reporter ranking,
@@ -125,4 +126,4 @@ assert(html.includes('/static/ranking-dialog.js?v=flat-weekly-v2'));
 const app=fs.readFileSync("api/static/app.js","utf8");
 assert(app.includes('qs("#publisherWeekLabel").textContent=period'));
 assert(app.includes('qs("#weekLabel").textContent=period'));
-console.log("Daily winner cards, previous-complete-seven-day leaderboards, detail dialog and date labels verified.");
+console.log("Daily cards and recent seven-day rankings including today, detail dialogs and date labels verified.");
