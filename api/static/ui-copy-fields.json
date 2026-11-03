@@ -129,13 +129,13 @@
     "key": "section_publisher_title",
     "label": "언론사 제목",
     "group": "첫 화면 · 구역·버튼",
-    "default": "지난 7일 가장 많이 '취재 종합'한 언론사"
+    "default": "최근 7일 가장 많이 '취재 종합'한 언론사"
   },
   {
     "key": "section_reporter_title",
     "label": "기자 제목",
     "group": "첫 화면 · 구역·버튼",
-    "default": "지난 7일 가장 많이 '취재 종합'한 기자"
+    "default": "최근 7일 가장 많이 '취재 종합'한 기자"
   },
   {
     "key": "section_category_title",
