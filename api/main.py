@@ -127,8 +127,8 @@ DEFAULT_SITE_CONFIG = {
     "card_publisher_label": "오늘의 최다 '취재 종합' 언론사",
     "card_reporter_label": "오늘 가장 많이 '취재 종합'한 기자",
     "card_exclusive_label": "[단독] 동반 비율",
-    "section_publisher_title": "지난 7일 가장 많이 '취재 종합'한 언론사",
-    "section_reporter_title": "지난 7일 가장 많이 '취재 종합'한 기자",
+    "section_publisher_title": "최근 7일 가장 많이 '취재 종합'한 언론사",
+    "section_reporter_title": "최근 7일 가장 많이 '취재 종합'한 기자",
     "section_category_title": "원문 기사 분류",
     "section_secondary_title": "함께 쓰인 무주체형 표현",
     "topic_primary_caption": "1차 분류",
@@ -398,9 +398,9 @@ def get_site_config():
         config["ui_copy"]["card_reporter_label"] = label
     old_publisher = config.get("section_publisher_title", "")
     if old_publisher == "오늘의 최다 '취재 종합' 언론사":
-        label = "지난 7일 가장 많이 '취재 종합'한 언론사"
+        label = "최근 7일 가장 많이 '취재 종합'한 언론사"
     elif old_publisher.startswith("오늘 가장 많이"):
-        label = "지난 7일" + old_publisher[len("오늘"):]
+        label = "최근 7일" + old_publisher[len("오늘"):]
     else:
         label = None
     if label is not None:
@@ -410,10 +410,12 @@ def get_site_config():
     # labels. Preserve all other wording and never rewrite Firestore originals.
     for key in ("section_publisher_title", "section_reporter_title"):
         previous = config.get(key, "")
-        if previous.startswith("이번 주"):
-            updated = "지난 7일" + previous[len("이번 주"):]
-            config[key] = updated
-            config["ui_copy"][key] = updated
+        for old_prefix in ("이번 주", "지난 7일"):
+            if previous.startswith(old_prefix):
+                updated = "최근 7일" + previous[len(old_prefix):]
+                config[key] = updated
+                config["ui_copy"][key] = updated
+                break
     return config
 
 
@@ -819,11 +821,11 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     else:
         selected = datetime.now(KST).date()
 
-    # Seven *completed* calendar days immediately before the selected day.
-    # Excluding the selected day keeps Monday rankings independent of
-    # today's incomplete real-time total, and also works for historical dates.
-    week_end = selected - timedelta(days=1)
-    week_start = week_end - timedelta(days=6)
+    # Recent seven calendar days, including the selected day (up to the
+    # latest collection when viewing today) and the six preceding dates.
+    # A historical selected date uses the same inclusive seven-day window.
+    week_end = selected
+    week_start = selected - timedelta(days=6)
     all_articles = accepted_articles(1200)
 
     today_articles = [
