@@ -160,7 +160,7 @@ class ArchiveNaverFirst(unittest.TestCase):
         })
         db = FakeDB()
         result = archive(article, db)
-        self.assertEqual(result[0], old)
+        self.assertEqual(result[0], old.strip())
         self.assertEqual(result[1], "원문")
         self.assertEqual([c[0] for c in calls], ["네이버뉴스"])
         self.assertEqual(db.ref.writes[0][0]["archive_body_provenance"],
