@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 SOURCE = Path("archive/main.py").read_text(encoding="utf-8")
 TREE = ast.parse(SOURCE)
-NAMES = {"archive_body", "body_quality"}
+NAMES = {"archive_body", "body_quality", "collector_body_candidate", "archive_body_needs_network", "save_archive_body"}
 NODES = [copy.deepcopy(n) for n in TREE.body
          if isinstance(n, ast.FunctionDef) and n.name in NAMES]
 VERSION = ast.literal_eval(next(n.value for n in TREE.body
@@ -122,6 +122,59 @@ class ArchiveNaverFirst(unittest.TestCase):
         self.assertEqual(status,"수집 실패")
         self.assertEqual(error,"네이버뉴스:NAVER_PARSE_FAILED; 원문:PUBLISHER_PARSE_FAILED")
         self.assertEqual(db.ref.writes[0][0]["archive_body_status"],"수집 실패")
+
+    def test_collector_naver_body_skips_all_http_and_persists_provenance(self):
+        archive, calls = self.build({})
+        db = FakeDB()
+        article = self.article(content_basis="NAVER",
+                               body_text_private=self.good("수집기 네이버")["body"])
+        text, source, status, _error, _checked = archive(article, db)
+        self.assertEqual((source, status), ("네이버뉴스", "수집 성공"))
+        self.assertIn("수집기 네이버", text)
+        self.assertEqual(calls, [])
+        self.assertEqual(db.ref.writes[0][0]["archive_body_provenance"], "collector_cache")
+
+    def test_original_collector_body_no_naver_link_skips_http(self):
+        archive, calls = self.build({})
+        db = FakeDB()
+        article = self.article(naver_url="", content_basis="ORIGINAL",
+                               body_text_private=self.good("원문 캐시")["body"])
+        text, source, status, _error, _checked = archive(article, db)
+        self.assertEqual((source, status), ("원문", "수집 성공"))
+        self.assertIn("원문 캐시", text)
+        self.assertEqual(calls, [])
+
+    def test_collector_original_keeps_naver_priority_then_cache_fallback(self):
+        old = self.good("원문 캐시")["body"]
+        article = self.article(content_basis="ORIGINAL", body_text_private=old)
+        archive, calls = self.build({
+            "네이버뉴스": self.good("네이버 우선"),
+        })
+        result = archive(article, FakeDB())
+        self.assertEqual(result[1], "네이버뉴스")
+        self.assertIn("네이버 우선", result[0])
+        self.assertEqual([c[0] for c in calls], ["네이버뉴스"])
+
+        archive, calls = self.build({
+            "네이버뉴스": {"body": "invalid", "error": "BODY_NOT_FOUND"},
+        })
+        db = FakeDB()
+        result = archive(article, db)
+        self.assertEqual(result[0], old)
+        self.assertEqual(result[1], "원문")
+        self.assertEqual([c[0] for c in calls], ["네이버뉴스"])
+        self.assertEqual(db.ref.writes[0][0]["archive_body_provenance"],
+                         "collector_cache_fallback")
+
+    def test_malformed_collector_cache_never_bypasses_quality_gate(self):
+        archive, calls = self.build({
+            "네이버뉴스": self.good("네이버"),
+        })
+        article = self.article(content_basis="ORIGINAL",
+                               body_text_private="취재를 종합하면 단편 문장")
+        result = archive(article, FakeDB())
+        self.assertEqual(result[1], "네이버뉴스")
+        self.assertEqual([c[0] for c in calls], ["네이버뉴스"])
 
     def test_preexisting_successful_publisher_archive_is_unchanged(self):
         archive, calls = self.build({"네이버뉴스":self.good("네이버")})
