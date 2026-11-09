@@ -48,7 +48,8 @@ CANDIDATE_SUBTYPE={
 }
 BODY_LIMIT=47500
 MAX_BODY_PARTS=3
-MAX_ARTICLE_FETCH=int(os.environ.get("MAX_ARCHIVE_BODY_FETCH","100"))
+MAX_ARTICLE_FETCH=int(os.environ.get("MAX_ARCHIVE_BODY_FETCH","200"))
+FAILED_BODY_RETRY_HOURS=int(os.environ.get("ARCHIVE_FAILED_BODY_RETRY_HOURS","24"))
 # Two overlapping archive jobs can share the Sheets per-user write quota.
 SHEETS_MIN_WRITE_INTERVAL_SECONDS=2.2
 SHEETS_MAX_RATE_LIMIT_RETRIES=8
@@ -234,7 +235,8 @@ def collect_rows(articles,aliases,now,max_fetch):
     bydate=collections.defaultdict(list)
     for a in articles:bydate[a["_date"]].append(a)
     new_fetches=0
-    for day,group in sorted(bydate.items()):
+    # Newest dates first: old retry failures must not starve new articles.
+    for day,group in sorted(bydate.items(),reverse=True):
         publ=collections.defaultdict(list)
         pub_reporter=collections.Counter()
         topics=collections.Counter()
@@ -291,6 +293,12 @@ def collect_rows(articles,aliases,now,max_fetch):
                 body=body.strip()
                 source=a.get("archive_body_source") or ""
                 status="수집 성공";error="";checked=a.get("archive_body_checked_at") or ""
+            elif (a.get("archive_body_status")=="수집 실패"
+                  and (last_check:=norm_time(a.get("archive_body_checked_at")))
+                  and (datetime.now(KST)-last_check).total_seconds()<FAILED_BODY_RETRY_HOURS*3600):
+                # Keep the last failure visible, without spending a fetch slot on every run.
+                body="수집 실패";source="";status="수집 실패"
+                error=a.get("archive_body_error") or "";checked=a.get("archive_body_checked_at") or ""
             elif new_fetches<max_fetch:
                 body,source,status,error,checked=archive_body(a,DB)
                 new_fetches+=1
