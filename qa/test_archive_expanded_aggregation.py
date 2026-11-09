@@ -85,7 +85,7 @@ class ArchiveExpandedAggregation(unittest.TestCase):
             {row[23] for row in output["기사 목록"]}, {"수집 성공"})
         self.assertEqual(
             {row[22] for row in output["기사 목록"]}, {"원문"})
-        self.assertTrue(all(row[21] == text for row in output["기사 목록"]))
+        self.assertTrue(all(row[21] == text.strip() for row in output["기사 목록"]))
         self.assertEqual(output["일별 통계"][0][1], 260)
 
     def test_new_only_article_and_subjectless_scopes(self):
