@@ -3,11 +3,14 @@ import ast
 import collections
 import re
 import unittest
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 source = Path("archive/main.py").read_text(encoding="utf-8")
 tree = ast.parse(source)
-functions = {"phrase_counts", "only_new_target_phrases", "collect_rows"}
+functions = {"phrase_counts", "only_new_target_phrases", "collect_rows",
+             "archive_body", "archive_body_needs_network",
+             "collector_body_candidate", "save_archive_body", "body_quality"}
 constants = {"TARGET_PHRASE_RULES", "TARGET_PHRASE_COMPILED",
              "TARGET_PHRASE_LABELS", "NEW_TARGET_PHRASE_LABELS"}
 nodes = [n for n in tree.body
@@ -16,6 +19,9 @@ nodes = [n for n in tree.body
              isinstance(t, ast.Name) and t.id in constants for t in n.targets))]
 ns = {
     "re": re, "collections": collections,
+    "datetime": datetime, "KST": timezone(timedelta(hours=9)),
+    "BODY_LIMIT": 47500, "MAX_BODY_PARTS": 3,
+    "ARCHIVE_VERSION": "test-collector-cache",
     "SHEET_HEADERS": {name: 0 for name in
         ("일별 통계", "언론사별", "기자별", "주제별", "무주체형 표현",
          "기사 목록", "동기화 기록", "30분 수집 로그",
@@ -28,13 +34,60 @@ ns = {
     "body_parts": lambda text: [text, "", ""],
     "parser": type("P", (), {"SUBJECTLESS_RULES": [
         ("출처소거형", "피동형", "알려졌다", "알려졌다")],
-        "SUBJECTLESS_OTHER_RULES": []})(),
+        "SUBJECTLESS_OTHER_RULES": [],
+        "contains_target_phrase": staticmethod(lambda s: "취재에 따르면" in s),
+        "suspicious_body": staticmethod(lambda s: False),
+        "parse_naver": staticmethod(lambda url: (_ for _ in ()).throw(
+            AssertionError("Unexpected HTTP NAVER request"))),
+        "parse_original": staticmethod(lambda url: (_ for _ in ()).throw(
+            AssertionError("Unexpected HTTP publisher request"))),
+        })(),
 }
 exec(compile(ast.Module(body=nodes, type_ignores=[]),
              "archive/main.py", "exec"), ns)
 
 
 class ArchiveExpandedAggregation(unittest.TestCase):
+    def test_260_cached_bodies_recover_even_with_zero_network_budget(self):
+        class FakeDB:
+            def __init__(self):
+                self.writes = {}
+            def collection(self, name):
+                self.collection_name = name
+                return self
+            def document(self, name):
+                self.document_id = name
+                return self
+            def set(self, record, merge=False):
+                assert merge and self.collection_name == "articles"
+                self.writes[self.document_id] = record
+
+        fake = FakeDB()
+        ns["DB"] = fake
+        text = "취재에 따르면, 이 기사는 실제로 수집된 본문이다. " * 10
+        articles = [{
+            "id": "cached-" + str(i),
+            "_date": "2026-11-07",
+            "api_pubdate": "2026-11-07T09:00:00+09:00",
+            "publisher_original": "시험신문",
+            "body_text_private": text,
+            "content_basis": "ORIGINAL",
+            "original_url": "https://example.org/article/" + str(i),
+            "naver_url": "",
+            "phrase_counts": {"취재에 따르면": 10},
+        } for i in range(260)]
+        output, http_attempts = ns["collect_rows"](
+            articles, {}, "test-2026-11-09", max_fetch=0)
+        self.assertEqual(http_attempts, 0)
+        self.assertEqual(len(fake.writes), 260)
+        self.assertEqual(len(output["기사 목록"]), 260)
+        self.assertEqual(
+            {row[23] for row in output["기사 목록"]}, {"수집 성공"})
+        self.assertEqual(
+            {row[22] for row in output["기사 목록"]}, {"원문"})
+        self.assertTrue(all(row[21] == text for row in output["기사 목록"]))
+        self.assertEqual(output["일별 통계"][0][1], 260)
+
     def test_new_only_article_and_subjectless_scopes(self):
         date = "2026-10-29"
         base = {"_date": date, "publisher_original": "시험신문",
