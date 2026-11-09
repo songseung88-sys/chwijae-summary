@@ -46,6 +46,10 @@ class TestArchive(unittest.TestCase):
         self.assertEqual(ns["display_name"]({"publisher_original":"ETODAY"},{}),"이투데이")
         self.assertEqual(ns["display_name"]({"publisher_original":"news.tvchosun.com"},{}),"TV조선")
         self.assertEqual(ns["display_name"]({"publisher_original":"www.kgnews.co.kr"},{}),"경기신문")
+        self.assertEqual(ns["display_name"]({"publisher_original":"www.ddanzi.com"},{}),"딴지일보")
+        self.assertEqual(ns["display_name"]({"publisher_original":"www.yakup.com"},{}),"약업신문")
+        self.assertEqual(ns["display_name"]({"publisher_original":"www.joseilbo.com"},{}),"조세일보")
+        self.assertEqual(ns["display_name"]({"publisher_original":"digitalchosun.dizzo.com"},{}),"디지틀조선일보")
     def test_count_both_phrases_independently(self):
         article={"phrase_counts":{"취재를 종합하면":2,"본지 취재 결과":1}}
         expected={"취재를 종합하면":2,"본지 취재 결과":1,
