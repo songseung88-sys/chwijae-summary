@@ -25,7 +25,7 @@ import collector_parser as parser
 KST=ZoneInfo("Asia/Seoul")
 SHEET_ID=os.environ["ARCHIVE_SPREADSHEET_ID"]
 PROJECT_ID=os.environ.get("GCP_PROJECT_ID") or None
-ARCHIVE_VERSION="sheets-v2-20261102-six-evidence-phrases"
+ARCHIVE_VERSION="sheets-v3-20261109-collector-cache"
 CANDIDATE_VERSION="subjectless-candidate-v1-20261028"
 # Stable phrase columns: historical H/I and publisher F:I never change meaning.
 # New phrase columns are appended after existing sync keys and body chunks.
@@ -157,16 +157,70 @@ def body_quality(result):
     if len(text)>BODY_LIMIT*MAX_BODY_PARTS:return False,"SHEETS_LENGTH_LIMIT"
     return True,""
 
-def archive_body(article,db):
-    """Naver-first for new fetches, publisher fallback; preserve cached successes.
+def collector_body_candidate(article):
+    """Validated full body already extracted by the ingestion pipeline.
 
-    Existing successfully archived bodies are never re-fetched or replaced
-    because of this source-priority change. Failed and pending items retry.
+    A search hit's title/description or a phrase context is not enough:
+    only the original full-body Firestore field with explicit provenance
+    may seed the private Sheets archive.
+    """
+    basis = article.get("content_basis")
+    if basis not in ("NAVER", "ORIGINAL"):
+        return None
+    body = article.get("body_text_private")
+    if not isinstance(body, str) or not body.strip():
+        return None
+    body = body.strip()
+    valid, _reason = body_quality({"body": body})
+    if not valid:
+        return None
+    return body, ("네이버뉴스" if basis == "NAVER" else "원문")
+
+
+def archive_body_needs_network(article):
+    """Count only articles that may actually require an HTTP request.
+
+    Collector-cached NAVER text is already our preferred source. Collector
+    original text is sufficient if no NAVER copy is linked. If both URLs
+    exist, still try NAVER before using the saved original as fallback.
+    """
+    candidate = collector_body_candidate(article)
+    if candidate and (candidate[1] == "네이버뉴스" or not article.get("naver_url")):
+        return False
+    return bool(article.get("naver_url") or article.get("original_url"))
+
+
+def save_archive_body(article, db, body, source, provenance):
+    checked = datetime.now(KST).isoformat()
+    db.collection("articles").document(article["id"]).set({
+        "archive_body_text": body,
+        "archive_body_source": source,
+        "archive_body_status": "수집 성공",
+        "archive_body_error": "",
+        "archive_body_checked_at": checked,
+        "archive_body_provenance": provenance,
+        "archive_version": ARCHIVE_VERSION,
+    }, merge=True)
+    return body, source, "수집 성공", "", checked
+
+
+def archive_body(article,db):
+    """Reuse a validated collector body, preserving NAVER-first preference.
+
+    Existing successful archives never change. New archives use an already
+    extracted NAVER body without HTTP, otherwise try a NAVER URL first. If
+    NAVER cannot provide a valid body, reuse the collector's verified
+    original rather than making a redundant publisher request.
     """
     cached_text=article.get("archive_body_text")
     cached_source=article.get("archive_body_source")
     if cached_text and article.get("archive_body_status")=="수집 성공" and cached_source in ("원문","네이버뉴스"):
         return cached_text,cached_source,"수집 성공","",article.get("archive_body_checked_at") or ""
+
+    candidate=collector_body_candidate(article)
+    if candidate and (candidate[1]=="네이버뉴스" or not article.get("naver_url")):
+        return save_archive_body(article,db,candidate[0],candidate[1],"collector_cache")
+
     checks=[]
     for label,url,extract in [
         ("네이버뉴스",article.get("naver_url"),parser.parse_naver),
@@ -175,21 +229,14 @@ def archive_body(article,db):
         if not url:
             checks.append(label+":URL 없음")
             continue
+        if label=="원문" and candidate and candidate[1]=="원문":
+            return save_archive_body(article,db,candidate[0],candidate[1],"collector_cache_fallback")
         result=extract(url)
         good,reason=body_quality(result)
         if good:
-            text=result["body"].strip()
-            checked=datetime.now(KST).isoformat()
-            db.collection("articles").document(article["id"]).set({
-                "archive_body_text":text,
-                "archive_body_source":label,
-                "archive_body_status":"수집 성공",
-                "archive_body_error":"",
-                "archive_body_checked_at":checked,
-                "archive_version":ARCHIVE_VERSION,
-            },merge=True)
-            return text,label,"수집 성공","",checked
+            return save_archive_body(article,db,result["body"].strip(),label,"archive_http")
         checks.append(label+":"+(result.get("error") or reason or "품질 검사 실패"))
+
     checked=datetime.now(KST).isoformat()
     reason="; ".join(checks)[:1000]
     db.collection("articles").document(article["id"]).set({
@@ -291,11 +338,17 @@ def collect_rows(articles,aliases,now,max_fetch):
                 body=body.strip()
                 source=a.get("archive_body_source") or ""
                 status="수집 성공";error="";checked=a.get("archive_body_checked_at") or ""
-            elif new_fetches<max_fetch:
-                body,source,status,error,checked=archive_body(a,DB)
-                new_fetches+=1
             else:
-                body="수집 대기";source="";status="수집 대기";error="이번 실행 본문 확인 한도";checked=""
+                # A cached, verified body needs no HTTP and must not consume
+                # the per-execution network budget. This prevents the archive
+                # backlog from growing faster than the 100-article HTTP cap.
+                requires_http=archive_body_needs_network(a)
+                if not requires_http or new_fetches<max_fetch:
+                    body,source,status,error,checked=archive_body(a,DB)
+                    new_fetches+=int(requires_http)
+                else:
+                    body="수집 대기";source="";status="수집 대기"
+                    error="이번 실행 본문 확인 한도";checked=""
             chunks=body_parts(body)
             if chunks is None:
                 chunks=["수집 실패","",""]
