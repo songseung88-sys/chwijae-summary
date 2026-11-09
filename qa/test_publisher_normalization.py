@@ -25,6 +25,10 @@ class TestPublisherNormalization(unittest.TestCase):
     def test_known_news_subdomain(self):
         self.assertEqual(normalize("news.tvchosun.com"),"TV조선")
         self.assertEqual(normalize("www.kgnews.co.kr"),"경기신문")
+        self.assertEqual(normalize("www.ddanzi.com"),"딴지일보")
+        self.assertEqual(normalize("www.yakup.com"),"약업신문")
+        self.assertEqual(normalize("www.joseilbo.com"),"조세일보")
+        self.assertEqual(normalize("digitalchosun.dizzo.com"),"디지틀조선일보")
         self.assertEqual(normalize("unrelated-tvchosun.com"),"unrelated-tvchosun.com")
 
     def test_etoday_aliases(self):
@@ -67,6 +71,10 @@ class DomainPublisherFallback(unittest.TestCase):
             "wowtv.co.kr": "한국경제TV",
             "osen.co.kr": "OSEN",
             "m-economynews.com": "M이코노미뉴스",
+            "ddanzi.com": "딴지일보",
+            "yakup.com": "약업신문",
+            "joseilbo.com": "조세일보",
+            "dizzo.com": "디지틀조선일보",
         }
         for filename, symbol in [
             ("collector/main.py", "PUBLISHER_BY_HOST"),

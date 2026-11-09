@@ -108,6 +108,10 @@ PUBLISHER_DISPLAY_BY_DOMAIN={
     "wowtv.co.kr": "한국경제TV",
     "osen.co.kr": "OSEN",
     "m-economynews.com": "M이코노미뉴스",
+    "ddanzi.com": "딴지일보",
+    "yakup.com": "약업신문",
+    "joseilbo.com": "조세일보",
+    "dizzo.com": "디지틀조선일보",
 }
 
 def display_name(article,aliases):
