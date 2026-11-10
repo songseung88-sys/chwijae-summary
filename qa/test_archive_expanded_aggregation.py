@@ -132,5 +132,64 @@ class ArchiveExpandedAggregation(unittest.TestCase):
                                     "우려가 나온다")], 2)
 
 
+
+class UniqueRejectionDiagnostics(unittest.TestCase):
+    """Distinguish first-time rejected articles from repeat checks."""
+
+    @staticmethod
+    def fn(path, name):
+        tree = ast.parse(Path(path).read_text(encoding="utf-8"))
+        node = next(x for x in tree.body
+                    if isinstance(x, ast.FunctionDef) and x.name == name)
+        scope = {}
+        exec(compile(ast.Module(body=[node], type_ignores=[]), path, "exec"), scope)
+        return scope[name]
+
+    def test_rejection_transition_types(self):
+        classify = self.fn("collector/main.py", "classify_candidate_outcome")
+        self.assertEqual(classify(None, "rejected"), "first_excluded")
+        self.assertEqual(classify("accepted", "rejected"), "first_excluded")
+        self.assertEqual(classify("rejected", "rejected"), "repeat_excluded")
+        self.assertEqual(classify("rejected", "accepted"), "recovered")
+        self.assertEqual(classify("accepted", "accepted"), "")
+        self.assertEqual(classify(None, "accepted"), "")
+
+    def test_log_appends_metrics_without_moving_existing_columns(self):
+        collect = self.fn("archive/main.py", "collect_run_rows")
+        run = {
+            "id": "run-1", "target_date": "2026-11-10",
+            "started_at": "2026-11-10T08:37:00+09:00",
+            "finished_at": "2026-11-10T08:38:00+09:00",
+            "candidates": 10, "accepted": 7, "rejected": 3,
+            "first_excluded": 1, "repeat_excluded": 2, "recovered": 1,
+            "domain_diagnostics": {
+                "www.jjan.kr": {
+                    "seen": 4, "accepted": 1, "rejected": 3,
+                    "first_excluded": 1, "repeat_excluded": 2, "recovered": 1,
+                    "original_errors": 3, "naver_errors": 0,
+                    "errors": {"original:BODY_NOT_FOUND": 3},
+                    "examples": ["반복 누락 기사"],
+                },
+            },
+        }
+        out = collect([run], "sync")
+        daily = out["30분 수집 로그"][0]
+        domain = out["언론사 수집 진단"][0]
+        self.assertEqual(daily[16], "run-1")
+        self.assertEqual(daily[17:20], [1, 2, 1])
+        self.assertEqual(domain[12], "run-1|www.jjan.kr")
+        self.assertEqual(domain[13:16], [1, 2, 1])
+        self.assertEqual(daily[8], 3)
+        self.assertEqual(domain[5], 3)
+
+    def test_old_run_new_metrics_are_blank_not_zero(self):
+        collect = self.fn("archive/main.py", "collect_run_rows")
+        run = {"id": "legacy", "started_at": "2026-11-09",
+               "domain_diagnostics": {"www.jjan.kr": {"seen": 1, "rejected": 1}}}
+        out = collect([run], "sync")
+        self.assertEqual(out["30분 수집 로그"][0][17:20], ["", "", ""])
+        self.assertEqual(out["언론사 수집 진단"][0][13:16], ["", "", ""])
+
+
 if __name__ == "__main__":
     unittest.main()
