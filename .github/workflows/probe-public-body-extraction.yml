@@ -1,0 +1,26 @@
+name: Probe public publisher article extraction (read-only)
+
+on:
+  push:
+    branches: ["diag/verify-public-article-html-20261110"]
+    paths:
+      - "qa/probe_public_body_extraction.py"
+      - ".github/workflows/probe-public-body-extraction.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install existing parser dependencies
+        run: python -m pip install --quiet -r collector/requirements.txt
+      - name: Inspect official public article pages without authentication or storage
+        run: python -m qa.probe_public_body_extraction
