@@ -1120,6 +1120,20 @@ def backfill_subjectless_candidates_batch(db, batch_size=100):
 
 
 
+def classify_candidate_outcome(previous_status, new_status):
+    """Track per-article transitions, not merely repeated per-run errors.
+
+    Each search run already deduplicates candidate URLs, and Firestore uses
+    a canonical document ID. A rejected candidate retried on the next run
+    must not be mistaken for a newly excluded article.
+    """
+    if new_status == "rejected":
+        return "repeat_excluded" if previous_status == "rejected" else "first_excluded"
+    if new_status == "accepted" and previous_status == "rejected":
+        return "recovered"
+    return ""
+
+
 def main():
     project_id = os.getenv("GCP_PROJECT_ID", "").strip() or None
     client_id = os.environ.get("NAVER_API_HUB_CLIENT_ID", "").strip()
@@ -1157,6 +1171,9 @@ def main():
         "naver_fallback": 0,
         "naver_preferred_diff": 0,
         "rejected": 0,
+        "first_excluded": 0,
+        "repeat_excluded": 0,
+        "recovered": 0,
         "exclusive": 0,
         "wire_reprint_suspected": 0,
         "errors": {},
@@ -1169,6 +1186,7 @@ def main():
         host = (urlparse(original_url).hostname or "미확인").lower()
         domain_stats = summary["domain_diagnostics"].setdefault(host, {
             "seen": 0, "accepted": 0, "rejected": 0,
+            "first_excluded": 0, "repeat_excluded": 0, "recovered": 0,
             "original_errors": 0, "naver_errors": 0,
             "errors": {}, "examples": [],
         })
@@ -1275,6 +1293,12 @@ def main():
                     "original_error": original.get("error") or "",
                     "naver_error": naver.get("error") or "",
                     "has_naver_copy": bool(item["naver_url"]),
+                    # Public publisher URLs; no private Firestore body or API keys.
+                    # Enables precise follow-up on one rejected unique article.
+                    "article_id": article_ref.id,
+                    "original_url": original_url,
+                    "naver_url": item["naver_url"],
+                    "outcome": outcome,
                 })
 
         host = (urlparse(original_url).hostname or "").lower()
@@ -1285,6 +1309,13 @@ def main():
         )
 
         is_exclusive = strict_exclusive(item["api_title"])
+        outcome = classify_candidate_outcome(
+            existing_data.get("status"),
+            "rejected" if source == "REJECTED" else "accepted",
+        )
+        if outcome:
+            summary[outcome] += 1
+            domain_stats[outcome] += 1
         if source != "REJECTED":
             summary["accepted"] += 1
             summary["new_accepted"] += 1
@@ -1375,7 +1406,9 @@ def main():
             ) if original.get("phrase_count") and naver.get("phrase_count") else None,
             "wire_source_detected": wire_source,
             "is_wire_reprint_suspected": wire_reprint,
-            "first_seen_at": firestore.SERVER_TIMESTAMP,
+            # Previously rejected items are rechecked across many runs;
+            # preserve the original observation time instead of rewriting it.
+            "first_seen_at": existing_data.get("first_seen_at") or firestore.SERVER_TIMESTAMP,
             "last_seen_at": firestore.SERVER_TIMESTAMP,
             "collector_version": COLLECTOR_VERSION,
         }
