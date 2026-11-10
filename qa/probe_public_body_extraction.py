@@ -58,6 +58,27 @@ for label, url in URLS:
                         candidates.append({"css": css, "chars": len(content),
                             "phrase": parser.contains_target_phrase(content)})
             record["candidates"] = candidates[:15]
+            record["page_title"] = (soup.title.get_text(" ", strip=True) if soup.title else "")[:110]
+            visible=soup.get_text(" ", strip=True)
+            record["visible_chars"] = len(visible)
+            record["visible_head"] = visible[:190]
+            record["raw_html_has_phrase"] = parser.contains_target_phrase(r.text)
+            record["json_ld"] = [
+                {"type": str(node.get("type") or ""), "chars": len(node.string or ""),
+                 "has_phrase": parser.contains_target_phrase(node.string or "")}
+                for node in soup.select('script[type="application/ld+json"]')[:3]
+            ]
+            record["meta_og_title"] = (soup.select_one('meta[property="og:title"]') or {}).get("content", "")[:110]
+            record["iframes"] = [
+                urlparse(tag.get("src") or "").hostname or ""
+                for tag in soup.select("iframe[src]")[:3]
+            ]
+            record["script_count"] = len(soup.select("script"))
+            record["article_body_token_in_source"] = "articleBody" in r.text
+            record["dom_selected_source"] = [
+                {"selector": "#__NEXT_DATA__", "present": bool(soup.select_one("#__NEXT_DATA__"))},
+                {"selector": "nuxt", "present": "__NUXT__" in r.text},
+            ]
     except Exception as exc:
         record["exception"] = type(exc).__name__ + ": " + str(exc)[:130]
     print("PUBLIC_BODY_PROBE " + json.dumps(record, ensure_ascii=False), flush=True)
