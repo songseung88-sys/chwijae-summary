@@ -1,0 +1,61 @@
+name: Inspect recent rejected public article URLs (read-only)
+
+on:
+  push:
+    branches: ["diag/verify-public-article-html-20261110"]
+    paths:
+      - ".github/workflows/inspect-rejected-public-urls.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: chwijae-summary
+          workload_identity_provider: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+          service_account: github-deployer@chwijae-summary.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - run: python -m pip install --quiet google-cloud-firestore
+      - name: Read rejected article metadata only; no full body or modification
+        run: |
+          python - <<'PY'
+          from google.cloud import firestore
+          from urllib.parse import urlparse
+          import json
+          db=firestore.Client(project="chwijae-summary")
+          counts={}
+          shown={}
+          total=0
+          stream=db.collection("articles").where("status","==","rejected").limit(1200).stream()
+          for snap in stream:
+              d=snap.to_dict() or {}
+              date=str(d.get("api_pubdate") or "")[:10]
+              if not "2026-11-02" <= date <= "2026-11-10":
+                  continue
+              host=(urlparse(d.get("original_url") or "").hostname or "").lower()
+              total+=1
+              counts[host]=counts.get(host,0)+1
+              if host in ("www.jjan.kr","www.ksmnews.co.kr","www.thebell.co.kr","www.news2day.co.kr","www.metroseoul.co.kr","www.radiokorea.com","www.tvreport.co.kr"):
+                  shown[host]=shown.get(host,0)+1
+                  if shown[host]<=8:
+                      print("REJECTED_PUBLIC_ARTICLE "+json.dumps({
+                          "id":snap.id,"date":date,"host":host,
+                          "title":str(d.get("api_title") or "")[:100],
+                          "url":d.get("original_url") or "",
+                          "naver_url":d.get("naver_url") or "",
+                          "original_error":d.get("original_parse_error") or "",
+                          "naver_error":d.get("naver_parse_error") or "",
+                          "seen_at":str(d.get("first_seen_at") or "")[:25],
+                      },ensure_ascii=False),flush=True)
+          print("REJECTED_SUMMARY "+json.dumps({
+              "recent_unique_rejected_docs":total,
+              "by_host":dict(sorted(counts.items(), key=lambda x:-x[1])[:30])
+          },ensure_ascii=False),flush=True)
+          PY
