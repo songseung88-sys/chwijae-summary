@@ -432,6 +432,8 @@ def collect_run_rows(runs,now):
             run.get("naver_fallback") or 0,run.get("naver_preferred_diff") or 0,
             errors,len(entries),"완료" if run.get("finished_at") else "미완료",
             now,rid,
+            *(run.get(k) if run.get(k) is not None else ""
+              for k in ("first_excluded", "repeat_excluded", "recovered")),
         ])
         diagnostics=run.get("domain_diagnostics") or {}
         if not diagnostics:
@@ -457,6 +459,8 @@ def collect_run_rows(runs,now):
                 v.get("original_errors") or 0,v.get("naver_errors") or 0,
                 v.get("errors") or {}, "; ".join((v.get("examples") or [])[:3])[:1200],
                 basis,now,key,
+                *(v.get(k) if v.get(k) is not None else ""
+                  for k in ("first_excluded", "repeat_excluded", "recovered")),
             ])
     return out
 
