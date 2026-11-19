@@ -343,6 +343,33 @@ def context_sentence(paragraph):
     return excerpt
 
 
+def archived_daily_counts(start_day, end_day):
+    """Exact daily counts of unique accepted articles from the archive job.
+
+    A fixed-size recent-article list is appropriate for article preview cards,
+    not for 14-day trend metrics as the corpus keeps growing. Read just one
+    small Firestore summary document per calendar day instead of downloading
+    all article bodies on every public dashboard request. Missing documents
+    can occur during initial deployment; the caller uses the old recent-list
+    fallback only for those dates.
+    """
+    days = (end_day - start_day).days + 1
+    refs = [
+        db.collection("daily_article_counts").document(str(start_day + timedelta(days=i)))
+        for i in range(days)
+    ]
+    counts = {}
+    for snap in db.get_all(refs):
+        if not snap.exists:
+            continue
+        data = snap.to_dict() or {}
+        count = data.get("count")
+        if data.get("version") != "unique-accepted-v1" or type(count) is not int or count < 0:
+            continue
+        counts[snap.id] = count
+    return counts
+
+
 def accepted_articles(limit=1200):
     out = []
     for doc in recent_article_docs(limit):
@@ -947,13 +974,19 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     )
     exclusive_count = sum(bool(a.get("is_exclusive_strict")) for a in today_articles)
 
-    daily_counts = Counter()
-    for article in all_articles:
-        dt = article.get("_dt")
-        if not dt:
-            continue
-        if selected - timedelta(days=13) <= dt.date() <= selected:
-            daily_counts[str(dt.date())] += 1
+    # Keep recent-article cards limited to 1,200, but never use that limit
+    # to infer zero or partial values for old days in the 14-day trend.
+    daily_counts = archived_daily_counts(selected - timedelta(days=13), selected)
+    preview_daily_counts = Counter(
+        str(a["_dt"].date()) for a in all_articles
+        if a.get("_dt") and selected - timedelta(days=13) <= a["_dt"].date() <= selected
+    )
+    for day_key, count in preview_daily_counts.items():
+        daily_counts.setdefault(day_key, count)
+    # Today is still accumulating; the archival snapshot may be hours old.
+    # Show the current collector data until the day closes.
+    if selected == datetime.now(KST).date():
+        daily_counts[str(selected)] = len(today_articles)
 
     top_publisher = publisher_counts.most_common(1)
     top_reporter_today = reporter_counts_today.most_common(1)

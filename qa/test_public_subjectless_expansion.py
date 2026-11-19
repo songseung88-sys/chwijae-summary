@@ -93,6 +93,7 @@ class PublicSubjectlessExpansion(unittest.TestCase):
             **self.ns,"date":date,"datetime":datetime,"timedelta":timedelta,"KST":KST,
             "Query":lambda default=None,**kwargs:default,
             "accepted_articles":lambda limit:rows,
+            "archived_daily_counts": lambda start, end: {},
             "publisher_display":lambda a,aliases:a["publisher_original"],
             "get_publisher_aliases":lambda:{},
             "split_reporters":lambda s,**kwargs:[s] if s else [],
