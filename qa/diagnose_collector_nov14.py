@@ -147,6 +147,31 @@ def main():
             key=slot(e.get("timestamp"))
             if key:errors_by_slot[key]+=1
         print("CLOUD_RUN_ERROR_ENTRIES",len(errors),"error_slots",dict(sorted(errors_by_slot.items())),flush=True)
+        samples = defaultdict(list)
+        for entry in errors:
+            key = slot(entry.get("timestamp"))
+            if not key or len(samples[key]) >= 2:
+                continue
+            payload = entry.get("textPayload") or entry.get("jsonPayload", {}).get("message") or ""
+            if not isinstance(payload,str):
+                payload = str(payload)
+            # Show only the last traceback/code-error lines, never article text
+            # or full debug payloads.
+            interesting = [
+                line.strip() for line in payload.splitlines()
+                if any(t in line for t in ("Error:", "Exception:", "Traceback",
+                   "File ", "RuntimeError", "ResourceExhausted", "quota",
+                   "PermissionDenied", "TypeError", "AttributeError", "ValueError",
+                   "InvalidArgument"))
+            ]
+            samples[key].append({
+                "time": local_stamp(entry.get("timestamp")).strftime("%H:%M:%S"),
+                "message_tail": (interesting[-4:] if interesting else [payload[-250:]])[:4],
+                "log_name": str(entry.get("logName") or "").rsplit("/",1)[-1],
+            })
+        for key, records in sorted(samples.items()):
+            print("CLOUD_RUN_ERROR_CAUSE", json.dumps({"slot_kst":key,
+                  "logs":records},ensure_ascii=False),flush=True)
     else: print("CLOUD_RUN_ERRORS_UNAVAILABLE",flush=True)
 
     allslots=[f"{hour:02d}:{minute:02d}" for hour in range(24) for minute in (7,37)]
