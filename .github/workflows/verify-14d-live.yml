@@ -1,0 +1,51 @@
+name: Verify production 14-day chart against Sheets archive (read-only)
+
+on:
+  push:
+    branches:
+      - diag/verify-14d-trend-live-20261119
+    paths:
+      - .github/workflows/verify-14d-live.yml
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Verify public API historical trend after archive deployment
+        run: |
+          python - <<'PY'
+          import json,sys,time
+          from urllib.request import Request,urlopen
+
+          # Archived confirmed unique-article totals from 2026-11-19 Sheets.
+          expected = {
+              "2026-11-06": 101, "2026-11-07": 28, "2026-11-08": 97,
+              "2026-11-09": 151, "2026-11-10": 196, "2026-11-11": 190,
+              "2026-11-12": 190, "2026-11-13": 163, "2026-11-14": 40,
+              "2026-11-15": 80, "2026-11-16": 209, "2026-11-17": 214,
+              "2026-11-18": 232,
+          }
+          url="https://chwijae-api-761297976744.asia-northeast3.run.app/api/dashboard?date=2026-11-19"
+          for attempt in range(1,29):
+              try:
+                  with urlopen(Request(url,headers={"User-Agent":"14day-trend-qa"}),timeout=25) as resp:
+                      obj=json.load(resp)
+                  actual={entry["date"]:entry["count"] for entry in obj["daily_counts_14d"]}
+                  diff={k:{"want":v,"got":actual.get(k)} for k,v in expected.items()
+                        if actual.get(k)!=v}
+                  print("TREND_VERIFY",json.dumps({"attempt":attempt,"date":obj["date"],
+                        "today":actual.get("2026-11-19"),"differences":diff,
+                        "range":list(actual)},ensure_ascii=False),flush=True)
+                  if len(actual)==14 and not diff:
+                      print("TREND_VERIFY_PASS all 13 archived days match; live today retained",flush=True)
+                      sys.exit(0)
+              except Exception as exc:
+                  print("TREND_VERIFY_RETRY",attempt,type(exc).__name__,str(exc)[:120],flush=True)
+              time.sleep(15)
+          print("TREND_VERIFY_FAIL after bounded read-only retries",flush=True)
+          sys.exit(1)
+          PY
