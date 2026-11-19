@@ -77,6 +77,7 @@ class WeeklyDailyRankings(unittest.TestCase):
             "Counter": Counter, "KST": KST,
             "Query": lambda default=None, **_kwargs: default,
             "accepted_articles": lambda limit: rows,
+            "archived_daily_counts": lambda start, end: {},
             "publisher_display": lambda a, aliases: aliases.get(a["publisher_original"], a["publisher_original"]),
             "get_publisher_aliases": lambda: {},
             "split_reporters": lambda value, **_kw: [value] if value else [],
@@ -118,6 +119,19 @@ class WeeklyDailyRankings(unittest.TestCase):
         self.assertIn("오늘기자", [r["name"] for r in result["reporter_ranking_week"]])
         self.assertIn("첫날기자", [r["name"] for r in result["reporter_ranking_week"]])
         self.assertEqual(len(result["articles"]), 3)
+        # A partial 1,200-article preview must never overwrite a complete
+        # prior date supplied by the archived daily summaries.
+        ns["archived_daily_counts"] = lambda start, end: {
+            "2026-10-22": 87,
+            "2026-10-27": 222,
+        }
+        chart = load_function("dashboard", ns)("2026-10-28")
+        trend = {x["date"]: x["count"] for x in chart["daily_counts_14d"]}
+        self.assertEqual(trend["2026-10-22"], 87)
+        self.assertEqual(trend["2026-10-27"], 222)
+        self.assertEqual(trend["2026-10-28"], 3)  # no summary: fallback
+        ns["archived_daily_counts"] = lambda start, end: {}
+
 
         # On Monday, today is included alongside Sunday through the previous
         # Tuesday, while the earlier Monday is excluded.
