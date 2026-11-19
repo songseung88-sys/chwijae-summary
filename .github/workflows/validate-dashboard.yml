@@ -53,6 +53,7 @@ jobs:
           python -m unittest discover -s qa -p "test_canonical_article_dedup.py" -v
           python -m unittest discover -s qa -p "test_daily_archive.py" -v
           python -m unittest discover -s qa -p "test_archive_expanded_aggregation.py" -v
+          python -m unittest discover -s qa -p "test_14day_trend.py" -v
           python -m unittest discover -s qa -p "test_archive_naver_priority.py" -v
           python -m unittest discover -s qa -p "test_archive_sheet_quota.py" -v
           python - <<'PY'
