@@ -72,12 +72,24 @@ class WeeklyDailyRankings(unittest.TestCase):
             article("w5", "2026-10-22", "언론C", "첫날기자"),
             article("old", "2026-10-21", "언론D", "이전주기자"),
         ]
+        def fake_weekly(start, end, aliases, live_day=None):
+            publishers, bylines = Counter(), Counter()
+            for item in rows:
+                if not start <= item["_dt"].date() <= end:
+                    continue
+                pub = aliases.get(item["publisher_original"], item["publisher_original"])
+                publishers[pub] += 1
+                if item.get("reporters_resolved"):
+                    bylines[(item["reporters_resolved"], pub)] += 1
+            return publishers, bylines
+
         ns = {
             "date": date, "datetime": datetime, "timedelta": timedelta,
             "Counter": Counter, "KST": KST,
             "Query": lambda default=None, **_kwargs: default,
             "accepted_articles": lambda limit: rows,
             "archived_daily_counts": lambda start, end: {},
+            "complete_weekly_rankings": fake_weekly,
             "publisher_display": lambda a, aliases: aliases.get(a["publisher_original"], a["publisher_original"]),
             "get_publisher_aliases": lambda: {},
             "split_reporters": lambda value, **_kw: [value] if value else [],

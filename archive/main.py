@@ -620,6 +620,63 @@ def publish_daily_article_counts(db, articles, dates, checked_at):
     batch.commit()
 
 
+def ranking_source_name(article):
+    """Match the API's raw publisher identity, before display aliases."""
+    raw = article.get("publisher_original")
+    if not raw:
+        raw = (urlparse(article.get("original_url") or "").hostname or "").lower().removeprefix("www.")
+    return re.sub(r"\s+", " ", str(raw or "")).strip() or "미확인"
+
+
+def publish_daily_ranking_summaries(db, articles, dates, checked_at):
+    """Uncapped accepted, canonical-unique rankings, keyed by calendar day.
+
+    Keep original publisher names and byline strings, so display aliases and
+    reporter-name validation can be applied dynamically by the public API.
+    This corpus is scan_articles()'s same deduplicated source as the Sheets
+    article archive. No articles, bylines or aliases are rewritten.
+    """
+    grouped = collections.defaultdict(list)
+    for article in articles:
+        grouped[article["_date"]].append(article)
+
+    batch = db.batch()
+    for day in sorted(dates):
+        daily_articles = grouped[str(day)]
+        publisher_counts = collections.Counter()
+        byline_counts = collections.Counter()
+        for article in daily_articles:
+            raw_publisher = ranking_source_name(article)
+            publisher_counts[raw_publisher] += 1
+            raw_byline = str(article.get("reporters_resolved") or
+                             article.get("reporters_original") or "").strip()
+            if raw_byline:
+                byline_counts[(raw_publisher, raw_byline)] += 1
+
+        payload = {
+            "version": "raw-publisher-byline-v1",
+            "date": str(day),
+            "article_count": len(daily_articles),
+            "publisher_counts": [
+                {"publisher_original": name, "count": count}
+                for name, count in sorted(publisher_counts.items())
+            ],
+            "byline_counts": [
+                {"publisher_original": pub, "byline": byline, "count": count}
+                for (pub, byline), count in sorted(byline_counts.items())
+            ],
+            "source": "archive_scan_unique_accepted",
+            "updated_at": checked_at,
+        }
+        # Firestore document limit is 1 MiB; fail explicitly rather than
+        # publishing a truncated leaderboard if unusually large.
+        if len(json.dumps(payload, ensure_ascii=False).encode("utf-8")) > 900_000:
+            raise ValueError("RANKING_SUMMARY_TOO_LARGE:" + str(day))
+        batch.set(db.collection("daily_ranking_summaries").document(str(day)),
+                  payload, merge=False)
+    batch.commit()
+
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--mode",choices=["full","logs"],default="full")
@@ -646,6 +703,7 @@ def main():
     try:
         written=writer.write(out)
         publish_daily_article_counts(DB,raw,dates,now_iso)
+        publish_daily_ranking_summaries(DB,raw,dates,now_iso)
         mark_feedback_delivered(pending_refs)
         status="성공"
         detail="정상 완료"

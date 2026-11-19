@@ -370,6 +370,97 @@ def archived_daily_counts(start_day, end_day):
     return counts
 
 
+def accepted_ranking_articles_for_day(day):
+    """Fetch one full calendar date, with no global recent-article limit.
+
+    All article api_pubdate values are stored as ISO 8601 date-prefixed KST
+    strings. Query this field's lexical [dateT, next-dateT) range, then verify
+    parsed dates and collapse historical canonical-URL duplicates.
+    """
+    start = str(day) + "T"
+    stop = str(day + timedelta(days=1)) + "T"
+    stream = (db.collection("articles")
+              .where("api_pubdate", ">=", start)
+              .where("api_pubdate", "<", stop).stream())
+    accepted = []
+    for doc in stream:
+        article = doc.to_dict() or {}
+        if article.get("status") != "accepted":
+            continue
+        article["id"] = doc.id
+        dt = parse_kst(article.get("api_pubdate"))
+        if dt and dt.date() == day:
+            article["_dt"] = dt
+            accepted.append(article)
+    return unique_articles(accepted)
+
+
+def complete_weekly_rankings(start_day, end_day, aliases, live_day=None):
+    """Uncapped weekly publisher and reporter counters.
+
+    The successful archive scans all accepted articles and stores a separate
+    summary for each day, retaining raw publisher names and raw bylines. We
+    apply current aliases and reporter validation here, not at write time.
+    Today is read directly from the collection to include new arrivals since
+    the last archive sync. Missing/malformed summaries use an exact date
+    query; they never borrow incomplete recent-1,200-article previews.
+    """
+    days = [start_day + timedelta(days=i)
+            for i in range((end_day - start_day).days + 1)]
+    refs = [db.collection("daily_ranking_summaries").document(str(d))
+            for d in days]
+    summaries = {}
+    for snap in db.get_all(refs):
+        if not snap.exists:
+            continue
+        obj = snap.to_dict() or {}
+        publishers = obj.get("publisher_counts")
+        bylines = obj.get("byline_counts")
+        total = obj.get("article_count")
+        if (obj.get("version") != "raw-publisher-byline-v1" or
+                type(total) is not int or total < 0 or
+                not isinstance(publishers, list) or
+                not isinstance(bylines, list)):
+            continue
+        def valid(row, fields):
+            return (isinstance(row, dict) and
+                    all(isinstance(row.get(k), str) and row[k].strip()
+                        for k in fields) and
+                    type(row.get("count")) is int and row["count"] > 0)
+        if (any(not valid(x, ("publisher_original",)) for x in publishers) or
+                any(not valid(x, ("publisher_original", "byline")) for x in bylines) or
+                sum(x["count"] for x in publishers) != total):
+            continue
+        summaries[snap.id] = (publishers, bylines)
+
+    publisher_counts = Counter()
+    reporter_counts = Counter()
+    for day in days:
+        stored = summaries.get(str(day))
+        if stored is None or day == live_day:
+            # Precise per-day query, not capped to 1,200 recent articles.
+            for article in accepted_ranking_articles_for_day(day):
+                publisher = publisher_display(article, aliases)
+                publisher_counts[publisher] += 1
+                byline = article.get("reporters_resolved") or article.get("reporters_original")
+                for reporter in split_reporters(byline, people_only=True,
+                                                publisher=publisher):
+                    reporter_counts[(reporter, publisher)] += 1
+            continue
+        publishers, bylines = stored
+        for row in publishers:
+            publisher = publisher_display(
+                {"publisher_original": row["publisher_original"]}, aliases)
+            publisher_counts[publisher] += row["count"]
+        for row in bylines:
+            publisher = publisher_display(
+                {"publisher_original": row["publisher_original"]}, aliases)
+            for reporter in split_reporters(
+                    row["byline"], people_only=True, publisher=publisher):
+                reporter_counts[(reporter, publisher)] += row["count"]
+    return publisher_counts, reporter_counts
+
+
 def accepted_articles(limit=1200):
     out = []
     for doc in recent_article_docs(limit):
@@ -863,17 +954,14 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
         a for a in all_articles
         if a.get("_dt") and a["_dt"].date() == selected
     ]
-    week_articles = [
-        a for a in all_articles
-        if a.get("_dt") and week_start <= a["_dt"].date() <= week_end
-    ]
-
     publisher_aliases = get_publisher_aliases()
     publisher_counts = Counter(publisher_display(a, publisher_aliases) for a in today_articles)
-    publisher_counts_week = Counter(publisher_display(a, publisher_aliases) for a in week_articles)
+    publisher_counts_week, reporter_counts = complete_weekly_rankings(
+        week_start, week_end, publisher_aliases,
+        live_day=datetime.now(KST).date(),
+    )
 
     reporter_counts_today = Counter()
-    reporter_counts = Counter()
     for article in today_articles:
         publisher = publisher_display(article, publisher_aliases)
         for reporter in split_reporters(
@@ -881,13 +969,6 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
             people_only=True, publisher=publisher,
         ):
             reporter_counts_today[(reporter, publisher)] += 1
-    for article in week_articles:
-        publisher = publisher_display(article, publisher_aliases)
-        for reporter in split_reporters(
-            article.get("reporters_resolved") or article.get("reporters_original"),
-            people_only=True, publisher=publisher,
-        ):
-            reporter_counts[(reporter, publisher)] += 1
 
     category_counts = Counter(
         a.get("category_original") or "미분류"
