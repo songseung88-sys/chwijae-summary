@@ -599,6 +599,27 @@ class SheetWriter:
             self.write_batch_with_retry(batch,start//150+1,total)
         return n
 
+def publish_daily_article_counts(db, articles, dates, checked_at):
+    """Materialize exact unique accepted totals for a fast 14-day public chart.
+
+    The input has already been deduplicated and filtered by scan_articles().
+    Publish only after the Sheets archive update succeeds, preserving the
+    private daily archive as the authoritative research record.
+    """
+    daily = collections.Counter(a["_date"] for a in articles)
+    batch = db.batch()
+    for day in sorted(dates):
+        batch.set(
+            db.collection("daily_article_counts").document(str(day)),
+            {"count": int(daily[str(day)]),
+             "version": "unique-accepted-v1",
+             "source": "archive_scan_unique_accepted",
+             "updated_at": checked_at},
+            merge=True,
+        )
+    batch.commit()
+
+
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--mode",choices=["full","logs"],default="full")
@@ -624,6 +645,7 @@ def main():
     out.update(run_rows)
     try:
         written=writer.write(out)
+        publish_daily_article_counts(DB,raw,dates,now_iso)
         mark_feedback_delivered(pending_refs)
         status="성공"
         detail="정상 완료"
