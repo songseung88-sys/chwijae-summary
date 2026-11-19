@@ -4,6 +4,7 @@ Offline tests execute the actual collector function bodies with fake Firestore,
 no live network / credentials / article body modification.
 """
 import ast
+import json
 import os
 import unittest
 from datetime import datetime, timezone, timedelta
@@ -25,6 +26,7 @@ def function(path, name, context):
 
 class Document:
     def __init__(self, initial=None):
+        self.id = "doc1"
         self.data = dict(initial) if initial is not None else None
         self.writes = []
     @property
@@ -72,7 +74,7 @@ class CollectorRunLoggingTests(unittest.TestCase):
             "publisher": "테스트신문", "error": ("" if successful else "PHRASE_NOT_FOUND"),
         }
         context = {
-            "datetime": datetime, "KST": KST, "urlparse": urlparse,
+            "datetime": datetime, "KST": KST, "urlparse": urlparse, "json": json,
             "firestore": SimpleNamespace(SERVER_TIMESTAMP="SERVER_TIME"),
             "backfill_subjectless_once": lambda db: None,
             "backfill_subjectless_candidates_batch": lambda db: None,
