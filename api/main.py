@@ -977,12 +977,12 @@ def dashboard(target_date: str | None = Query(default=None, alias="date")):
     # Keep recent-article cards limited to 1,200, but never use that limit
     # to infer zero or partial values for old days in the 14-day trend.
     daily_counts = archived_daily_counts(selected - timedelta(days=13), selected)
-    for article in all_articles:
-        dt = article.get("_dt")
-        if dt:
-            key = str(dt.date())
-            if selected - timedelta(days=13) <= dt.date() <= selected and key not in daily_counts:
-                daily_counts[key] = daily_counts.get(key, 0) + 1
+    preview_daily_counts = Counter(
+        str(a["_dt"].date()) for a in all_articles
+        if a.get("_dt") and selected - timedelta(days=13) <= a["_dt"].date() <= selected
+    )
+    for day_key, count in preview_daily_counts.items():
+        daily_counts.setdefault(day_key, count)
     # Today is still accumulating; the archival snapshot may be hours old.
     # Show the current collector data until the day closes.
     if selected == datetime.now(KST).date():
