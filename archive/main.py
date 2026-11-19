@@ -430,7 +430,8 @@ def collect_run_rows(runs,now):
             run.get("new_accepted") or 0,run.get("existing_accepted") or 0,
             run.get("rejected") or 0,run.get("original_success") or 0,
             run.get("naver_fallback") or 0,run.get("naver_preferred_diff") or 0,
-            errors,len(entries),"완료" if run.get("finished_at") else "미완료",
+            errors,len(entries),("실패" if run.get("state") == "failed" else
+                                  "완료" if run.get("finished_at") else "미완료"),
             now,rid,
             *(run.get(k) if run.get(k) is not None else ""
               for k in ("first_excluded", "repeat_excluded", "recovered")),

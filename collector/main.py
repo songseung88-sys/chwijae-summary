@@ -1146,12 +1146,41 @@ def main():
         sys.exit(2)
 
     db = firestore.Client(project=project_id)
+    now = datetime.now(KST)
+    run_ref = db.collection("collector_runs").document(now.strftime("%Y%m%dT%H%M%S%z"))
+    # The run record must exist before any maintenance, search or parsing.
+    # A failed Cloud Run execution must never be invisible in collector_runs.
+    run_ref.set({
+        "started_at": now.isoformat(),
+        "target_date": str(now.date()),
+        "state": "running",
+        "target_phrase_version": TARGET_PHRASE_VERSION,
+    }, merge=True)
+    try:
+        collect_job(db, run_ref, now, client_id, client_secret,
+                    compare_naver, max_articles)
+    except Exception as exc:
+        failure_type = type(exc).__name__
+        # Preserve the original exception and exit nonzero so Cloud Run
+        # reflects the true failure; an audit-write failure cannot mask it.
+        try:
+            run_ref.set({
+                "state": "failed",
+                "failed_at": datetime.now(KST).isoformat(),
+                "failure_type": failure_type,
+                "errors": {"COLLECTOR_FATAL_" + failure_type: 1},
+            }, merge=True)
+        except Exception as audit_exc:
+            print("Unable to persist failed collector run:",
+                  type(audit_exc).__name__, file=sys.stderr)
+        raise
+
+
+def collect_job(db, run_ref, now, client_id, client_secret, compare_naver, max_articles):
     backfill_subjectless_once(db)
     backfill_subjectless_candidates_batch(db)
     repair_etoday_reporters_once(db)
-    now = datetime.now(KST)
     target_date = now.date()
-    run_ref = db.collection("collector_runs").document(now.strftime("%Y%m%dT%H%M%S%z"))
 
     candidates, queries = collect_target_candidates(
         client_id, client_secret, target_date, max_articles
@@ -1286,6 +1315,11 @@ def main():
             final = original
             source = "REJECTED"
             summary["rejected"] += 1
+            # A rejected candidate must be classified *before* its diagnostic
+            # example uses 'outcome'. This caused 16 Cloud Run job failures on
+            # 2026-11-14 (UnboundLocalError, run record never written).
+            outcome = classify_candidate_outcome(
+                existing_data.get("status"), "rejected")
             if len(summary["rejected_examples"]) < 20:
                 summary["rejected_examples"].append({
                     "title": item["api_title"][:130],
@@ -1309,10 +1343,9 @@ def main():
         )
 
         is_exclusive = strict_exclusive(item["api_title"])
-        outcome = classify_candidate_outcome(
-            existing_data.get("status"),
-            "rejected" if source == "REJECTED" else "accepted",
-        )
+        if source != "REJECTED":
+            outcome = classify_candidate_outcome(
+                existing_data.get("status"), "accepted")
         if outcome:
             summary[outcome] += 1
             domain_stats[outcome] += 1
@@ -1424,7 +1457,8 @@ def main():
             print(f"[{idx}/{len(candidates)}] {source} {item['api_title'][:70]}")
 
     summary["finished_at"] = datetime.now(KST).isoformat()
-    run_ref.set(summary)
+    summary["state"] = "completed"
+    run_ref.set(summary, merge=True)
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
