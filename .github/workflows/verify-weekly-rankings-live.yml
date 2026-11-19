@@ -1,0 +1,88 @@
+name: Verify production complete 7-day leaderboards (read-only)
+
+on:
+  push:
+    branches:
+      - diag/verify-weekly-rankings-live-20261119
+    paths:
+      - .github/workflows/verify-weekly-rankings-live.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Compare archive counts with production week rankings
+        run: |
+          python - <<'PY'
+          import json,sys,time
+          from urllib.request import Request,urlopen
+
+          root="https://chwijae-api-761297976744.asia-northeast3.run.app"
+          expected_pub={
+              "연합뉴스":49,"뉴스1":49,"이투데이":49,"중부일보":45,
+              "인천일보":37,"뉴시스":33,
+          }
+          for attempt in range(1,33):
+              try:
+                  def fetch(day):
+                      req=Request(f"{root}/api/dashboard?date={day}",
+                                  headers={"User-Agent":"Archive-Weekly-Ranking-Verification"})
+                      with urlopen(req,timeout=35) as response:
+                          return json.load(response)
+                  older=fetch("2026-11-18")
+                  pub={x["name"]:x["count"] for x in older["publisher_ranking_week"]}
+                  reporter={(x["name"],x["publisher"]):x["count"]
+                            for x in older["reporter_ranking_week"]}
+                  total=sum(pub.values())
+                  wrong={name:{"expected":count,"actual":pub.get(name)}
+                         for name,count in expected_pub.items() if pub.get(name)!=count}
+                  key_reporter=reporter.get(("김재학","이투데이"))
+                  print("WEEK_RANK_VERIFY",json.dumps({
+                      "attempt":attempt,
+                      "start":older.get("week_start"),
+                      "end":older.get("week_end"),
+                      "publisher_count":len(pub),
+                      "reporter_count":len(reporter),
+                      "total_articles":total,
+                      "wrong_publishers":wrong,
+                      "kim_jaehak_etoday":key_reporter,
+                      "top5":older["publisher_ranking_week"][:5],
+                  },ensure_ascii=False),flush=True)
+                  if (older.get("week_start")=="2026-11-12"
+                      and older.get("week_end")=="2026-11-18"
+                      and total==1128 and not wrong and key_reporter==39):
+                      current=fetch("2026-11-19")
+                      cp=current["publisher_ranking_week"]
+                      cr=current["reporter_ranking_week"]
+                      if (current.get("week_start")!="2026-11-13"
+                          or current.get("week_end")!="2026-11-19"):
+                          raise ValueError("Current week range incorrect")
+                      today_counts={x["date"]:x["count"]
+                                    for x in current["daily_counts_14d"]}
+                      total_expected=sum(today_counts.get(f"2026-11-{d:02d}",0)
+                                         for d in range(13,20))
+                      current_total=sum(x["count"] for x in cp)
+                      print("WEEK_RANK_CURRENT",json.dumps({
+                          "date":current["date"],
+                          "start":current["week_start"],
+                          "end":current["week_end"],
+                          "today":today_counts.get("2026-11-19"),
+                          "weekly_articles":current_total,
+                          "daily_sum":total_expected,
+                          "publishers":len(cp),"reporters":len(cr),
+                      },ensure_ascii=False),flush=True)
+                      if current_total!=total_expected:
+                          raise ValueError("Current weekly publisher count does not match full 7-day daily totals")
+                      print("WEEK_RANK_VERIFY_PASS archival seven days, current period, both leaderboards",flush=True)
+                      sys.exit(0)
+              except Exception as exc:
+                  print("WEEK_RANK_RETRY",attempt,type(exc).__name__,str(exc)[:180],flush=True)
+              time.sleep(13)
+          print("WEEK_RANK_VERIFY_FAIL: production mismatch after bounded retries",flush=True)
+          sys.exit(1)
+          PY
