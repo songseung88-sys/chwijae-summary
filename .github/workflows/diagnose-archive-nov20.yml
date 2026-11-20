@@ -1,0 +1,30 @@
+name: Diagnose failed November 20 archive execution (read-only)
+
+on:
+  push:
+    branches: [diag/archive-failure-20261120]
+    paths:
+      - .github/workflows/diagnose-archive-nov20.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: google-github-actions/auth@v3
+        with:
+          project_id: chwijae-summary
+          workload_identity_provider: projects/761297976744/locations/global/workloadIdentityPools/github/providers/chwijae-summary
+          service_account: github-deployer@chwijae-summary.iam.gserviceaccount.com
+      - uses: google-github-actions/setup-gcloud@v3
+      - name: Inspect known failed archive execution without modifying data
+        run: |
+          echo 'EXECUTION_STATUS'
+          gcloud run jobs executions describe chwijae-daily-archive-69md2 --project=chwijae-summary --region=asia-northeast3 --format='json(status,conditions,taskCount,failedCount,succeededCount,completionTime)' || true
+          echo 'EXECUTION_ERROR_LOGS'
+          gcloud logging read 'resource.type="cloud_run_job" AND resource.labels.job_name="chwijae-daily-archive" AND timestamp>="2026-11-20T12:26:00Z" AND timestamp<="2026-11-20T12:30:00Z" AND (severity>=ERROR OR logName:"stderr")' --project=chwijae-summary --limit=80 --format='table(timestamp,severity,textPayload,jsonPayload.message,resource.labels.execution_name)' || true
