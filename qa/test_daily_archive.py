@@ -50,6 +50,21 @@ class TestArchive(unittest.TestCase):
         self.assertEqual(ns["display_name"]({"publisher_original":"www.yakup.com"},{}),"약업신문")
         self.assertEqual(ns["display_name"]({"publisher_original":"www.joseilbo.com"},{}),"조세일보")
         self.assertEqual(ns["display_name"]({"publisher_original":"digitalchosun.dizzo.com"},{}),"디지틀조선일보")
+        # Preserve original publisher metadata; only display name changes.
+        cases=[
+            ("www.theguru.co.kr", "더구루"),
+            ("www.journalist.or.kr", "한국기자협회"),
+            ("www.inews24.com", "아이뉴스24"),
+            ("아이뉴스24", "아이뉴스24"),
+        ]
+        for original, shown in cases:
+            row={"publisher_original":original}
+            self.assertEqual(ns["display_name"](row,{}),shown)
+            self.assertEqual(row["publisher_original"],original)
+        self.assertEqual(ns["display_name"](
+            {"publisher_original":"www.theguru.co.kr"},
+            {"www.theguru.co.kr":"특별 표시명"}),"특별 표시명")
+
     def test_count_both_phrases_independently(self):
         article={"phrase_counts":{"취재를 종합하면":2,"본지 취재 결과":1}}
         expected={"취재를 종합하면":2,"본지 취재 결과":1,
