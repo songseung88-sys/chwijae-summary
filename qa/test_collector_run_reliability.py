@@ -56,11 +56,12 @@ class FakeDB:
 
 
 class CollectorRunLoggingTests(unittest.TestCase):
-    def env(self, existing=None, successful=False):
+    def env(self, existing=None, successful=False, naver_successful=False):
         db = FakeDB(existing)
         item = {
             "original_url": "https://example.net/news/article?id=4",
-            "naver_url": "",
+            "naver_url": ("https://n.news.naver.com/article/999/11111111"
+                          if naver_successful else ""),
             "api_title": "대상 기사",
             "api_description": "본문 요약",
             "api_pubdate": "2026-11-19T07:07:00+09:00",
@@ -82,7 +83,13 @@ class CollectorRunLoggingTests(unittest.TestCase):
             "collect_target_candidates": lambda *args: ([item], ["검색어"]),
             "doc_id": lambda url: "doc1",
             "parse_original": lambda url: original,
-            "parse_naver": lambda url: {"phrase_count": 0},
+            "parse_naver": lambda url: {
+                "ok": True, "body": "취재에 따르면 공식 네이버 전송본 내용이다. " * 4,
+                "phrase_count": 1,
+                "phrase_contexts": [{"paragraph_no":1,"count":1,
+                                      "text":"취재에 따르면 공식 네이버 전송본 내용이다."}],
+                "secondary": {}, "title": "", "reporters": "", "error": "",
+            } if naver_successful else {"phrase_count": 0},
             "suspicious_body": lambda x: False,
             "suspicious_context": lambda x: False,
             "similarity": lambda a, b: 1.0,
@@ -90,7 +97,9 @@ class CollectorRunLoggingTests(unittest.TestCase):
             "strict_exclusive": lambda x: False,
             "subjectless_candidate_fields": lambda x: {},
             "subjectless_type_counts": lambda *a: {},
-            "target_phrase_counts": lambda x: {"취재를 종합하면": 1} if successful else {},
+            "target_phrase_counts": lambda x: (
+                {"취재에 따르면": 1} if naver_successful else
+                {"취재를 종합하면": 1} if successful else {}),
             "secondary_counts": lambda x: {},
             "classify_candidate_outcome": function("collector/main.py",
                                                   "classify_candidate_outcome", {}),
@@ -129,6 +138,20 @@ class CollectorRunLoggingTests(unittest.TestCase):
         self.assertEqual(db.run_ref.data["recovered"], 1)
         self.assertEqual(db.run_ref.data["new_accepted"], 1)
         self.assertEqual(db.docs["doc1"].data["status"], "accepted")
+
+    def test_official_naver_copy_recovers_unreadable_original(self):
+        # Only an actual NAVER link from the search result may be used.
+        # No fabricated NAVER links, access bypass or changed source policy.
+        db, collect = self.env({"status": "rejected"}, naver_successful=True)
+        collect(db, db.run_ref, datetime(2026,11,20,8,7,tzinfo=KST),
+                "id", "secret", True, 160)
+        article=db.docs["doc1"].data
+        self.assertEqual(article["status"], "accepted")
+        self.assertEqual(article["final_source"], "NAVER_FALLBACK")
+        self.assertEqual(article["content_basis"], "NAVER")
+        self.assertEqual(article["original_parse_error"], "PHRASE_NOT_FOUND")
+        self.assertEqual(db.run_ref.data["recovered"], 1)
+        self.assertEqual(db.run_ref.data["naver_fallback"], 1)
 
     def test_failed_run_is_persisted_before_exception_and_rethrown(self):
         db = FakeDB()
