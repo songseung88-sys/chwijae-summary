@@ -142,6 +142,9 @@ PUBLISHER_BY_HOST = {
     "yakup.com": "약업신문",
     "joseilbo.com": "조세일보",
     "dizzo.com": "디지틀조선일보",
+    "theguru.co.kr": "더구루",
+    "journalist.or.kr": "한국기자협회",
+    "inews24.com": "아이뉴스24",
 }
 
 UA = (
