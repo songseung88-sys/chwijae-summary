@@ -29,6 +29,13 @@ class TestPublisherNormalization(unittest.TestCase):
         self.assertEqual(normalize("www.yakup.com"),"약업신문")
         self.assertEqual(normalize("www.joseilbo.com"),"조세일보")
         self.assertEqual(normalize("digitalchosun.dizzo.com"),"디지틀조선일보")
+        self.assertEqual(normalize("www.theguru.co.kr"),"더구루")
+        self.assertEqual(normalize("www.journalist.or.kr"),"한국기자협회")
+        self.assertEqual(normalize("www.inews24.com"),"아이뉴스24")
+        self.assertEqual(normalize("m.inews24.com"),"아이뉴스24")
+        self.assertEqual(normalize("아이뉴스24"),"아이뉴스24")
+        self.assertEqual(normalize("fakeinews24.com"),"fakeinews24.com")
+        self.assertEqual(normalize("theguru.co.kr.other.org"),"theguru.co.kr.other.org")
         self.assertEqual(normalize("unrelated-tvchosun.com"),"unrelated-tvchosun.com")
 
     def test_etoday_aliases(self):
@@ -75,6 +82,9 @@ class DomainPublisherFallback(unittest.TestCase):
             "yakup.com": "약업신문",
             "joseilbo.com": "조세일보",
             "dizzo.com": "디지틀조선일보",
+            "theguru.co.kr": "더구루",
+            "journalist.or.kr": "한국기자협회",
+            "inews24.com": "아이뉴스24",
         }
         for filename, symbol in [
             ("collector/main.py", "PUBLISHER_BY_HOST"),
