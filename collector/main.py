@@ -423,7 +423,26 @@ PUBLISHER_BODY_SELECTORS = {
     "businesspost.co.kr": ("#article-body-content",),
     "viva100.com": (".news_content",),
     "kbsm.net": ('[itemprop="articleBody"]',),
+    # Verified against public failing article HTML on 2026-11-20:
+    # kbmaeil.com/article/20261117500786; text is in .news_content,
+    # not the global related-story/article wrappers.
+    "kbmaeil.com": (".article_area .news_content", ".news_content"),
+    # news2day.co.kr/article/20261118500006: the generic <article>
+    # is related-news; article content lives under .view_con_wrap.
+    "news2day.co.kr": (".view_con_wrap", ".view_con"),
+    # jjan.kr/article/20260128500447 and /articleAmp/...:
+    # malformed HTML can wrap the real article text in an outer <p>
+    # below the verified article_txt_container.
+    "jjan.kr": (".article_txt_container", "#amp_article"),
 }
+
+# For these precisely verified article containers, an article without our
+# target phrase is still a successfully extracted article (not BODY_NOT_FOUND).
+# It will be correctly classified later as PHRASE_NOT_FOUND instead of
+# being falsely reported as a parser failure.
+CONFIRMED_ARTICLE_CONTAINER_DOMAINS = frozenset((
+    "kbmaeil.com", "news2day.co.kr", "jjan.kr",
+))
 
 
 def publisher_body_node(soup, host):
@@ -436,7 +455,10 @@ def publisher_body_node(soup, host):
             if node is None or node.name not in ("div", "section", "article", "main"):
                 continue
             text = clean_text(node.get_text("\n", strip=True))
-            if not (100 <= len(text) <= 80000) or not contains_target_phrase(text):
+            if not (100 <= len(text) <= 80000):
+                continue
+            if (domain not in CONFIRMED_ARTICLE_CONTAINER_DOMAINS
+                    and not contains_target_phrase(text)):
                 continue
             # Some kbsm pages have malformed head markup containing the
             # articleBody <div>. The browser moves it into body, but html.parser
