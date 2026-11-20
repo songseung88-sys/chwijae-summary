@@ -107,6 +107,26 @@ class PublisherDisplayAliases(unittest.TestCase):
         self.assertEqual(ns["publisher_display"](articles[3],aliases),"이투데이")
         self.assertTrue(ns["list_publisher_names"]("secret")["publishers"][0]["is_custom"])
 
+    def test_new_domain_display_alias_preserves_raw_source(self):
+        cases=[
+            ("www.theguru.co.kr", "더구루"),
+            ("www.journalist.or.kr", "한국기자협회"),
+            ("www.inews24.com", "아이뉴스24"),
+        ]
+        for original, name in cases:
+            article={"publisher_original":original,
+                     "original_url":"https://"+original+"/article"}
+            self.assertEqual(ns["publisher_display"](article,{}),name)
+            self.assertEqual(article["publisher_original"],original)
+            self.assertEqual(
+                ns["publisher_display"](article,{original:"맞춤 이름"}),"맞춤 이름")
+        group=[
+            {"publisher_original":"아이뉴스24"},
+            {"publisher_original":"www.inews24.com"},
+        ]
+        self.assertEqual(Counter(
+            ns["publisher_display"](a,{}) for a in group),{"아이뉴스24":2})
+
     def test_reset_and_reject_invalid_input(self):
         update=ns["update_publisher_names"]
         update({"updates":[{"source":"KBS 뉴스","display_name":"KBS"}]},"secret")
