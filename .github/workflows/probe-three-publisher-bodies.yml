@@ -1,0 +1,25 @@
+name: Probe three publisher body failures (read-only)
+
+on:
+  push:
+    branches: [diag/three-publisher-bodies-20261120]
+    paths:
+      - qa/probe_three_publisher_bodies_20261120.py
+      - .github/workflows/probe-three-publisher-bodies.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --quiet -r collector/requirements.txt
+      - name: Inspect public HTML, parser results, and verified article wrappers
+        run: python -m qa.probe_three_publisher_bodies_20261120
